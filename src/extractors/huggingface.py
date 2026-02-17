@@ -74,7 +74,10 @@ class HuggingFaceExtractor(BaseExtractor):
                                 source=self.source_name,
                                 url=url,
                                 text=model_id,
-                                author=model.get("author", model_id.split("/")[0] if "/" in model_id else "unknown"),
+                                author=model.get(
+                                    "author",
+                                    model_id.split("/")[0] if "/" in model_id else "unknown",
+                                ),
                                 published_at=last_mod,
                                 score=downloads,
                                 metadata={

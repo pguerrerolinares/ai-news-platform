@@ -103,9 +103,7 @@ class GitHubExtractor(BaseExtractor):
             title = f"{name}: {description}" if description else name
 
             try:
-                pushed = datetime.fromisoformat(
-                    repo.get("pushed_at", "").replace("Z", "+00:00")
-                )
+                pushed = datetime.fromisoformat(repo.get("pushed_at", "").replace("Z", "+00:00"))
             except (ValueError, AttributeError):
                 pushed = datetime.now(tz=UTC)
 
