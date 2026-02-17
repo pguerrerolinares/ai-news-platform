@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 
@@ -9,11 +9,12 @@ import { AuthService } from './services/auth.service';
     @if (showNav()) {
       <nav class="navbar">
         <div class="nav-brand">AI News Platform</div>
-        <div class="nav-links">
-          <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
-          <a routerLink="/archive" routerLinkActive="active">Archivo</a>
-          <a routerLink="/search" routerLinkActive="active">Buscar</a>
-          <a routerLink="/analytics" routerLinkActive="active">Analytics</a>
+        <button class="hamburger" (click)="toggleMenu()">&#9776;</button>
+        <div class="nav-links" [class.open]="menuOpen()">
+          <a routerLink="/dashboard" routerLinkActive="active" (click)="onNavClick()">Dashboard</a>
+          <a routerLink="/archive" routerLinkActive="active" (click)="onNavClick()">Archivo</a>
+          <a routerLink="/search" routerLinkActive="active" (click)="onNavClick()">Buscar</a>
+          <a routerLink="/analytics" routerLinkActive="active" (click)="onNavClick()">Analytics</a>
           <button class="logout-btn" (click)="onLogout()">Salir</button>
         </div>
       </nav>
@@ -83,6 +84,15 @@ import { AuthService } from './services/auth.service';
       color: white;
       border-color: #94a3b8;
     }
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
     main.with-nav {
       max-width: 800px;
       margin: 0 auto;
@@ -94,7 +104,20 @@ import { AuthService } from './services/auth.service';
         height: 48px;
       }
       .nav-brand { font-size: 0.9rem; }
-      .nav-links a { font-size: 0.78rem; padding: 5px 8px; }
+      .hamburger { display: block; }
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 48px;
+        left: 0;
+        right: 0;
+        background: #1e293b;
+        flex-direction: column;
+        padding: 8px 12px;
+        gap: 4px;
+      }
+      .nav-links.open { display: flex; }
+      .nav-links a { font-size: 0.78rem; padding: 8px 12px; }
       .logout-btn { font-size: 0.75rem; padding: 4px 8px; }
       main.with-nav { padding: 12px; }
     }
@@ -104,11 +127,22 @@ export class App {
   private auth = inject(AuthService);
   private router = inject(Router);
 
+  menuOpen = signal(false);
+
   showNav(): boolean {
     return this.auth.isAuthenticated() && !this.router.url.includes('/login');
   }
 
+  toggleMenu() {
+    this.menuOpen.update(v => !v);
+  }
+
+  onNavClick() {
+    this.menuOpen.set(false);
+  }
+
   onLogout() {
+    this.menuOpen.set(false);
     this.auth.logout();
     this.router.navigate(['/login']);
   }
