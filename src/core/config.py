@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     github_search_queries: str = "AI,LLM,machine-learning,generative-AI"
     github_min_stars: int = 50
 
+    # HuggingFace
+    hf_min_downloads: int = 100
+
     # --- Topics ---
     topics: str = "modelos,herramientas,papers,productos,open_source,agentes,regulacion"
     min_relevance_score: float = 0.8

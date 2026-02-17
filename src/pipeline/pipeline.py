@@ -37,6 +37,7 @@ from src.extractors.arxiv import ArxivExtractor
 from src.extractors.base import BaseExtractor, ExtractedItem
 from src.extractors.github import GitHubExtractor
 from src.extractors.hackernews import HackerNewsExtractor
+from src.extractors.huggingface import HuggingFaceExtractor
 from src.extractors.reddit import RedditExtractor
 from src.extractors.rss import RSSExtractor
 from src.notifiers.alerts import AlertService
@@ -67,6 +68,9 @@ def _get_extractors() -> list[BaseExtractor]:
 
     if "github" in enabled:
         extractors.append(GitHubExtractor())
+
+    if "huggingface" in enabled:
+        extractors.append(HuggingFaceExtractor())
 
     return extractors
 
