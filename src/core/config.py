@@ -1,0 +1,145 @@
+"""Application configuration via environment variables."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # --- Database ---
+    database_url: str = Field(
+        default="postgresql+asyncpg://ainews:ainews@localhost:5432/ainews",
+        description="Async database URL (postgresql+asyncpg://...)",
+    )
+    database_url_sync: str = Field(
+        default="postgresql://ainews:ainews@localhost:5432/ainews",
+        description="Sync database URL for Alembic (postgresql://...)",
+    )
+
+    # --- API ---
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_workers: int = 2
+    debug: bool = False
+
+    # --- Auth ---
+    jwt_secret: str = Field(default="change-me-in-production", description="JWT signing secret")
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440  # 24 hours
+    shared_password: str = Field(
+        default="change-me-in-production",
+        description="Shared password for login (semi-public app)",
+    )
+
+    # --- LLM (Kimi/Moonshot, OpenAI-compatible) ---
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.moonshot.cn/v1"
+    openai_model: str = "kimi-latest"
+
+    # --- Telegram ---
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    telegram_alerts_enabled: bool = True
+
+    # --- Sources ---
+    enabled_sources: str = "hackernews,arxiv,reddit,rss"
+    max_items_per_source: int = 50
+
+    # HackerNews
+    hn_min_points: int = 10
+    hn_since_hours: int = 24
+    hn_search_queries: str = "AI,LLM,GPT,machine learning,neural network,deep learning"
+
+    # arXiv
+    arxiv_categories: str = "cs.AI,cs.CL,cs.LG"
+    arxiv_keywords: str = (
+        "LLM,transformer,language model,GPT,BERT,attention mechanism,"
+        "fine-tuning,RLHF,RAG,retrieval,agent,multi-modal,diffusion,"
+        "neural,deep learning,reinforcement learning"
+    )
+
+    # Reddit
+    reddit_subreddits: str = "MachineLearning,LocalLLaMA,artificial"
+    reddit_top_limit: int = 25
+
+    # RSS feeds
+    rss_feeds: str = (
+        "https://openai.com/blog/rss.xml,"
+        "https://blog.google/technology/ai/rss/,"
+        "https://huggingface.co/blog/feed.xml"
+    )
+
+    # GitHub
+    github_token: str = ""
+    github_search_queries: str = "AI,LLM,machine-learning,generative-AI"
+    github_min_stars: int = 50
+
+    # --- Topics ---
+    topics: str = "modelos,herramientas,papers,productos,open_source,agentes,regulacion"
+    min_relevance_score: float = 0.8
+
+    # --- Validation ---
+    enable_news_validation: bool = True
+    trusted_news_domains: str = (
+        "openai.com,anthropic.com,deepmind.google,ai.meta.com,"
+        "huggingface.co,arxiv.org,github.com,techcrunch.com,"
+        "theverge.com,wired.com,arstechnica.com,reuters.com"
+    )
+
+    # --- Pipeline ---
+    pipeline_schedule_hour: int = 8
+    pipeline_schedule_minute: int = 0
+
+    # --- Observability ---
+    log_level: str = "INFO"
+    log_format: str = "json"  # json or console
+
+    @property
+    def enabled_sources_list(self) -> list[str]:
+        return [s.strip() for s in self.enabled_sources.split(",") if s.strip()]
+
+    @property
+    def topics_list(self) -> list[str]:
+        return [t.strip() for t in self.topics.split(",") if t.strip()]
+
+    @property
+    def hn_search_queries_list(self) -> list[str]:
+        return [q.strip() for q in self.hn_search_queries.split(",") if q.strip()]
+
+    @property
+    def arxiv_categories_list(self) -> list[str]:
+        return [c.strip() for c in self.arxiv_categories.split(",") if c.strip()]
+
+    @property
+    def arxiv_keywords_list(self) -> list[str]:
+        return [k.strip() for k in self.arxiv_keywords.split(",") if k.strip()]
+
+    @property
+    def reddit_subreddits_list(self) -> list[str]:
+        return [s.strip() for s in self.reddit_subreddits.split(",") if s.strip()]
+
+    @property
+    def rss_feeds_list(self) -> list[str]:
+        return [f.strip() for f in self.rss_feeds.split(",") if f.strip()]
+
+    @property
+    def github_search_queries_list(self) -> list[str]:
+        return [q.strip() for q in self.github_search_queries.split(",") if q.strip()]
+
+    @property
+    def trusted_news_domains_list(self) -> list[str]:
+        return [d.strip() for d in self.trusted_news_domains.split(",") if d.strip()]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

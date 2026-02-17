@@ -1,0 +1,132 @@
+"""GitHub Trending extractor via GitHub Search API."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import httpx
+
+from src.core.config import get_settings
+from src.core.logging import get_logger
+from src.core.metrics import (
+    extractor_duration_seconds,
+    extractor_errors_total,
+    items_extracted_total,
+)
+from src.extractors.base import BaseExtractor, ExtractedItem
+
+logger = get_logger(__name__)
+SEARCH_URL = "https://api.github.com/search/repositories"
+
+
+class GitHubExtractor(BaseExtractor):
+    """Extracts trending AI repositories from GitHub Search API."""
+
+    @property
+    def source_name(self) -> str:
+        return "github"
+
+    async def extract(self, since_hours: int = 48) -> list[ExtractedItem]:
+        settings = get_settings()
+        queries = settings.github_search_queries_list
+        min_stars = settings.github_min_stars
+        max_items = settings.max_items_per_source
+        token = settings.github_token
+
+        since_date = (datetime.now(tz=UTC) - timedelta(hours=since_hours)).strftime("%Y-%m-%d")
+        seen_urls: set[str] = set()
+        items: list[ExtractedItem] = []
+
+        headers: dict[str, str] = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "AI-News-Platform/1.0",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        with extractor_duration_seconds.labels(source=self.source_name).time():
+            async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+                for query in queries:
+                    try:
+                        new_items = await self._search(
+                            client, query, since_date, min_stars, seen_urls
+                        )
+                        items.extend(new_items)
+                    except Exception as exc:
+                        logger.warning(
+                            "github_search_failed",
+                            query=query,
+                            error=str(exc),
+                        )
+                        continue
+
+        items.sort(key=lambda x: x.score or 0, reverse=True)
+        items = items[:max_items]
+
+        items_extracted_total.labels(source=self.source_name).inc(len(items))
+        logger.info(
+            "extraction_complete",
+            source=self.source_name,
+            count=len(items),
+            queries=len(queries),
+        )
+
+        if not items:
+            extractor_errors_total.labels(source=self.source_name).inc()
+
+        return items
+
+    async def _search(
+        self,
+        client: httpx.AsyncClient,
+        query: str,
+        since_date: str,
+        min_stars: int,
+        seen_urls: set[str],
+    ) -> list[ExtractedItem]:
+        q = f"{query} stars:>{min_stars} pushed:>{since_date}"
+        params = {"q": q, "sort": "stars", "order": "desc", "per_page": 30}
+
+        resp = await client.get(SEARCH_URL, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+
+        items: list[ExtractedItem] = []
+        for repo in data.get("items", []):
+            url = repo.get("html_url", "")
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            name = repo.get("name", "")
+            description = repo.get("description") or ""
+            title = f"{name}: {description}" if description else name
+
+            try:
+                pushed = datetime.fromisoformat(
+                    repo.get("pushed_at", "").replace("Z", "+00:00")
+                )
+            except (ValueError, AttributeError):
+                pushed = datetime.now(tz=UTC)
+
+            items.append(
+                ExtractedItem(
+                    title=title,
+                    source=self.source_name,
+                    url=url,
+                    text=description,
+                    author=repo.get("owner", {}).get("login", "unknown"),
+                    published_at=pushed,
+                    score=repo.get("stargazers_count", 0),
+                    metadata={
+                        "language": repo.get("language"),
+                        "stars": repo.get("stargazers_count", 0),
+                        "forks": repo.get("forks_count", 0),
+                        "topics": repo.get("topics", []),
+                        "full_name": repo.get("full_name", ""),
+                        "search_query": query,
+                    },
+                )
+            )
+
+        return items
