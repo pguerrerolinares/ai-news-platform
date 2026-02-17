@@ -1,0 +1,123 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-news-platform"
+version = "0.1.0"
+description = "AI News aggregation platform with web UI, REST API, and MCP server"
+requires-python = ">=3.12"
+dependencies = [
+    # Web framework
+    "fastapi~=0.115.0",
+    "uvicorn[standard]~=0.34.0",
+    # Database
+    "sqlalchemy[asyncio]~=2.0.36",
+    "asyncpg~=0.30.0",
+    "alembic~=1.14.0",
+    "pgvector~=0.3.6",
+    # Configuration
+    "pydantic~=2.10.0",
+    "pydantic-settings~=2.7.0",
+    # HTTP client
+    "httpx~=0.28.0",
+    # LLM (OpenAI-compatible API for Kimi/Moonshot)
+    "openai~=1.59.0",
+    # Logging & monitoring
+    "structlog~=24.4.0",
+    "prometheus-client~=0.21.0",
+    # Notifications
+    "python-telegram-bot~=21.9",
+    # RSS parsing
+    "feedparser~=6.0.0",
+    # Auth
+    "python-jose[cryptography]~=3.3.0",
+    "passlib[bcrypt]~=1.7.0",
+    # Rate limiting
+    "slowapi~=0.1.0",
+    # MCP server
+    "mcp~=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Linting & formatting
+    "ruff~=0.8.0",
+    # Type checking
+    "pyright~=1.1.390",
+    # Testing
+    "pytest~=8.3.0",
+    "pytest-asyncio~=0.24.0",
+    "pytest-timeout~=2.3.0",
+    "coverage~=7.6.0",
+    # Security scanning
+    "bandit~=1.8.0",
+    # HTTP mocking
+    "respx~=0.22.0",
+    # Factory for test data
+    "factory-boy~=3.3.0",
+    # E2E browser testing
+    "pytest-playwright~=0.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "T20",  # flake8-print
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "S101",  # assert used (OK in tests)
+    "S104",  # binding to all interfaces (OK in containers)
+    "S105",  # hardcoded password (false positives on token_type, test values)
+    "B008",  # function call in default arg (standard FastAPI pattern for Depends/Query)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+timeout = 30
+markers = [
+    "integration: marks tests that require external services (deselect with '-m \"not integration\"')",
+    "e2e: marks Playwright browser tests (deselect with '-m \"not e2e\"')",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/mcp/*", "src/rag/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ ==",
+]

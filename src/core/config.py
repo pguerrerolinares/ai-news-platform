@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_workers: int = 2
     debug: bool = False
+    cors_origins: str = "http://localhost:4200"
 
     # --- Auth ---
     jwt_secret: str = Field(default="change-me-in-production", description="JWT signing secret")
@@ -137,6 +138,10 @@ class Settings(BaseSettings):
     @property
     def github_search_queries_list(self) -> list[str]:
         return [q.strip() for q in self.github_search_queries.split(",") if q.strip()]
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def trusted_news_domains_list(self) -> list[str]:
