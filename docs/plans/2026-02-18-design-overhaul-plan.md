@@ -1855,22 +1855,24 @@ git commit -m "docs(m8): update AGENTS.md with design overhaul state"
 
 ## Summary
 
-| Task | Description | Files |
-|------|-------------|-------|
-| 1 | Create `_tokens.scss` | NEW: `web/src/styles/_tokens.scss` |
-| 2 | Create `_typography.scss` | NEW: `web/src/styles/_typography.scss` |
-| 3 | Create `_animations.scss` | NEW: `web/src/styles/_animations.scss` |
-| 4 | Create `_surfaces.scss` | NEW: `web/src/styles/_surfaces.scss` |
-| 5 | Create `_layout.scss` | NEW: `web/src/styles/_layout.scss` |
-| 6 | Rewrite entry + config | NEW: `web/src/styles/styles.scss`, DEL: `web/src/styles.scss`, MOD: `angular.json`, `index.html` |
-| 7 | Route transitions | MOD: `web/src/app/app.config.ts` |
-| 8 | App Shell navbar | MOD: `web/src/app/app.ts` |
-| 9 | Login page | MOD: `web/src/app/pages/login.ts` |
-| 10 | News Item Card | MOD: `web/src/app/components/news-item-card.ts` |
-| 11 | Dashboard | MOD: `web/src/app/pages/dashboard.ts` |
-| 12 | Archive | MOD: `web/src/app/pages/archive.ts` |
-| 13 | Search | MOD: `web/src/app/pages/search.ts` |
-| 14 | Chat | MOD: `web/src/app/pages/chat.ts` |
-| 15 | Analytics | MOD: `web/src/app/pages/analytics.ts` |
-| 16 | E2E verification | Verification only |
-| 17 | AGENTS.md update | MOD: `AGENTS.md` |
+> **Status: COMPLETE** — All 17 tasks implemented and merged to main on 2026-02-19. 35/35 E2E tests pass.
+
+| Task | Description | Files | Status |
+|------|-------------|-------|--------|
+| 1 | Create `_tokens.scss` | NEW: `web/src/styles/_tokens.scss` | Done |
+| 2 | Create `_typography.scss` | NEW: `web/src/styles/_typography.scss` | Done |
+| 3 | Create `_animations.scss` | NEW: `web/src/styles/_animations.scss` | Done |
+| 4 | Create `_surfaces.scss` | NEW: `web/src/styles/_surfaces.scss` | Done |
+| 5 | Create `_layout.scss` | NEW: `web/src/styles/_layout.scss` | Done |
+| 6 | Rewrite entry + config | NEW: `web/src/styles/styles.scss`, DEL: `web/src/styles.scss`, MOD: `angular.json`, `index.html` | Done |
+| 7 | Route transitions | MOD: `web/src/app/app.config.ts` | Done |
+| 8 | App Shell navbar | MOD: `web/src/app/app.ts` | Done |
+| 9 | Login page | MOD: `web/src/app/pages/login.ts` | Done |
+| 10 | News Item Card | MOD: `web/src/app/components/news-item-card.ts` | Done |
+| 11 | Dashboard | MOD: `web/src/app/pages/dashboard.ts` | Done |
+| 12 | Archive | MOD: `web/src/app/pages/archive.ts` | Done |
+| 13 | Search | MOD: `web/src/app/pages/search.ts` | Done |
+| 14 | Chat | MOD: `web/src/app/pages/chat.ts` | Done |
+| 15 | Analytics | MOD: `web/src/app/pages/analytics.ts` | Done |
+| 16 | E2E verification | Verification only | Done (35/35 pass) |
+| 17 | AGENTS.md update | MOD: `AGENTS.md` | Done |
