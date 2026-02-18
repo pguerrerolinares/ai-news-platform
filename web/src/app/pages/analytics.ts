@@ -59,42 +59,41 @@ import { Briefing, NewsItem } from '../models/news-item';
   `,
   styles: [`
     :host { display: block; }
-    .loading-bar {
-      margin-bottom: 24px;
-    }
+
+    .loading-bar { margin-bottom: 24px; }
+
     .error {
-      padding: 28px;
+      padding: 32px;
       text-align: center;
-      border-radius: 12px;
+      border-radius: 14px;
       margin: 24px 0;
-      font-size: 0.9375rem;
+      font-size: var(--text-base);
       background: var(--error-subtle);
       color: #f87171;
-      border: 1px solid rgba(239,68,68,0.15);
+      border: 1px solid rgba(239, 68, 68, 0.15);
     }
+
     .chart-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 20px;
     }
-    .full-width {
-      grid-column: 1 / -1;
-    }
-    .chart-card mat-card-content {
-      padding: 20px 22px;
-    }
+
+    .full-width { grid-column: 1 / -1; }
+
+    .chart-card mat-card-content { padding: 24px; }
+
     .chart-card h3 {
-      margin: 0 0 14px;
-      font-size: 0.8125rem;
-      color: var(--text-tertiary);
-      font-weight: 500;
+      margin: 0 0 16px;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: var(--tracking-wider);
     }
+
     @media (max-width: 640px) {
-      .chart-grid {
-        grid-template-columns: 1fr;
-      }
+      .chart-grid { grid-template-columns: 1fr; }
     }
   `],
 })
@@ -111,27 +110,27 @@ export class AnalyticsPage implements OnInit {
   private darkTheme: Partial<Highcharts.Options> = {
     chart: {
       backgroundColor: 'transparent',
-      style: { fontFamily: 'Inter, sans-serif' },
+      style: { fontFamily: "'Plus Jakarta Sans', sans-serif" },
     },
     xAxis: {
-      labels: { style: { color: '#5a5a6e' } },
+      labels: { style: { color: '#52525B' } },
       gridLineColor: 'rgba(255,255,255,0.04)',
       lineColor: 'rgba(255,255,255,0.06)',
       tickColor: 'rgba(255,255,255,0.06)',
     },
     yAxis: {
-      labels: { style: { color: '#5a5a6e' } },
+      labels: { style: { color: '#52525B' } },
       gridLineColor: 'rgba(255,255,255,0.04)',
-      title: { style: { color: '#5a5a6e' } },
+      title: { style: { color: '#52525B' } },
     },
     legend: {
-      itemStyle: { color: '#a0a0b0' },
-      itemHoverStyle: { color: '#ffffff' },
+      itemStyle: { color: '#A1A1AA' },
+      itemHoverStyle: { color: '#F4F4F5' },
     },
     tooltip: {
-      backgroundColor: '#1a1a1f',
+      backgroundColor: '#1C1C22',
       borderColor: 'rgba(255,255,255,0.1)',
-      style: { color: '#ffffff' },
+      style: { color: '#F4F4F5' },
     },
   };
 
@@ -156,7 +155,7 @@ export class AnalyticsPage implements OnInit {
         title: { text: 'Items', style: { color: '#5a5a6e' } },
         min: 0,
       },
-      series: [{ type: 'line', name: 'Items', data: data.map(d => d.count), color: '#ffffff' }],
+      series: [{ type: 'line', name: 'Items', data: data.map(d => d.count), color: '#6366F1' }],
       credits: { enabled: false },
       legend: { enabled: false },
       tooltip: this.darkTheme.tooltip,
@@ -169,11 +168,11 @@ export class AnalyticsPage implements OnInit {
       const topic = item.topic || 'sin tema';
       counts.set(topic, (counts.get(topic) || 0) + 1);
     }
-    const greyPalette = ['#ffffff', '#d4d4d8', '#a1a1aa', '#71717a', '#52525b', '#3f3f46', '#27272a'];
+    const indigoPalette = ['#6366F1', '#818CF8', '#A5B4FC', '#C7D2FE', '#A1A1AA', '#71717A', '#52525B'];
     const data = Array.from(counts.entries()).map(([name, y], i) => ({
       name,
       y,
-      color: greyPalette[i % greyPalette.length],
+      color: indigoPalette[i % indigoPalette.length],
     }));
     return {
       ...this.darkTheme,
@@ -187,7 +186,7 @@ export class AnalyticsPage implements OnInit {
             format: '{point.name}: {point.y}',
             style: { color: '#a0a0b0', textOutline: 'none', fontSize: '11px' },
           },
-          borderColor: '#111113',
+          borderColor: '#141418',
         },
       },
       tooltip: this.darkTheme.tooltip,
