@@ -15,6 +15,7 @@ import { AuthService } from './services/auth.service';
           <a routerLink="/archive" routerLinkActive="active" (click)="onNavClick()">Archivo</a>
           <a routerLink="/search" routerLinkActive="active" (click)="onNavClick()">Buscar</a>
           <a routerLink="/analytics" routerLinkActive="active" (click)="onNavClick()">Analytics</a>
+          <a routerLink="/chat" routerLinkActive="active" (click)="onNavClick()">Chat</a>
           <button class="logout-btn" (click)="onLogout()">Salir</button>
         </div>
       </nav>

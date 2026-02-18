@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/dashboard';
 import { ArchivePage } from './pages/archive';
 import { SearchPage } from './pages/search';
 import { AnalyticsPage } from './pages/analytics';
+import { ChatPage } from './pages/chat';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -12,6 +13,7 @@ export const routes: Routes = [
   { path: 'archive', component: ArchivePage, canActivate: [authGuard] },
   { path: 'search', component: SearchPage, canActivate: [authGuard] },
   { path: 'analytics', component: AnalyticsPage, canActivate: [authGuard] },
+  { path: 'chat', component: ChatPage, canActivate: [authGuard] },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' },
 ];
