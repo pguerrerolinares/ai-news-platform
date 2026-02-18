@@ -1,6 +1,12 @@
-import { Component, inject, signal, computed, effect } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { Briefing } from '../models/news-item';
@@ -8,28 +14,34 @@ import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-archive',
-  imports: [CommonModule, FormsModule, NewsItemCard],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatChipsModule, MatProgressBarModule],
   template: `
     <div class="archive">
       <div class="controls">
-        <label for="archive-date">Fecha</label>
-        <input
-          id="archive-date"
-          type="date"
-          [(ngModel)]="selectedDate"
-          (ngModelChange)="onDateChange()"
-          [max]="todayStr"
-        />
-        <select [ngModel]="selectedTopic()" (ngModelChange)="selectedTopic.set($event)" class="topic-select">
-          <option value="">Todos los temas</option>
-          @for (tc of topicCounts(); track tc.topic) {
-            <option [value]="tc.topic">{{ tc.topic }} ({{ tc.count }})</option>
-          }
-        </select>
+        <mat-form-field appearance="outline" class="control-field">
+          <mat-label>Fecha</mat-label>
+          <input
+            matInput
+            id="archive-date"
+            type="date"
+            [(ngModel)]="selectedDate"
+            (ngModelChange)="onDateChange()"
+            [max]="todayStr"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="control-field">
+          <mat-label>Tema</mat-label>
+          <mat-select [ngModel]="selectedTopic()" (ngModelChange)="selectedTopic.set($event)">
+            <mat-option value="">Todos los temas</mat-option>
+            @for (tc of topicCounts(); track tc.topic) {
+              <mat-option [value]="tc.topic">{{ tc.topic }} ({{ tc.count }})</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
       </div>
 
       @if (loading()) {
-        <div class="loading">Cargando noticias...</div>
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
       }
 
       @if (error()) {
@@ -88,8 +100,8 @@ import { NewsItemCard } from '../components/news-item-card';
         }
 
         <div class="news-list">
-          @for (item of filteredItems(); track item.id) {
-            <app-news-item-card [item]="item" />
+          @for (item of filteredItems(); track item.id; let i = $index) {
+            <app-news-item-card [item]="item" class="fade-in" [style.animation-delay]="i * 50 + 'ms'" />
           }
         </div>
       }
@@ -100,94 +112,41 @@ import { NewsItemCard } from '../components/news-item-card';
 
     .controls {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
+      margin-bottom: 8px;
+    }
+    .control-field {
+      min-width: 180px;
+    }
+
+    .loading-bar {
       margin-bottom: 24px;
     }
-    .controls label {
-      font-size: 0.8125rem;
-      font-weight: 500;
-      color: #86868b;
-    }
-    .controls input[type="date"] {
-      padding: 8px 14px;
-      border: 1px solid #d2d2d7;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      outline: none;
-      color: #1d1d1f;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .controls input[type="date"]:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-    }
 
-    .topic-select {
-      padding: 8px 14px;
-      border: 1px solid #d2d2d7;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      outline: none;
-      color: #1d1d1f;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .topic-select:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-    }
-
-    .loading, .error, .empty {
+    .error, .empty {
       padding: 28px;
       text-align: center;
-      border-radius: 14px;
+      border-radius: 12px;
       margin: 24px 0;
       font-size: 0.9375rem;
     }
-    .loading { background: #f5f5f7; color: #6e6e73; }
-    .error { background: #fff2f2; color: #d70015; }
-    .empty { background: #f5f5f7; color: #86868b; }
-
-    .stats-bar {
-      display: flex;
-      gap: 0;
-      padding: 0;
-      background: #ffffff;
-      border-radius: 14px;
-      margin-bottom: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06);
-      overflow: hidden;
+    .error {
+      background: var(--error-subtle);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.15);
     }
-    .stat {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      padding: 16px 12px;
-      border-right: 1px solid #f5f5f7;
-    }
-    .stat:last-child { border-right: none; }
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #1d1d1f;
-      letter-spacing: -0.02em;
-      font-variant-numeric: tabular-nums;
-    }
-    .stat-label {
-      font-size: 0.6875rem;
-      color: #86868b;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-top: 2px;
-      font-weight: 500;
+    .empty {
+      background: var(--bg-surface);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border);
     }
 
     .topic-summary { margin-bottom: 20px; }
     .topic-summary h3 {
       margin: 0 0 10px;
       font-size: 0.8125rem;
-      color: #86868b;
+      color: var(--text-tertiary);
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -201,23 +160,23 @@ import { NewsItemCard } from '../components/news-item-card';
       font-size: 0.8125rem;
       padding: 5px 14px;
       border-radius: 980px;
-      background: #f5f5f7;
-      color: #1d1d1f;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
     }
-    .topic-chip strong { margin-left: 4px; color: #86868b; }
+    .topic-chip strong { margin-left: 4px; color: var(--text-tertiary); }
 
     .count-label {
-      color: #86868b;
+      color: var(--text-tertiary);
       margin-bottom: 14px;
       font-size: 0.875rem;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 10px; }
+    .news-list { display: flex; flex-direction: column; gap: 12px; }
 
     @media (max-width: 640px) {
       .controls { flex-wrap: wrap; }
-      .stat { padding: 12px 8px; }
-      .stat-value { font-size: 1.2rem; }
+      .control-field { width: 100%; min-width: 0; }
     }
   `],
 })

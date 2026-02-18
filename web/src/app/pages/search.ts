@@ -1,52 +1,66 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+// MatSelect not used — native <select matNativeControl> for E2E compat
+import { MatButtonModule } from '@angular/material/button';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, NewsItemCard],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatButtonModule, MatProgressBarModule],
   template: `
     <div class="search-page">
       <form class="search-form" (ngSubmit)="onSearch()">
         <div class="search-row">
-          <input
-            type="text"
-            [(ngModel)]="query"
-            name="query"
-            placeholder="Buscar noticias..."
-            class="search-input"
-          />
-          <button type="submit" [disabled]="loading() || !query.trim()" class="search-btn">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Buscar noticias</mat-label>
+            <input
+              matInput
+              type="text"
+              [(ngModel)]="query"
+              name="query"
+              placeholder="Buscar noticias..."
+              class="search-input"
+            />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            type="submit"
+            class="search-btn submit-btn"
+            [disabled]="loading() || !query.trim()"
+          >
             Buscar
           </button>
         </div>
 
         <div class="filters">
-          <div class="filter-group">
-            <label for="topic-select">Tema</label>
-            <select id="topic-select" [(ngModel)]="selectedTopic" name="topic">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Tema</mat-label>
+            <select matNativeControl id="topic-select" [(ngModel)]="selectedTopic" name="topic">
               <option value="">Todos</option>
               @for (topic of topics(); track topic) {
                 <option [value]="topic">{{ topic }}</option>
               }
             </select>
-          </div>
-          <div class="filter-group">
-            <label for="date-from">Desde</label>
-            <input id="date-from" type="date" [(ngModel)]="dateFrom" name="dateFrom" />
-          </div>
-          <div class="filter-group">
-            <label for="date-to">Hasta</label>
-            <input id="date-to" type="date" [(ngModel)]="dateTo" name="dateTo" />
-          </div>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Desde</mat-label>
+            <input matInput id="date-from" type="date" [(ngModel)]="dateFrom" name="dateFrom" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Hasta</mat-label>
+            <input matInput id="date-to" type="date" [(ngModel)]="dateTo" name="dateTo" />
+          </mat-form-field>
         </div>
       </form>
 
       @if (loading()) {
-        <div class="loading">Buscando...</div>
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
       }
 
       @if (error()) {
@@ -62,8 +76,8 @@ import { NewsItemCard } from '../components/news-item-card';
       }
 
       <div class="news-list">
-        @for (item of results(); track item.id) {
-          <app-news-item-card [item]="item" />
+        @for (item of results(); track item.id; let i = $index) {
+          <app-news-item-card [item]="item" class="fade-in" [style.animation-delay]="i * 50 + 'ms'" />
         }
       </div>
     </div>
@@ -72,98 +86,71 @@ import { NewsItemCard } from '../components/news-item-card';
     :host { display: block; }
 
     .search-form {
-      margin-bottom: 24px;
+      margin-bottom: 8px;
     }
     .search-row {
       display: flex;
       gap: 10px;
-      margin-bottom: 14px;
+      align-items: flex-start;
     }
-    .search-input {
+    .search-field {
       flex: 1;
-      padding: 12px 16px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      font-size: 0.9375rem;
-      outline: none;
-      color: #1d1d1f;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .search-input:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
     }
     .search-btn {
-      padding: 12px 24px;
-      background: #0071e3;
-      color: white;
-      border: none;
-      border-radius: 980px;
+      height: 56px;
+      padding: 0 24px;
       font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.2s;
+      font-weight: 600;
       letter-spacing: -0.01em;
+      font-family: var(--font-body);
+      border-radius: 8px;
     }
-    .search-btn:hover:not(:disabled) { background: #0077ED; }
-    .search-btn:disabled { opacity: 0.42; cursor: default; }
 
     .filters {
       display: flex;
       gap: 14px;
       flex-wrap: wrap;
     }
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .filter-group label {
-      font-size: 0.6875rem;
-      font-weight: 500;
-      color: #86868b;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .filter-group select,
-    .filter-group input[type="date"] {
-      padding: 8px 12px;
-      border: 1px solid #d2d2d7;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      outline: none;
-      color: #1d1d1f;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .filter-group select:focus,
-    .filter-group input[type="date"]:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+    .filter-field {
+      min-width: 140px;
     }
 
-    .loading, .error, .empty {
+    .loading-bar {
+      margin-bottom: 24px;
+    }
+
+    .error, .empty {
       padding: 28px;
       text-align: center;
-      border-radius: 14px;
+      border-radius: 12px;
       margin: 24px 0;
       font-size: 0.9375rem;
     }
-    .loading { background: #f5f5f7; color: #6e6e73; }
-    .error { background: #fff2f2; color: #d70015; }
-    .empty { background: #f5f5f7; color: #86868b; }
+    .error {
+      background: var(--error-subtle);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.15);
+    }
+    .empty {
+      background: var(--bg-surface);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border);
+    }
 
     .count-label {
-      color: #86868b;
+      color: var(--text-tertiary);
       margin-bottom: 14px;
       font-size: 0.875rem;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 10px; }
+    .news-list { display: flex; flex-direction: column; gap: 12px; }
 
     @media (max-width: 640px) {
       .search-row { flex-direction: column; }
+      .search-field { width: 100%; }
+      .search-btn { width: 100%; height: 48px; }
       .filters { flex-direction: column; }
+      .filter-field { width: 100%; min-width: 0; }
     }
   `],
 })

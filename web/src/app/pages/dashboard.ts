@@ -1,5 +1,9 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule, MatChipListboxChange } from '@angular/material/chips';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatButtonModule } from '@angular/material/button';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { Briefing } from '../models/news-item';
@@ -7,11 +11,11 @@ import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, NewsItemCard],
+  imports: [CommonModule, NewsItemCard, MatCardModule, MatChipsModule, MatProgressBarModule, MatButtonModule],
   template: `
     <div class="dashboard">
       @if (loading()) {
-        <div class="loading">Cargando noticias de hoy...</div>
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
       }
 
       @if (error()) {
@@ -51,18 +55,20 @@ import { NewsItemCard } from '../components/news-item-card';
         @if (topicCounts().length > 0) {
           <div class="topic-summary">
             <h3>Distribucion por tema</h3>
-            <div class="topic-chips">
-              @for (tc of topicCounts(); track tc.topic) {
-                <button
-                  class="topic-chip"
-                  [class.active]="selectedTopic() === tc.topic"
-                  (click)="toggleTopic(tc.topic)"
-                >
-                  {{ tc.topic }} <strong>{{ tc.count }}</strong>
-                </button>
-              }
+            <div class="topic-chips-row">
+              <mat-chip-listbox
+                [value]="selectedTopic()"
+                (change)="onChipChange($event)"
+                class="topic-chips"
+              >
+                @for (tc of topicCounts(); track tc.topic) {
+                  <mat-chip-option class="topic-chip" [value]="tc.topic">
+                    {{ tc.topic }} <strong>{{ tc.count }}</strong>
+                  </mat-chip-option>
+                }
+              </mat-chip-listbox>
               @if (selectedTopic()) {
-                <button class="clear-filter" (click)="toggleTopic(selectedTopic()!)">limpiar filtro</button>
+                <button mat-button class="clear-filter" (click)="clearFilter()">limpiar filtro</button>
               }
             </div>
           </div>
@@ -78,8 +84,8 @@ import { NewsItemCard } from '../components/news-item-card';
 
         <!-- News list -->
         <div class="news-list">
-          @for (item of filteredItems(); track item.id) {
-            <app-news-item-card [item]="item" />
+          @for (item of filteredItems(); track item.id; let i = $index) {
+            <app-news-item-card [item]="item" class="fade-in" [style.animation-delay]="i * 50 + 'ms'" />
           }
         </div>
       }
@@ -87,50 +93,27 @@ import { NewsItemCard } from '../components/news-item-card';
   `,
   styles: [`
     :host { display: block; }
-    .loading, .error, .empty {
+
+    .loading-bar {
+      margin-bottom: 24px;
+    }
+
+    .error, .empty {
       padding: 28px;
       text-align: center;
-      border-radius: 14px;
+      border-radius: 12px;
       margin: 24px 0;
       font-size: 0.9375rem;
     }
-    .loading { background: #f5f5f7; color: #6e6e73; }
-    .error { background: #fff2f2; color: #d70015; }
-    .empty { background: #f5f5f7; color: #86868b; }
-
-    .stats-bar {
-      display: flex;
-      gap: 0;
-      padding: 0;
-      background: #ffffff;
-      border-radius: 14px;
-      margin-bottom: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06);
-      overflow: hidden;
+    .error {
+      background: var(--error-subtle);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.15);
     }
-    .stat {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      padding: 16px 12px;
-      border-right: 1px solid #f5f5f7;
-    }
-    .stat:last-child { border-right: none; }
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #1d1d1f;
-      letter-spacing: -0.02em;
-      font-variant-numeric: tabular-nums;
-    }
-    .stat-label {
-      font-size: 0.6875rem;
-      color: #86868b;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-top: 2px;
-      font-weight: 500;
+    .empty {
+      background: var(--bg-surface);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border);
     }
 
     .topic-summary {
@@ -139,62 +122,60 @@ import { NewsItemCard } from '../components/news-item-card';
     .topic-summary h3 {
       margin: 0 0 10px;
       font-size: 0.8125rem;
-      color: #86868b;
+      color: var(--text-tertiary);
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.06em;
+    }
+    .topic-chips-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .topic-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      align-items: center;
     }
     .topic-chip {
-      font-size: 0.8125rem;
-      padding: 5px 14px;
+      --mdc-chip-elevated-container-color: var(--bg-surface);
+      --mdc-chip-label-text-color: var(--text-secondary);
+      --mdc-chip-outline-color: var(--border);
+      --mdc-chip-label-text-font: var(--font-body);
+      --mdc-chip-label-text-size: 0.8125rem;
+      border: 1px solid var(--border);
       border-radius: 980px;
-      background: #f5f5f7;
-      color: #1d1d1f;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-weight: 400;
     }
-    .topic-chip:hover { background: #e8e8ed; }
-    .topic-chip.active {
-      background: #1d1d1f;
-      color: #f5f5f7;
+    .topic-chip.mat-mdc-chip-selected {
+      --mdc-chip-elevated-selected-container-color: #fff;
+      --mdc-chip-selected-label-text-color: #09090b;
+      border-color: transparent;
+    }
+    :host-context(html:not(.dark)) .topic-chip.mat-mdc-chip-selected {
+      --mdc-chip-elevated-selected-container-color: #09090b;
+      --mdc-chip-selected-label-text-color: #fff;
     }
     .topic-chip strong {
       margin-left: 4px;
       font-weight: 600;
-      color: #86868b;
+      color: var(--text-tertiary);
     }
-    .topic-chip.active strong { color: rgba(255, 255, 255, 0.64); }
+    .topic-chip.mat-mdc-chip-selected strong { color: inherit; opacity: 0.6; }
     .clear-filter {
-      background: none;
-      border: none;
-      color: #0071e3;
+      color: var(--accent);
       font-size: 0.8125rem;
-      cursor: pointer;
-      margin-left: 8px;
       font-weight: 500;
+      --mdc-text-button-label-text-color: var(--accent);
     }
-    .clear-filter:hover { text-decoration: underline; }
 
     .count-label {
-      color: #86868b;
+      color: var(--text-tertiary);
       margin-bottom: 14px;
       font-size: 0.875rem;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 10px; }
-
-    @media (max-width: 640px) {
-      .stat { padding: 12px 8px; }
-      .stat-value { font-size: 1.2rem; }
-    }
+    .news-list { display: flex; flex-direction: column; gap: 12px; }
   `],
 })
 export class DashboardPage implements OnInit {
@@ -223,8 +204,12 @@ export class DashboardPage implements OnInit {
     return this.items().filter(item => (item.topic || 'sin tema') === topic);
   });
 
-  toggleTopic(topic: string) {
-    this.selectedTopic.set(this.selectedTopic() === topic ? null : topic);
+  onChipChange(event: MatChipListboxChange) {
+    this.selectedTopic.set(event.value || null);
+  }
+
+  clearFilter() {
+    this.selectedTopic.set(null);
   }
 
   ngOnInit() {

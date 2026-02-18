@@ -1,6 +1,11 @@
 import { Component, inject, signal, ElementRef, ViewChild, AfterViewChecked, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonModule } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { AuthService } from '../services/auth.service';
@@ -22,7 +27,7 @@ interface ChatSource {
 
 @Component({
   selector: 'app-chat',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatChipsModule],
   template: `
     <div class="chat-page">
       <div class="chat-messages" #messagesContainer>
@@ -32,7 +37,7 @@ interface ChatSource {
             <p>Pregunta sobre noticias de IA y tecnologia</p>
             <div class="suggestions">
               @for (s of suggestions; track s) {
-                <button class="suggestion-chip" (click)="askQuestion(s)">{{ s }}</button>
+                <mat-chip class="suggestion-chip" (click)="askQuestion(s)">{{ s }}</mat-chip>
               }
             </div>
           </div>
@@ -69,23 +74,31 @@ interface ChatSource {
 
       <form class="chat-input-form" (ngSubmit)="onSend()">
         <div class="input-row">
-          <select class="topic-filter" [(ngModel)]="selectedTopic" name="topic">
-            <option value="">Todos los temas</option>
-            @for (t of topics(); track t) {
-              <option [value]="t">{{ t }}</option>
-            }
-          </select>
-          <input
-            type="text"
-            [(ngModel)]="question"
-            name="question"
-            placeholder="Pregunta sobre noticias de IA..."
-            class="chat-input"
-            [disabled]="streaming()"
-          />
+          <mat-form-field appearance="outline" class="topic-field">
+            <mat-label>Tema</mat-label>
+            <mat-select class="topic-filter" [(ngModel)]="selectedTopic" name="topic">
+              <mat-option value="">Todos los temas</mat-option>
+              @for (t of topics(); track t) {
+                <mat-option [value]="t">{{ t }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="chat-field">
+            <mat-label>Pregunta</mat-label>
+            <input
+              matInput
+              type="text"
+              [(ngModel)]="question"
+              name="question"
+              placeholder="Pregunta sobre noticias de IA..."
+              class="chat-input"
+              [disabled]="streaming()"
+            />
+          </mat-form-field>
           <button
+            mat-flat-button
             type="submit"
-            class="send-btn"
+            class="send-btn submit-btn"
             [disabled]="streaming() || !question.trim()"
           >
             Enviar
@@ -95,212 +108,65 @@ interface ChatSource {
     </div>
   `,
   styles: [`
-    :host { display: block; height: calc(100vh - 92px); }
-
-    .chat-page {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      max-width: 720px;
-      margin: 0 auto;
-    }
-
-    .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 80px 24px;
-    }
-    .empty-state h2 {
-      font-size: 1.75rem;
-      color: #1d1d1f;
-      margin: 0 0 8px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-    .empty-state p {
-      margin: 0 0 32px;
-      font-size: 0.9375rem;
-      color: #86868b;
-    }
-    .suggestions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-    }
+    :host { display: block; height: calc(100vh - 96px); }
+    .chat-page { display: flex; flex-direction: column; height: 100%; max-width: 720px; margin: 0 auto; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 24px 0; display: flex; flex-direction: column; gap: 16px; }
+    .empty-state { text-align: center; padding: 80px 24px; }
+    .empty-state h2 { font-family: var(--font-heading); font-size: 1.75rem; color: var(--text-primary); margin: 0 0 8px; font-weight: 700; letter-spacing: -0.02em; }
+    .empty-state p { margin: 0 0 32px; font-size: 0.9375rem; color: var(--text-tertiary); }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
     .suggestion-chip {
-      padding: 10px 18px;
-      border: 1px solid #d2d2d7;
-      border-radius: 980px;
-      background: white;
-      color: #1d1d1f;
-      font-size: 0.8125rem;
       cursor: pointer;
-      transition: all 0.2s;
+      --mdc-chip-elevated-container-color: var(--bg-surface);
+      --mdc-chip-label-text-color: var(--text-secondary);
+      --mdc-chip-outline-color: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 980px;
     }
     .suggestion-chip:hover {
-      border-color: #0071e3;
-      color: #0071e3;
-      background: #f5f5f7;
+      border-color: var(--accent);
+      --mdc-chip-elevated-container-color: var(--accent-subtle);
     }
-
-    .message {
-      padding: 14px 18px;
-      border-radius: 18px;
-      max-width: 82%;
-      line-height: 1.6;
-      font-size: 0.9375rem;
-    }
-    .message.user {
-      align-self: flex-end;
-      background: #0071e3;
-      color: white;
-      border-bottom-right-radius: 6px;
-      white-space: pre-wrap;
-    }
-    .message.assistant {
-      align-self: flex-start;
-      background: #f5f5f7;
-      color: #1d1d1f;
-      border-bottom-left-radius: 6px;
-    }
+    .message { padding: 14px 18px; border-radius: 18px; max-width: 82%; line-height: 1.6; font-size: 0.9375rem; }
+    .message.user { align-self: flex-end; background: #fff; color: #09090b; border-bottom-right-radius: 6px; white-space: pre-wrap; }
+    :host-context(html:not(.dark)) .message.user { background: #09090b; color: #fff; }
+    .message.assistant { align-self: flex-start; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary); border-bottom-left-radius: 6px; }
     .message-content { word-break: break-word; }
     .message.assistant .message-content :first-child { margin-top: 0; }
     .message.assistant .message-content :last-child { margin-bottom: 0; }
     .message.assistant .message-content p { margin: 0.5em 0; }
-    .message.assistant .message-content ul,
-    .message.assistant .message-content ol {
-      margin: 0.5em 0;
-      padding-left: 1.5em;
-    }
-    .message.assistant .message-content code {
-      background: #e8e8ed;
-      padding: 2px 5px;
-      border-radius: 4px;
-      font-size: 0.85em;
-    }
-    .message.assistant .message-content pre {
-      background: #1d1d1f;
-      color: #f5f5f7;
-      padding: 14px 16px;
-      border-radius: 10px;
-      overflow-x: auto;
-      margin: 0.5em 0;
-    }
-    .message.assistant .message-content pre code {
-      background: none;
-      padding: 0;
-      color: inherit;
-    }
-    .message.assistant .message-content strong { font-weight: 600; }
-    .message.assistant .message-content a {
-      color: #0071e3;
-      text-decoration: none;
-    }
+    .message.assistant .message-content ul, .message.assistant .message-content ol { margin: 0.5em 0; padding-left: 1.5em; }
+    .message.assistant .message-content code { background: var(--bg-base); border: 1px solid var(--border); padding: 2px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85em; }
+    .message.assistant .message-content pre { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); padding: 14px 16px; border-radius: 10px; overflow-x: auto; margin: 0.5em 0; }
+    .message.assistant .message-content pre code { background: none; border: none; padding: 0; color: inherit; }
+    .message.assistant .message-content strong { font-weight: 600; color: var(--text-primary); }
+    .message.assistant .message-content a { color: var(--accent); text-decoration: none; }
     .message.assistant .message-content a:hover { text-decoration: underline; }
-
-    .cursor {
-      animation: blink 0.8s infinite;
-      font-weight: bold;
-      color: #86868b;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
-    }
-
-    .sources {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid #e8e8ed;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-    }
-    .sources-label {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      color: #86868b;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .source-link {
-      font-size: 0.8125rem;
-      padding: 3px 10px;
-      background: #e8e8ed;
-      color: #1d1d1f;
-      border-radius: 6px;
-      text-decoration: none;
-      transition: background 0.15s;
-    }
-    .source-link:hover { background: #d2d2d7; }
-    .source-link.no-url { color: #6e6e73; }
-
-    .chat-input-form {
-      padding: 14px 0;
-      border-top: 1px solid #e8e8ed;
-    }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .topic-filter {
-      padding: 10px 12px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      font-size: 0.8125rem;
-      outline: none;
-      min-width: 120px;
-      color: #1d1d1f;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .topic-filter:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-    }
-    .chat-input {
-      flex: 1;
-      padding: 10px 16px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      font-size: 0.9375rem;
-      outline: none;
-      color: #1d1d1f;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .chat-input:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-    }
+    .cursor { animation: blink 0.8s infinite; font-weight: bold; color: var(--accent); }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    .sources { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .sources-label { font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+    .source-link { font-size: 0.8125rem; padding: 3px 10px; background: var(--bg-surface-hover); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; text-decoration: none; }
+    .source-link:hover { border-color: var(--accent); }
+    .source-link.no-url { color: var(--text-tertiary); }
+    .chat-input-form { padding: 14px 0; border-top: 1px solid var(--border); }
+    .input-row { display: flex; gap: 8px; align-items: flex-start; }
+    .topic-field { min-width: 140px; }
+    .chat-field { flex: 1; }
     .send-btn {
-      padding: 10px 20px;
-      background: #0071e3;
-      color: white;
-      border: none;
-      border-radius: 980px;
+      height: 56px;
+      padding: 0 20px;
       font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.2s;
+      font-weight: 600;
+      font-family: var(--font-body);
+      border-radius: 8px;
     }
-    .send-btn:hover:not(:disabled) { background: #0077ED; }
-    .send-btn:disabled { opacity: 0.42; cursor: default; }
-
     @media (max-width: 640px) {
-      :host { height: calc(100vh - 76px); }
+      :host { height: calc(100vh - 80px); }
       .input-row { flex-wrap: wrap; }
-      .topic-filter { min-width: 100%; }
+      .topic-field { min-width: 100%; }
+      .chat-field { min-width: 0; flex: 1; }
+      .send-btn { height: 48px; }
       .message { max-width: 92%; }
     }
   `],

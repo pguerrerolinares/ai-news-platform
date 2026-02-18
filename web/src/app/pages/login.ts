@@ -1,14 +1,18 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule],
+  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <div class="login-container">
-      <div class="login-card">
+      <mat-card class="login-card">
         <h1>AI News Platform</h1>
         <p class="subtitle">Ingresa para acceder al panel</p>
 
@@ -17,17 +21,25 @@ import { AuthService } from '../services/auth.service';
         }
 
         <form (ngSubmit)="onLogin()">
-          <label for="password">Contrasena</label>
-          <input
-            id="password"
-            type="password"
-            [(ngModel)]="password"
-            name="password"
-            placeholder="Ingresa la contrasena"
-            [disabled]="loading()"
-            autocomplete="current-password"
-          />
-          <button type="submit" [disabled]="loading() || !password">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Contrasena</mat-label>
+            <input
+              matInput
+              id="password"
+              type="password"
+              [(ngModel)]="password"
+              name="password"
+              placeholder="Ingresa la contrasena"
+              [disabled]="loading()"
+              autocomplete="current-password"
+            />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            type="submit"
+            class="submit-btn full-width"
+            [disabled]="loading() || !password"
+          >
             @if (loading()) {
               Ingresando...
             } @else {
@@ -35,7 +47,7 @@ import { AuthService } from '../services/auth.service';
             }
           </button>
         </form>
-      </div>
+      </mat-card>
     </div>
   `,
   styles: [`
@@ -44,97 +56,62 @@ import { AuthService } from '../services/auth.service';
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      background: #ffffff;
+      background: var(--bg-base);
     }
     .login-container {
       width: 100%;
-      max-width: 360px;
+      max-width: 380px;
       padding: 24px;
     }
     .login-card {
-      background: white;
-      border-radius: 18px;
-      padding: 40px 36px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 32px rgba(0, 0, 0, 0.08);
+      padding: 48px 40px;
     }
     h1 {
       margin: 0 0 6px;
-      font-size: 1.75rem;
+      font-family: var(--font-heading);
+      font-size: 2rem;
       font-weight: 700;
       text-align: center;
       letter-spacing: -0.02em;
-      color: #1d1d1f;
+      color: var(--text-primary);
     }
     .subtitle {
       margin: 0 0 32px;
-      color: #86868b;
+      color: var(--text-tertiary);
       font-size: 0.9375rem;
       text-align: center;
       font-weight: 400;
     }
     .error {
-      background: #fff2f2;
-      color: #d70015;
+      background: var(--error-subtle);
+      color: #f87171;
       padding: 12px 16px;
       border-radius: 10px;
+      border: 1px solid rgba(239,68,68,0.15);
       font-size: 0.875rem;
       margin-bottom: 20px;
       font-weight: 500;
     }
-    label {
-      display: block;
-      font-size: 0.8125rem;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: #6e6e73;
-    }
-    input {
+    .full-width {
       width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d2d2d7;
-      border-radius: 10px;
-      font-size: 1rem;
-      margin-bottom: 20px;
-      box-sizing: border-box;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      color: #1d1d1f;
-      background: #ffffff;
     }
-    input:focus {
-      border-color: #0071e3;
-      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+    mat-form-field.full-width {
+      margin-bottom: 4px;
     }
-    input:disabled {
-      background: #f5f5f7;
-      color: #86868b;
-    }
-    button {
-      width: 100%;
-      padding: 13px;
-      background: #0071e3;
-      color: white;
-      border: none;
-      border-radius: 980px;
+    button.submit-btn {
+      height: 48px;
       font-size: 0.9375rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+      font-weight: 600;
       letter-spacing: -0.01em;
+      font-family: var(--font-body);
+      border-radius: 8px;
     }
-    button:hover:not(:disabled) {
-      background: #0077ED;
-    }
-    button:active:not(:disabled) {
+    button.submit-btn:active:not(:disabled) {
       transform: scale(0.985);
-    }
-    button:disabled {
-      opacity: 0.42;
-      cursor: default;
     }
     @media (max-width: 640px) {
       .login-container { padding: 16px; }
-      .login-card { padding: 32px 24px; }
+      .login-card { padding: 36px 24px; }
     }
   `],
 })

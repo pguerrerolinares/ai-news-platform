@@ -1,6 +1,8 @@
 import { Component, DestroyRef, OnInit, inject, signal, computed } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { MatCardModule } from '@angular/material/card';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { HighchartsChartComponent } from 'highcharts-angular';
 import * as Highcharts from 'highcharts';
 import { switchMap, of } from 'rxjs';
@@ -9,11 +11,11 @@ import { Briefing, NewsItem } from '../models/news-item';
 
 @Component({
   selector: 'app-analytics',
-  imports: [CommonModule, HighchartsChartComponent],
+  imports: [CommonModule, HighchartsChartComponent, MatCardModule, MatProgressBarModule],
   template: `
     <div class="analytics">
       @if (loading()) {
-        <div class="loading">Cargando analytics...</div>
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
       }
 
       @if (error()) {
@@ -22,62 +24,77 @@ import { Briefing, NewsItem } from '../models/news-item';
 
       @if (!loading() && !error()) {
         <div class="chart-grid">
-          <div class="chart-card">
-            <h3>Items por dia (ultimos 14 dias)</h3>
-            <highcharts-chart
-              [options]="itemsPerDayOptions()"
-              style="width: 100%; display: block;"
-            />
-          </div>
+          <mat-card class="chart-card full-width">
+            <mat-card-content>
+              <h3>Items por dia (ultimos 14 dias)</h3>
+              <highcharts-chart
+                [options]="itemsPerDayOptions()"
+                style="width: 100%; display: block;"
+              />
+            </mat-card-content>
+          </mat-card>
 
-          <div class="chart-card">
-            <h3>Distribucion por tema</h3>
-            <highcharts-chart
-              [options]="topicOptions()"
-              style="width: 100%; display: block;"
-            />
-          </div>
+          <mat-card class="chart-card">
+            <mat-card-content>
+              <h3>Distribucion por tema</h3>
+              <highcharts-chart
+                [options]="topicOptions()"
+                style="width: 100%; display: block;"
+              />
+            </mat-card-content>
+          </mat-card>
 
-          <div class="chart-card">
-            <h3>Fuentes</h3>
-            <highcharts-chart
-              [options]="sourcesOptions()"
-              style="width: 100%; display: block;"
-            />
-          </div>
+          <mat-card class="chart-card">
+            <mat-card-content>
+              <h3>Fuentes</h3>
+              <highcharts-chart
+                [options]="sourcesOptions()"
+                style="width: 100%; display: block;"
+              />
+            </mat-card-content>
+          </mat-card>
         </div>
       }
     </div>
   `,
   styles: [`
     :host { display: block; }
-    .loading, .error {
+    .loading-bar {
+      margin-bottom: 24px;
+    }
+    .error {
       padding: 28px;
       text-align: center;
-      border-radius: 14px;
+      border-radius: 12px;
       margin: 24px 0;
       font-size: 0.9375rem;
+      background: var(--error-subtle);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.15);
     }
-    .loading { background: #f5f5f7; color: #6e6e73; }
-    .error { background: #fff2f2; color: #d70015; }
     .chart-grid {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
-    .chart-card {
-      border-radius: 14px;
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    .chart-card mat-card-content {
       padding: 20px 22px;
-      background: #ffffff;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06);
     }
     .chart-card h3 {
       margin: 0 0 14px;
       font-size: 0.8125rem;
-      color: #86868b;
+      color: var(--text-tertiary);
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.06em;
+    }
+    @media (max-width: 640px) {
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
     }
   `],
 })
@@ -91,18 +108,58 @@ export class AnalyticsPage implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
 
+  private darkTheme: Partial<Highcharts.Options> = {
+    chart: {
+      backgroundColor: 'transparent',
+      style: { fontFamily: 'Inter, sans-serif' },
+    },
+    xAxis: {
+      labels: { style: { color: '#5a5a6e' } },
+      gridLineColor: 'rgba(255,255,255,0.04)',
+      lineColor: 'rgba(255,255,255,0.06)',
+      tickColor: 'rgba(255,255,255,0.06)',
+    },
+    yAxis: {
+      labels: { style: { color: '#5a5a6e' } },
+      gridLineColor: 'rgba(255,255,255,0.04)',
+      title: { style: { color: '#5a5a6e' } },
+    },
+    legend: {
+      itemStyle: { color: '#a0a0b0' },
+      itemHoverStyle: { color: '#ffffff' },
+    },
+    tooltip: {
+      backgroundColor: '#1a1a1f',
+      borderColor: 'rgba(255,255,255,0.1)',
+      style: { color: '#ffffff' },
+    },
+  };
+
   itemsPerDayOptions = computed<Highcharts.Options>(() => {
     const data = this.briefings()
       .map(b => ({ date: b.date, count: b.total_items ?? 0 }))
       .sort((a, b) => a.date.localeCompare(b.date));
     return {
-      chart: { type: 'line', height: 280 },
+      ...this.darkTheme,
+      chart: { ...this.darkTheme.chart, type: 'line', height: 280 },
       title: { text: undefined },
-      xAxis: { categories: data.map(d => d.date), labels: { rotation: -45, style: { fontSize: '11px' } } },
-      yAxis: { title: { text: 'Items' }, min: 0 },
-      series: [{ type: 'line', name: 'Items', data: data.map(d => d.count), color: '#2563eb' }],
+      xAxis: {
+        ...this.darkTheme.xAxis as Highcharts.XAxisOptions,
+        categories: data.map(d => d.date),
+        labels: {
+          rotation: -45,
+          style: { fontSize: '11px', color: '#5a5a6e' },
+        },
+      },
+      yAxis: {
+        ...this.darkTheme.yAxis as Highcharts.YAxisOptions,
+        title: { text: 'Items', style: { color: '#5a5a6e' } },
+        min: 0,
+      },
+      series: [{ type: 'line', name: 'Items', data: data.map(d => d.count), color: '#ffffff' }],
       credits: { enabled: false },
       legend: { enabled: false },
+      tooltip: this.darkTheme.tooltip,
     };
   });
 
@@ -112,13 +169,28 @@ export class AnalyticsPage implements OnInit {
       const topic = item.topic || 'sin tema';
       counts.set(topic, (counts.get(topic) || 0) + 1);
     }
-    const data = Array.from(counts.entries()).map(([name, y]) => ({ name, y }));
+    const greyPalette = ['#ffffff', '#d4d4d8', '#a1a1aa', '#71717a', '#52525b', '#3f3f46', '#27272a'];
+    const data = Array.from(counts.entries()).map(([name, y], i) => ({
+      name,
+      y,
+      color: greyPalette[i % greyPalette.length],
+    }));
     return {
-      chart: { type: 'pie', height: 280 },
+      ...this.darkTheme,
+      chart: { ...this.darkTheme.chart, type: 'pie', height: 280 },
       title: { text: undefined },
       series: [{ type: 'pie', name: 'Items', data, innerSize: '50%' }],
       credits: { enabled: false },
-      plotOptions: { pie: { dataLabels: { format: '{point.name}: {point.y}' } } },
+      plotOptions: {
+        pie: {
+          dataLabels: {
+            format: '{point.name}: {point.y}',
+            style: { color: '#a0a0b0', textOutline: 'none', fontSize: '11px' },
+          },
+          borderColor: '#111113',
+        },
+      },
+      tooltip: this.darkTheme.tooltip,
     };
   });
 
@@ -128,19 +200,29 @@ export class AnalyticsPage implements OnInit {
       counts.set(item.source, (counts.get(item.source) || 0) + 1);
     }
     const sourceColors: Record<string, string> = {
-      hackernews: '#ff6600', arxiv: '#b31b1b', reddit: '#ff4500',
-      rss: '#f59e0b', github: '#333333', huggingface: '#ffcc00',
+      hackernews: '#fb923c', arxiv: '#f87171', reddit: '#fb923c',
+      rss: '#fbbf24', github: '#a0a0b0', huggingface: '#fbbf24',
     };
     const categories = Array.from(counts.keys());
-    const data = categories.map(s => ({ y: counts.get(s) || 0, color: sourceColors[s] || '#94a3b8' }));
+    const data = categories.map(s => ({ y: counts.get(s) || 0, color: sourceColors[s] || '#71717a' }));
     return {
-      chart: { type: 'bar', height: 280 },
+      ...this.darkTheme,
+      chart: { ...this.darkTheme.chart, type: 'bar', height: 280 },
       title: { text: undefined },
-      xAxis: { categories, labels: { style: { fontSize: '12px' } } },
-      yAxis: { title: { text: 'Items' }, min: 0 },
+      xAxis: {
+        ...this.darkTheme.xAxis as Highcharts.XAxisOptions,
+        categories,
+        labels: { style: { fontSize: '12px', color: '#a0a0b0' } },
+      },
+      yAxis: {
+        ...this.darkTheme.yAxis as Highcharts.YAxisOptions,
+        title: { text: 'Items', style: { color: '#5a5a6e' } },
+        min: 0,
+      },
       series: [{ type: 'bar', name: 'Items', data }],
       credits: { enabled: false },
       legend: { enabled: false },
+      tooltip: this.darkTheme.tooltip,
     };
   });
 
