@@ -50,7 +50,6 @@ class Settings(BaseSettings):
     embedding_api_key: str = ""
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
-    embedding_dimensions: int = 1536
 
     # --- Telegram ---
     telegram_bot_token: str = ""

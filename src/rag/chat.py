@@ -6,6 +6,7 @@ import json
 from collections.abc import AsyncGenerator
 
 import openai
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
@@ -79,7 +80,7 @@ class ChatService:
 
     async def chat_stream(
         self,
-        session,
+        session: AsyncSession,
         question: str,
         *,
         topic: str | None = None,

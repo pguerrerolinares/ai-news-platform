@@ -1,10 +1,12 @@
 """API route for RAG chat with streaming SSE responses."""
 
-from __future__ import annotations
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
@@ -12,6 +14,13 @@ from src.core.database import get_session
 from src.rag.chat import ChatService
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+limiter = Limiter(key_func=get_remote_address)
+
+
+@lru_cache
+def _get_chat_service() -> ChatService:
+    return ChatService()
 
 
 class ChatRequest(BaseModel):
@@ -21,14 +30,15 @@ class ChatRequest(BaseModel):
 
 
 @router.post("")
+@limiter.limit("10/minute")
 async def chat(
-    body: ChatRequest,
     request: Request,
+    body: ChatRequest,
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
 ):
     """Chat with AI about news. Returns SSE stream."""
-    service = ChatService()
+    service = _get_chat_service()
 
     return StreamingResponse(
         service.chat_stream(

@@ -18,7 +18,6 @@ def _mock_settings(**overrides):
         "embedding_api_key": "sk-embed-key",
         "embedding_base_url": "https://api.openai.com/v1",
         "embedding_model": "text-embedding-3-small",
-        "embedding_dimensions": 1536,
         "telegram_bot_token": "",
         "telegram_chat_id": "",
         "telegram_alerts_enabled": False,

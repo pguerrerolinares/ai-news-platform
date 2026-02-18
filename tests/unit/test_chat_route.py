@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
 from src.api.auth import require_auth
+from src.api.routes.chat import _get_chat_service, limiter
 from src.core.database import get_session
 
 
@@ -34,12 +35,18 @@ def _override_dependencies():
 
     Auth is bypassed and session is mocked by default.
     Individual tests can remove the auth override to test auth requirement.
+    Also clear the ChatService lru_cache between tests.
     """
+    _get_chat_service.cache_clear()
+    original_enabled = limiter.enabled
+    limiter.enabled = False
     app.dependency_overrides[require_auth] = lambda: "test-user"
     app.dependency_overrides[get_session] = _mock_get_session
     yield
     app.dependency_overrides.pop(require_auth, None)
     app.dependency_overrides.pop(get_session, None)
+    limiter.enabled = original_enabled
+    _get_chat_service.cache_clear()
 
 
 @pytest.fixture()
@@ -71,6 +78,7 @@ class TestChatStreaming:
 
     async def test_returns_sse_stream(self, api_client: AsyncClient):
         """POST /api/chat should return a text/event-stream response."""
+        mock_service = MagicMock()
 
         async def mock_stream(*_a, **_kw):
             yield 'data: {"token": "Hello"}\n\n'
@@ -78,8 +86,9 @@ class TestChatStreaming:
             yield 'data: {"sources": []}\n\n'
             yield "data: [DONE]\n\n"
 
-        with patch("src.api.routes.chat.ChatService") as mock_chat:
-            mock_chat.return_value.chat_stream = mock_stream
+        mock_service.chat_stream = mock_stream
+
+        with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
             resp = await api_client.post(
                 "/api/chat",
                 json={"question": "What AI models released?"},
@@ -93,12 +102,14 @@ class TestChatStreaming:
 
     async def test_sse_headers_present(self, api_client: AsyncClient):
         """Response should include cache-control and x-accel-buffering headers."""
+        mock_service = MagicMock()
 
         async def mock_stream(*_a, **_kw):
             yield "data: [DONE]\n\n"
 
-        with patch("src.api.routes.chat.ChatService") as mock_chat:
-            mock_chat.return_value.chat_stream = mock_stream
+        mock_service.chat_stream = mock_stream
+
+        with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
             resp = await api_client.post(
                 "/api/chat",
                 json={"question": "What is new in AI?"},
@@ -110,13 +121,15 @@ class TestChatStreaming:
     async def test_passes_topic_and_limit(self, api_client: AsyncClient):
         """Topic and limit should be forwarded to ChatService.chat_stream."""
         captured_kwargs = {}
+        mock_service = MagicMock()
 
         async def mock_stream(*_a, **kw):
             captured_kwargs.update(kw)
             yield "data: [DONE]\n\n"
 
-        with patch("src.api.routes.chat.ChatService") as mock_chat:
-            mock_chat.return_value.chat_stream = mock_stream
+        mock_service.chat_stream = mock_stream
+
+        with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
             resp = await api_client.post(
                 "/api/chat",
                 json={"question": "Tell me about GPT", "topic": "modelos", "limit": 10},
@@ -162,13 +175,15 @@ class TestChatValidation:
     async def test_default_limit_is_5(self, api_client: AsyncClient):
         """When limit is omitted, it should default to 5."""
         captured_kwargs = {}
+        mock_service = MagicMock()
 
         async def mock_stream(*_a, **kw):
             captured_kwargs.update(kw)
             yield "data: [DONE]\n\n"
 
-        with patch("src.api.routes.chat.ChatService") as mock_chat:
-            mock_chat.return_value.chat_stream = mock_stream
+        mock_service.chat_stream = mock_stream
+
+        with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
             resp = await api_client.post(
                 "/api/chat",
                 json={"question": "What is new in AI?"},
@@ -180,13 +195,15 @@ class TestChatValidation:
     async def test_topic_is_optional(self, api_client: AsyncClient):
         """When topic is omitted, it should default to None."""
         captured_kwargs = {}
+        mock_service = MagicMock()
 
         async def mock_stream(*_a, **kw):
             captured_kwargs.update(kw)
             yield "data: [DONE]\n\n"
 
-        with patch("src.api.routes.chat.ChatService") as mock_chat:
-            mock_chat.return_value.chat_stream = mock_stream
+        mock_service.chat_stream = mock_stream
+
+        with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
             resp = await api_client.post(
                 "/api/chat",
                 json={"question": "What is new in AI?"},

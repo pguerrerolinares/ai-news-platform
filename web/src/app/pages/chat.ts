@@ -270,7 +270,9 @@ export class ChatPage implements AfterViewChecked {
   ];
 
   ngAfterViewChecked() {
-    this.scrollToBottom();
+    if (this.streaming()) {
+      this.scrollToBottom();
+    }
   }
 
   askQuestion(q: string) {
@@ -312,15 +314,17 @@ export class ChatPage implements AfterViewChecked {
       const decoder = new TextDecoder();
       let fullText = '';
       let sources: ChatSource[] = [];
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n');
+        buffer = parts.pop()!; // keep incomplete last line
 
-        for (const line of lines) {
+        for (const line of parts) {
           if (!line.startsWith('data: ')) continue;
           const data = line.slice(6);
 

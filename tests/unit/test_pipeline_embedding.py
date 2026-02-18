@@ -14,7 +14,6 @@ def _mock_settings(**overrides):
         "embedding_api_key": "sk-test",
         "embedding_base_url": "https://api.openai.com/v1",
         "embedding_model": "text-embedding-3-small",
-        "embedding_dimensions": 1536,
         "telegram_bot_token": "",
         "telegram_chat_id": "",
         "telegram_alerts_enabled": False,
@@ -31,9 +30,18 @@ def _make_item(title: str = "Test", summary: str | None = "Summary"):
     return item
 
 
+def _make_session():
+    """Create a mock session with sync add() and async execute/commit/rollback."""
+    session = MagicMock()
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    return session
+
+
 class TestEmbedNewItems:
     async def test_embeds_items_without_embeddings(self):
-        session = AsyncMock()
+        session = _make_session()
         items = [_make_item("Title 1"), _make_item("Title 2")]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = items
@@ -49,7 +57,7 @@ class TestEmbedNewItems:
         mock_embed_service.embed_batch.assert_called_once()
 
     async def test_skips_when_no_items(self):
-        session = AsyncMock()
+        session = _make_session()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
         session.execute.return_value = mock_result
@@ -62,7 +70,7 @@ class TestEmbedNewItems:
         mock_embed_service.embed_batch.assert_not_called()
 
     async def test_handles_embedding_error(self):
-        session = AsyncMock()
+        session = _make_session()
         items = [_make_item()]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = items
@@ -77,7 +85,7 @@ class TestEmbedNewItems:
         assert count == 0
 
     async def test_commits_after_storing(self):
-        session = AsyncMock()
+        session = _make_session()
         items = [_make_item()]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = items
@@ -92,7 +100,7 @@ class TestEmbedNewItems:
         session.commit.assert_called_once()
 
     async def test_rollback_on_error(self):
-        session = AsyncMock()
+        session = _make_session()
         items = [_make_item()]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = items
