@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.moonshot.cn/v1"
     openai_model: str = "kimi-latest"
 
+    # --- Embeddings (OpenAI text-embedding-3-small) ---
+    embedding_api_key: str = ""
+    embedding_base_url: str = "https://api.openai.com/v1"
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
+
     # --- Telegram ---
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
