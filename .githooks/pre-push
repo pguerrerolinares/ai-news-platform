@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Pre-push hook: fast quality checks before pushing.
+# Install: git config core.hooksPath .githooks
+set -euo pipefail
+
+echo "=== Pre-push: ruff check ==="
+ruff check .
+
+echo "=== Pre-push: ruff format check ==="
+ruff format --check .
+
+echo "=== Pre-push: pyright ==="
+pyright .
+
+echo "=== Pre-push: pytest (fast subset) ==="
+pytest tests/ -x --timeout=30 -q
+
+echo "=== All pre-push checks passed ==="

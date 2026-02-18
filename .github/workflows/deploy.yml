@@ -1,0 +1,85 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get commit SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/ai-news-platform
+
+            # Save current version for rollback
+            PREV_SHA=$(docker compose exec -T api printenv GIT_SHA 2>/dev/null || echo "unknown")
+            echo "$PREV_SHA" > .prev_version
+
+            # Pull latest code
+            git pull origin main
+
+            # Build and deploy
+            export GIT_SHA=${{ steps.sha.outputs.short }}
+            docker compose build --no-cache api
+            docker compose up -d api
+
+            # Run migrations
+            docker compose exec -T api alembic upgrade head
+
+            # Health check with timeout
+            echo "Waiting for health check..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+                echo "Health check passed!"
+                exit 0
+              fi
+              echo "Attempt $i/12..."
+              sleep 5
+            done
+
+            # Rollback on failure
+            echo "Health check FAILED. Rolling back..."
+            git checkout "$PREV_SHA" -- .
+            docker compose build --no-cache api
+            docker compose up -d api
+            echo "Rolled back to $PREV_SHA"
+            exit 1
+
+      - name: Notify success
+        if: success()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            Deploy OK
+            Commit: ${{ steps.sha.outputs.short }}
+            Branch: main
+
+      - name: Notify failure
+        if: failure()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            Deploy FAILED
+            Commit: ${{ steps.sha.outputs.short }}
+            Check: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

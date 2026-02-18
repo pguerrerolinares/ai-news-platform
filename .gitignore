@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment / Secrets
+.env
+.env.local
+.env.production
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs
+logs/
+*.log
+
+# Database
+*.sql.gz
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+/tmp/ainews-backups/
+
+# Angular build output
+web/dist/
+web/node_modules/
+web/.angular/
+
+# Misc
+*.bak
+*.tmp
