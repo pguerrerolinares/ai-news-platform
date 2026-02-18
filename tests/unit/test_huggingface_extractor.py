@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import httpx
-import pytest
 import respx
 
 from src.core.config import Settings
@@ -57,7 +57,10 @@ class TestSourceName:
 class TestExtract:
     @respx.mock
     async def test_returns_list_of_extracted_items(self):
-        models = [_make_model("org/model-a", downloads=5000), _make_model("org/model-b", downloads=3000)]
+        models = [
+            _make_model("org/model-a", downloads=5000),
+            _make_model("org/model-b", downloads=3000),
+        ]
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=models))
 
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
@@ -95,21 +98,31 @@ class TestExtract:
             _make_model("a/unpopular", downloads=10),
         ]
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=models))
-        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings(hf_min_downloads=100)):
+        with patch(
+            "src.extractors.huggingface.get_settings",
+            return_value=_mock_settings(hf_min_downloads=100),
+        ):
             result = await HuggingFaceExtractor().extract()
         assert len(result) == 1
         assert result[0].title == "a/popular"
 
     @respx.mock
     async def test_url_points_to_huggingface(self):
-        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[_make_model("org/my-model")]))
+        respx.get(API_URL).mock(
+            return_value=httpx.Response(200, json=[_make_model("org/my-model")])
+        )
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         assert result[0].url == "https://huggingface.co/org/my-model"
 
     @respx.mock
     async def test_metadata_has_expected_keys(self):
-        model = _make_model(pipeline_tag="image-classification", downloads=9999, likes=500, tags=["pytorch", "vision"])
+        model = _make_model(
+            pipeline_tag="image-classification",
+            downloads=9999,
+            likes=500,
+            tags=["pytorch", "vision"],
+        )
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
@@ -123,7 +136,10 @@ class TestExtract:
     async def test_respects_max_items_per_source(self):
         models = [_make_model(f"org/model-{i}", downloads=1000 + i) for i in range(10)]
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=models))
-        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings(max_items_per_source=3)):
+        with patch(
+            "src.extractors.huggingface.get_settings",
+            return_value=_mock_settings(max_items_per_source=3),
+        ):
             result = await HuggingFaceExtractor().extract()
         assert len(result) <= 3
 
@@ -158,7 +174,74 @@ class TestExtract:
 
     @respx.mock
     async def test_author_from_model_id(self):
-        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[_make_model("google/gemma-2b", author="google")]))
+        respx.get(API_URL).mock(
+            return_value=httpx.Response(200, json=[_make_model("google/gemma-2b", author="google")])
+        )
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         assert result[0].author == "google"
+
+    @respx.mock
+    async def test_since_hours_filters_old_models(self):
+        old_date = (datetime.now(tz=UTC) - timedelta(hours=72)).isoformat().replace("+00:00", "Z")
+        model = _make_model("org/old-model", last_modified=old_date)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract(since_hours=48)
+        assert result == []
+
+    @respx.mock
+    async def test_since_hours_includes_recent_models(self):
+        recent_date = (datetime.now(tz=UTC) - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        model = _make_model("org/recent-model", last_modified=recent_date)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract(since_hours=48)
+        assert len(result) == 1
+        assert result[0].title == "org/recent-model"
+
+    @respx.mock
+    async def test_model_without_author_uses_model_id_prefix(self):
+        model = _make_model("meta-llama/Llama-3-8B")
+        del model["author"]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].author == "meta-llama"
+
+    @respx.mock
+    async def test_model_without_slash_in_id_uses_unknown(self):
+        model = _make_model("singleton", downloads=5000)
+        del model["author"]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].author == "unknown"
+
+    @respx.mock
+    async def test_invalid_last_modified_uses_now(self):
+        model = _make_model("org/bad-date", last_modified="not-a-date")
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract(since_hours=48)
+        assert len(result) == 1
+        assert result[0].title == "org/bad-date"
+
+    @respx.mock
+    async def test_model_with_zero_downloads_filtered(self):
+        model = _make_model("org/no-downloads", downloads=0)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch(
+            "src.extractors.huggingface.get_settings",
+            return_value=_mock_settings(hf_min_downloads=100),
+        ):
+            result = await HuggingFaceExtractor().extract()
+        assert result == []
+
+    @respx.mock
+    async def test_score_is_downloads_count(self):
+        model = _make_model("org/scored-model", downloads=42000)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].score == 42000

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -10,7 +11,6 @@ from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.metrics import (
     extractor_duration_seconds,
-    extractor_errors_total,
     items_extracted_total,
 )
 from src.extractors.base import BaseExtractor, ExtractedItem
@@ -48,10 +48,11 @@ class GitHubExtractor(BaseExtractor):
             async with httpx.AsyncClient(timeout=30, headers=headers) as client:
                 for query in queries:
                     try:
-                        new_items = await self._search(
+                        new_items, resp = await self._search(
                             client, query, since_date, min_stars, seen_urls
                         )
                         items.extend(new_items)
+                        await self._check_rate_limit(resp)
                     except Exception as exc:
                         logger.warning(
                             "github_search_failed",
@@ -71,9 +72,6 @@ class GitHubExtractor(BaseExtractor):
             queries=len(queries),
         )
 
-        if not items:
-            extractor_errors_total.labels(source=self.source_name).inc()
-
         return items
 
     async def _search(
@@ -83,7 +81,7 @@ class GitHubExtractor(BaseExtractor):
         since_date: str,
         min_stars: int,
         seen_urls: set[str],
-    ) -> list[ExtractedItem]:
+    ) -> tuple[list[ExtractedItem], httpx.Response]:
         q = f"{query} stars:>{min_stars} pushed:>{since_date}"
         params = {"q": q, "sort": "stars", "order": "desc", "per_page": 30}
 
@@ -127,4 +125,23 @@ class GitHubExtractor(BaseExtractor):
                 )
             )
 
-        return items
+        return items, resp
+
+    async def _check_rate_limit(self, resp: httpx.Response) -> None:
+        """Sleep if GitHub rate limit is nearly exhausted."""
+        remaining = resp.headers.get("X-RateLimit-Remaining")
+        if remaining is None:
+            return
+        try:
+            if int(remaining) <= 1:
+                reset_ts = int(resp.headers.get("X-RateLimit-Reset", "0"))
+                now_ts = int(datetime.now(tz=UTC).timestamp())
+                sleep_for = max(0, reset_ts - now_ts) + 1
+                logger.info(
+                    "github_rate_limit_near",
+                    remaining=remaining,
+                    sleep_seconds=sleep_for,
+                )
+                await asyncio.sleep(sleep_for)
+        except (ValueError, TypeError):
+            pass

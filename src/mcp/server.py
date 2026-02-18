@@ -6,6 +6,7 @@ Run with: python -m src.mcp.server
 from __future__ import annotations
 
 import os
+import threading
 
 from mcp.server.fastmcp import FastMCP
 from src.mcp.client import APIClient
@@ -13,16 +14,19 @@ from src.mcp.client import APIClient
 mcp = FastMCP("AI News Platform")
 
 _client: APIClient | None = None
+_lock = threading.Lock()
 
 
 def _get_client() -> APIClient:
     global _client
     if _client is None:
-        base_url = os.environ.get("MCP_API_BASE_URL", "http://localhost:8000")
-        password = os.environ.get("SHARED_PASSWORD", "")
-        if not password:
-            raise RuntimeError("SHARED_PASSWORD env var is required")
-        _client = APIClient(base_url=base_url, password=password)
+        with _lock:
+            if _client is None:
+                base_url = os.environ.get("MCP_API_BASE_URL", "http://localhost:8000")
+                password = os.environ.get("SHARED_PASSWORD", "")
+                if not password:
+                    raise RuntimeError("SHARED_PASSWORD env var is required")
+                _client = APIClient(base_url=base_url, password=password)
     return _client
 
 
@@ -39,7 +43,7 @@ def _format_items(items: list[dict]) -> str:
         url = item.get("url", "")
 
         header = f"{i}. [{source}] {title}"
-        if score:
+        if score is not None:
             header += f" ({score} pts)"
         if topic:
             header += f" [{topic}]"

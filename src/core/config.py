@@ -52,12 +52,12 @@ class Settings(BaseSettings):
     telegram_alerts_enabled: bool = True
 
     # --- Sources ---
-    enabled_sources: str = "hackernews,arxiv,reddit,rss"
+    enabled_sources: str = "hackernews,arxiv,reddit,rss,github,huggingface"
     max_items_per_source: int = 50
 
     # HackerNews
     hn_min_points: int = 10
-    hn_since_hours: int = 24
+    extraction_since_hours: int = 24
     hn_search_queries: str = "AI,LLM,GPT,machine learning,neural network,deep learning"
 
     # arXiv

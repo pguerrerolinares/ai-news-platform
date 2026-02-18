@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -10,7 +10,6 @@ from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.metrics import (
     extractor_duration_seconds,
-    extractor_errors_total,
     items_extracted_total,
 )
 from src.extractors.base import BaseExtractor, ExtractedItem
@@ -30,6 +29,7 @@ class HuggingFaceExtractor(BaseExtractor):
         settings = get_settings()
         min_downloads = settings.hf_min_downloads
         max_items = settings.max_items_per_source
+        since_cutoff = datetime.now(tz=UTC) - timedelta(hours=since_hours)
 
         seen_urls: set[str] = set()
         items: list[ExtractedItem] = []
@@ -68,6 +68,9 @@ class HuggingFaceExtractor(BaseExtractor):
                         except (ValueError, AttributeError):
                             last_mod = datetime.now(tz=UTC)
 
+                        if last_mod < since_cutoff:
+                            continue
+
                         items.append(
                             ExtractedItem(
                                 title=model_id,
@@ -96,8 +99,5 @@ class HuggingFaceExtractor(BaseExtractor):
 
         items_extracted_total.labels(source=self.source_name).inc(len(items))
         logger.info("extraction_complete", source=self.source_name, count=len(items))
-
-        if not items:
-            extractor_errors_total.labels(source=self.source_name).inc()
 
         return items

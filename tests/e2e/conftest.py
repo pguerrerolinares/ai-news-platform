@@ -16,19 +16,25 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Mock data
 # ---------------------------------------------------------------------------
 
+
 def _make_mock_token() -> str:
     """Create a JWT-like token that passes Angular's isAuthenticated() check."""
-    header = base64.urlsafe_b64encode(
-        json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
-    ).decode().rstrip("=")
-    payload = base64.urlsafe_b64encode(
-        json.dumps({"sub": "admin", "exp": int(time.time()) + 86400}).encode()
-    ).decode().rstrip("=")
+    header = (
+        base64.urlsafe_b64encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+        .decode()
+        .rstrip("=")
+    )
+    payload = (
+        base64.urlsafe_b64encode(
+            json.dumps({"sub": "admin", "exp": int(time.time()) + 86400}).encode()
+        )
+        .decode()
+        .rstrip("=")
+    )
     return f"{header}.{payload}.mock_signature"
 
 
@@ -116,13 +122,13 @@ def _find_dist_dir() -> Path:
     for c in candidates:
         if (c / "index.html").exists():
             return c
-    pytest.skip("Angular build not found – run 'ng build' first.")
+    pytest.skip("Angular build not found - run 'ng build' first.")
 
 
 class _SPAHandler(SimpleHTTPRequestHandler):
     """Serves static files; returns index.html for unknown paths (SPA fallback)."""
 
-    def do_GET(self):
+    def do_GET(self):  # noqa: N802
         path = self.translate_path(self.path)
         if os.path.isfile(path):
             return super().do_GET()
@@ -136,7 +142,10 @@ class _SPAHandler(SimpleHTTPRequestHandler):
 @pytest.fixture(scope="session")
 def base_url():
     dist_dir = _find_dist_dir()
-    handler = lambda *a, **kw: _SPAHandler(*a, directory=str(dist_dir), **kw)
+
+    def handler(*a, **kw):
+        return _SPAHandler(*a, directory=str(dist_dir), **kw)
+
     server = HTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -148,6 +157,7 @@ def base_url():
 # ---------------------------------------------------------------------------
 # API route mocking
 # ---------------------------------------------------------------------------
+
 
 def setup_mock_routes(
     page,
@@ -216,6 +226,7 @@ def setup_mock_routes(
 # ---------------------------------------------------------------------------
 # Page fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def mock_page(page, base_url):

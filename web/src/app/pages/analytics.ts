@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal, computed } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { HighchartsChartComponent } from 'highcharts-angular';
-import type Highcharts from 'highcharts';
+import * as Highcharts from 'highcharts';
+import { switchMap, of } from 'rxjs';
 import { NewsService } from '../services/news.service';
 import { Briefing, NewsItem } from '../models/news-item';
 
@@ -77,7 +79,9 @@ import { Briefing, NewsItem } from '../models/news-item';
 })
 export class AnalyticsPage implements OnInit {
   private newsService = inject(NewsService);
+  private destroyRef = inject(DestroyRef);
 
+  Highcharts = Highcharts;
   briefings = signal<Briefing[]>([]);
   todayItems = signal<NewsItem[]>([]);
   loading = signal(true);
@@ -137,20 +141,22 @@ export class AnalyticsPage implements OnInit {
   });
 
   ngOnInit() {
-    this.newsService.getBriefings().subscribe({
-      next: (briefings) => {
+    this.newsService.getBriefings().pipe(
+      takeUntilDestroyed(this.destroyRef),
+      switchMap((briefings) => {
         this.briefings.set(briefings.slice(0, 14));
         const today = new Date().toISOString().slice(0, 10);
         const todayBriefing = briefings.find(b => b.date === today);
         if (todayBriefing?.items) {
           this.todayItems.set(todayBriefing.items);
-          this.loading.set(false);
-        } else {
-          this.newsService.getTodayItems().subscribe({
-            next: (items) => { this.todayItems.set(items); this.loading.set(false); },
-            error: () => this.loading.set(false),
-          });
+          return of(null);
         }
+        return this.newsService.getTodayItems();
+      }),
+    ).subscribe({
+      next: (items) => {
+        if (items) { this.todayItems.set(items); }
+        this.loading.set(false);
       },
       error: () => {
         this.error.set('Error al cargar analytics.');

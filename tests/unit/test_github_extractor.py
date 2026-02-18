@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import time
+from unittest.mock import AsyncMock, patch
 
 import httpx
-import pytest
 import respx
 
 from src.core.config import Settings
@@ -68,7 +68,10 @@ class TestSourceName:
 class TestExtract:
     @respx.mock
     async def test_returns_list_of_extracted_items(self):
-        repos = [_make_repo("repo-a", stargazers_count=300, html_url="https://github.com/owner/repo-a"), _make_repo("repo-b", stargazers_count=100, html_url="https://github.com/owner/repo-b")]
+        repos = [
+            _make_repo("repo-a", stargazers_count=300, html_url="https://github.com/owner/repo-a"),
+            _make_repo("repo-b", stargazers_count=100, html_url="https://github.com/owner/repo-b"),
+        ]
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response(repos)))
 
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
@@ -109,7 +112,10 @@ class TestExtract:
         respx.get(SEARCH_URL).mock(
             return_value=httpx.Response(200, json=_search_response([repo, repo]))
         )
-        with patch("src.extractors.github.get_settings", return_value=_mock_settings(github_search_queries="AI,LLM")):
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_search_queries="AI,LLM"),
+        ):
             result = await GitHubExtractor().extract()
         assert len(result) == 1
 
@@ -124,7 +130,9 @@ class TestExtract:
 
     @respx.mock
     async def test_metadata_has_expected_keys(self):
-        repo = _make_repo(language="Rust", stargazers_count=999, forks_count=42, topics=["llm", "ai"])
+        repo = _make_repo(
+            language="Rust", stargazers_count=999, forks_count=42, topics=["llm", "ai"]
+        )
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
@@ -136,16 +144,24 @@ class TestExtract:
 
     @respx.mock
     async def test_respects_max_items_per_source(self):
-        repos = [_make_repo(f"repo-{i}", html_url=f"https://github.com/o/repo-{i}") for i in range(10)]
+        repos = [
+            _make_repo(f"repo-{i}", html_url=f"https://github.com/o/repo-{i}") for i in range(10)
+        ]
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response(repos)))
-        with patch("src.extractors.github.get_settings", return_value=_mock_settings(max_items_per_source=3)):
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(max_items_per_source=3),
+        ):
             result = await GitHubExtractor().extract()
         assert len(result) <= 3
 
     @respx.mock
     async def test_sends_auth_header_when_token_set(self):
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([])))
-        with patch("src.extractors.github.get_settings", return_value=_mock_settings(github_token="ghp_test123")):
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_token="ghp_test123"),
+        ):
             await GitHubExtractor().extract()
         request = respx.calls.last.request
         assert request.headers["Authorization"] == "Bearer ghp_test123"
@@ -153,14 +169,18 @@ class TestExtract:
     @respx.mock
     async def test_no_auth_header_without_token(self):
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([])))
-        with patch("src.extractors.github.get_settings", return_value=_mock_settings(github_token="")):
+        with patch(
+            "src.extractors.github.get_settings", return_value=_mock_settings(github_token="")
+        ):
             await GitHubExtractor().extract()
         request = respx.calls.last.request
         assert "Authorization" not in request.headers
 
     @respx.mock
     async def test_handles_api_error_gracefully(self):
-        respx.get(SEARCH_URL).mock(return_value=httpx.Response(403, json={"message": "rate limited"}))
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(403, json={"message": "rate limited"})
+        )
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
         assert result == []
@@ -202,6 +222,103 @@ class TestExtract:
             return httpx.Response(200, json=_search_response([repo_b]))
 
         respx.get(SEARCH_URL).mock(side_effect=side_effect)
-        with patch("src.extractors.github.get_settings", return_value=_mock_settings(github_search_queries="AI,LLM")):
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_search_queries="AI,LLM"),
+        ):
             result = await GitHubExtractor().extract()
         assert len(result) == 2
+
+    @respx.mock
+    async def test_rate_limit_header_triggers_sleep(self):
+        repo = _make_repo("rate-limited-repo")
+        reset_time = str(int(time.time()) + 2)
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json=_search_response([repo]),
+                headers={
+                    "X-RateLimit-Remaining": "1",
+                    "X-RateLimit-Reset": reset_time,
+                },
+            )
+        )
+        with (
+            patch("src.extractors.github.get_settings", return_value=_mock_settings()),
+            patch("src.extractors.github.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        mock_sleep.assert_awaited_once()
+
+    @respx.mock
+    async def test_rate_limit_header_not_present_no_sleep(self):
+        repo = _make_repo("no-rate-limit-repo")
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with (
+            patch("src.extractors.github.get_settings", return_value=_mock_settings()),
+            patch("src.extractors.github.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        mock_sleep.assert_not_awaited()
+
+    @respx.mock
+    async def test_repo_without_owner_field(self):
+        repo = _make_repo("orphan-repo")
+        del repo["owner"]
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        assert result[0].author == "unknown"
+
+    @respx.mock
+    async def test_invalid_pushed_at_uses_now(self):
+        repo = _make_repo("bad-date-repo", pushed_at="not-a-date")
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        assert result[0].published_at is not None
+
+    @respx.mock
+    async def test_partial_query_failure(self):
+        repo_b = _make_repo("repo-b", html_url="https://github.com/o/b", stargazers_count=150)
+        call_count = 0
+
+        def side_effect(request):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(403, json={"message": "forbidden"})
+            return httpx.Response(200, json=_search_response([repo_b]))
+
+        respx.get(SEARCH_URL).mock(side_effect=side_effect)
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_search_queries="AI,LLM"),
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        assert result[0].title.startswith("repo-b")
+
+    @respx.mock
+    async def test_search_query_appears_in_metadata(self):
+        repo = _make_repo("meta-repo")
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_search_queries="machine-learning"),
+        ):
+            result = await GitHubExtractor().extract()
+        assert result[0].metadata["search_query"] == "machine-learning"
+
+    @respx.mock
+    async def test_title_with_no_description(self):
+        repo = _make_repo("bare-repo", description=None)
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert result[0].title == "bare-repo"
+        assert ": " not in result[0].title

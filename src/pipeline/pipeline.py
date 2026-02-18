@@ -86,7 +86,7 @@ async def _extract_all(
 
     async def _run_one(extractor: BaseExtractor) -> list[ExtractedItem]:
         try:
-            since = settings.hn_since_hours
+            since = settings.extraction_since_hours
             items = await extractor.extract(since_hours=since)
             logger.info(
                 "extractor_result",

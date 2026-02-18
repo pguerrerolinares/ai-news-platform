@@ -98,6 +98,7 @@ async def count_items(
 
 @router.get("/today", response_model=list[NewsItemResponse])
 async def list_today_items(
+    topic: str | None = Query(None, description="Filter by topic"),
     limit: int = Query(100, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
@@ -111,6 +112,8 @@ async def list_today_items(
         .order_by(NewsItem.score.desc().nulls_last())
         .limit(limit)
     )
+    if topic:
+        query = query.where(NewsItem.topic == topic)
 
     result = await session.execute(query)
     items = result.scalars().all()

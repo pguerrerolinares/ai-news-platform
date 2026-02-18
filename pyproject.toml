@@ -111,7 +111,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["src/mcp/*", "src/rag/*"]
+omit = ["src/rag/*"]
 
 [tool.coverage.report]
 fail_under = 80

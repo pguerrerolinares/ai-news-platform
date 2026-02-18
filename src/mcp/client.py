@@ -15,6 +15,15 @@ class APIClient:
         self._http = httpx.Client(base_url=self.base_url, timeout=30)
         self.token = self._authenticate(password)
 
+    def close(self) -> None:
+        self._http.close()
+
+    def __enter__(self) -> APIClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
     def _authenticate(self, password: str) -> str:
         resp = self._http.post("/api/auth/token", json={"password": password})
         if resp.status_code != 200:
@@ -46,6 +55,8 @@ class APIClient:
 
     def get_latest(self, topic: str | None = None, limit: int = 10) -> list[dict]:
         params: dict[str, str | int] = {"limit": limit}
+        if topic:
+            params["topic"] = topic
         resp = self._http.get("/api/items/today", params=params, headers=self._headers)
         resp.raise_for_status()
         return resp.json()
