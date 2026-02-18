@@ -215,12 +215,28 @@ def setup_mock_routes(
             body=json.dumps([_briefing]),
         )
 
+    def handle_chat(route):
+        body = (
+            'data: {"token": "Esta semana "}\n\n'
+            'data: {"token": "se lanzaron "}\n\n'
+            'data: {"token": "varios modelos."}\n\n'
+            'data: {"sources": [{"id": "1", "title": "New AI Model Released", '
+            '"url": "https://example.com/news/1", "topic": "modelos"}]}\n\n'
+            "data: [DONE]\n\n"
+        )
+        route.fulfill(
+            status=200,
+            content_type="text/event-stream",
+            body=body,
+        )
+
     page.route("**/api/auth/token", handle_auth)
     page.route("**/api/items/today*", handle_items)
     page.route("**/api/items?*", handle_items)
     page.route("**/api/briefings/*", handle_briefing)
     page.route("**/api/briefings", handle_briefings_list)
     page.route("**/api/search*", handle_search)
+    page.route("**/api/chat", handle_chat)
 
 
 # ---------------------------------------------------------------------------
