@@ -68,3 +68,16 @@ def test_links_open_in_new_tab(authed_page: Page, base_url: str):
     link = authed_page.locator("article a[target='_blank']").first
     expect(link).to_be_visible()
     expect(link).to_have_attribute("target", "_blank")
+
+
+def test_topic_chips_filter_items(authed_page: Page, base_url: str):
+    authed_page.goto(base_url + "/dashboard")
+    # All 3 items visible initially
+    expect(authed_page.locator("app-news-item-card")).to_have_count(3)
+    # Click "modelos" chip to filter
+    authed_page.locator(".topic-chip", has_text="modelos").click()
+    expect(authed_page.locator("app-news-item-card")).to_have_count(1)
+    expect(authed_page.locator("text=New AI Model Released")).to_be_visible()
+    # Click again to clear filter
+    authed_page.locator(".topic-chip", has_text="modelos").click()
+    expect(authed_page.locator("app-news-item-card")).to_have_count(3)
