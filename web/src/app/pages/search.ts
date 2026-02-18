@@ -85,25 +85,24 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
 
-    .search-form {
-      margin-bottom: 8px;
-    }
+    .search-form { margin-bottom: 8px; }
+
     .search-row {
       display: flex;
       gap: 10px;
       align-items: flex-start;
     }
-    .search-field {
-      flex: 1;
-    }
+
+    .search-field { flex: 1; }
+
     .search-btn {
       height: 56px;
-      padding: 0 24px;
-      font-size: 0.875rem;
+      padding: 0 28px;
+      font-size: var(--text-sm);
       font-weight: 600;
-      letter-spacing: -0.01em;
+      letter-spacing: var(--tracking-normal);
       font-family: var(--font-body);
-      border-radius: 8px;
+      border-radius: 10px;
     }
 
     .filters {
@@ -111,39 +110,40 @@ import { NewsItemCard } from '../components/news-item-card';
       gap: 14px;
       flex-wrap: wrap;
     }
-    .filter-field {
-      min-width: 140px;
-    }
+    .filter-field { min-width: 140px; }
 
-    .loading-bar {
-      margin-bottom: 24px;
-    }
+    .loading-bar { margin-bottom: 24px; }
 
     .error, .empty {
-      padding: 28px;
+      padding: 32px;
       text-align: center;
-      border-radius: 12px;
+      border-radius: 14px;
       margin: 24px 0;
-      font-size: 0.9375rem;
+      font-size: var(--text-base);
     }
     .error {
       background: var(--error-subtle);
       color: #f87171;
-      border: 1px solid rgba(239,68,68,0.15);
+      border: 1px solid rgba(239, 68, 68, 0.15);
     }
     .empty {
-      background: var(--bg-surface);
-      color: var(--text-tertiary);
+      background: var(--bg-elevated);
+      color: var(--text-muted);
       border: 1px solid var(--border);
     }
 
     .count-label {
-      color: var(--text-tertiary);
-      margin-bottom: 14px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
       font-size: 0.875rem;
+      font-weight: 500;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 12px; }
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
 
     @media (max-width: 640px) {
       .search-row { flex-direction: column; }
