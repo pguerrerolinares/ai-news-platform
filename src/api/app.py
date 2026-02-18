@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -98,16 +99,19 @@ async def metrics_middleware(request: Request, call_next: object) -> Response:
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
+async def health_check() -> JSONResponse:
     """Health check endpoint. Verifies DB connectivity."""
     engine = get_engine()
     try:
         async with engine.connect() as conn:
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
-        return {"status": "healthy", "database": "connected"}
+        return JSONResponse(content={"status": "healthy", "database": "connected"})
     except Exception as exc:
         logger.error("health_check_failed", error=str(exc))
-        return {"status": "unhealthy", "database": str(exc)}
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": str(exc)},
+        )
 
 
 @app.get("/metrics")
