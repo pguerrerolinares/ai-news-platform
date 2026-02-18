@@ -95,7 +95,7 @@ import { AuthService } from './services/auth.service';
       padding: 4px 8px;
     }
     main.with-nav {
-      max-width: 800px;
+      max-width: 1024px;
       margin: 0 auto;
       padding: 20px;
     }
