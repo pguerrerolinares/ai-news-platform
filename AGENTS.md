@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-18 | **Current milestone**: 5 (Production Hardening) | **Status**: In progress
+> **Last updated**: 2026-02-18 | **Current milestone**: 7 (Frontend Redesign — Angular Material M3) | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 667 (633 unit + 34 E2E), 92% coverage
+- **Tests**: 672 (637 unit + 35 E2E), 92% coverage
 
 ## Architecture
 
@@ -150,17 +150,17 @@ ai-news-platform/
 │       ├── server.py              # MCP server (news tools: search, trending, topics, briefing)
 │       └── client.py              # MCP client (connect to server, call tools)
 ├── web/                           # Angular 21 app
-│   ├── package.json               # Angular 21 dependencies
-│   ├── angular.json               # Angular CLI config
+│   ├── package.json               # Angular 21 + Material 21 dependencies
+│   ├── angular.json               # Angular CLI config (SCSS, budgets 1MB/1.5MB)
 │   ├── tsconfig.json              # TypeScript config
 │   ├── tsconfig.app.json          # App-specific TS config
 │   ├── src/
 │   │   ├── main.ts                # Angular bootstrap
-│   │   ├── index.html             # HTML shell
-│   │   ├── styles.css             # Global styles
+│   │   ├── index.html             # HTML shell (Material Icons + Google Fonts)
+│   │   ├── styles.scss            # M3 theme (mat.$violet-palette) + design tokens + global overrides
 │   │   └── app/
-│   │       ├── app.ts             # Root component (nav bar + router-outlet)
-│   │       ├── app.config.ts      # provideRouter, provideHttpClient, withInterceptors
+│   │       ├── app.ts             # Root component (MatToolbar navbar + router-outlet)
+│   │       ├── app.config.ts      # provideRouter, provideHttpClient, provideAnimationsAsync
 │   │       ├── app.routes.ts      # Route definitions (login, dashboard, archive, search, chat, analytics)
 │   │       ├── models/
 │   │       │   └── news-item.ts   # NewsItem + Briefing interfaces
@@ -171,13 +171,15 @@ ai-news-platform/
 │   │       │   └── auth.guard.ts  # Route guard (redirects to login if unauthenticated)
 │   │       ├── interceptors/
 │   │       │   └── auth.interceptor.ts # Adds JWT to requests, handles 401/403
+│   │       ├── components/
+│   │       │   └── news-item-card.ts # Reusable card (MatCard, source badges, MatChip topic)
 │   │       └── pages/
-│   │           ├── login.ts       # Password login page
-│   │           ├── dashboard.ts   # Today's news + topic distribution + stats
-│   │           ├── archive.ts     # Historical briefings by date
-│   │           ├── search.ts      # Full-text search with filters
-│   │           ├── chat.ts        # RAG Q&A chat (SSE streaming, markdown)
-│   │           └── analytics.ts   # Source/topic analytics dashboard
+│   │           ├── login.ts       # Password login (MatCard, MatFormField, mat-flat-button)
+│   │           ├── dashboard.ts   # Today's news (MatChipListbox, MatProgressBar, stats)
+│   │           ├── archive.ts     # Historical briefings (MatFormField date, MatSelect)
+│   │           ├── search.ts      # Full-text search (MatFormField, native select, mat-flat-button)
+│   │           ├── chat.ts        # RAG Q&A chat (MatChip suggestions, MatFormField, SSE)
+│   │           └── analytics.ts   # Charts (MatCard, MatProgressBar, Highcharts)
 │   └── dist/                      # Built Angular (served by Nginx)
 ├── tests/                         # (every package has __init__.py)
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
@@ -213,7 +215,7 @@ ai-news-platform/
 │   │   ├── test_retriever.py      # Retriever pgvector tests (10 tests)
 │   │   ├── test_mcp_server.py     # MCP server tools (18 tests)
 │   │   └── test_mcp_client.py     # MCP client (14 tests)
-│   ├── e2e/                       # 34 Playwright tests
+│   ├── e2e/                       # 35 Playwright tests
 │   │   ├── conftest.py            # Static server, API mocks, auth fixtures
 │   │   ├── test_login.py          # Login flow (correct, incorrect, redirect)
 │   │   ├── test_dashboard.py      # Dashboard with mocked data
@@ -461,7 +463,7 @@ pytest tests/ -x --timeout=30 -q
 - [x] E2E tests for chat + analytics
 - [x] Tests (90 new, 666 total)
 
-**Milestone 5 — Production Hardening**: In progress
+**Milestone 5 — Production Hardening**: Complete
 - [x] Health endpoint returns 503 when DB unreachable
 - [x] Nginx: SSE streaming (proxy_buffering off), security headers, metrics restriction
 - [x] Docker entrypoint with auto-migration (alembic upgrade head)
@@ -470,6 +472,41 @@ pytest tests/ -x --timeout=30 -q
 - [x] AGENTS.md updated to reflect M0-M5
 - [ ] HTTPS configuration ready (needs domain)
 - [ ] Deploy to VPS and verify
+
+**Milestone 6 — Frontend Polish (CSS v1)**: Complete
+- [x] Extract `NewsItemCard` reusable component
+- [x] Add `GET /api/topics` endpoint for dynamic topic loading
+- [x] Render markdown in chat with `marked` + `DOMPurify`
+- [x] Topic filter chips on dashboard (toggleable, computed)
+- [x] Widen layout from 800px to 1024px
+- [x] Dark editorial design (Space Grotesk + Inter + JetBrains Mono)
+- [x] E2E test for dashboard topic chip filtering
+- [x] Tests: 35 E2E total
+
+**Milestone 7 — Frontend Redesign (Angular Material M3)**: Complete
+- [x] Install `@angular/material` 21, `@angular/cdk`, `@angular/animations`
+- [x] Convert `styles.css` → `styles.scss` with M3 theming (`mat.$violet-palette`)
+- [x] Dark/light theme via `mat.theme()` + `mat.theme-overrides()` for editorial palette
+- [x] Navbar: `MatToolbar` + `mat-button` + `mat-icon-button` (Material Icons)
+- [x] Login: `MatCard` + `MatFormField`/`MatInput` + `mat-flat-button` (inverted colors)
+- [x] News cards: `MatCard` + `MatChip` (topic badge); source badges remain plain `<span>`s with `[data-source]`
+- [x] Dashboard: `MatChipListbox` for topic filter + `MatProgressBar` for loading
+- [x] Archive: `MatFormField` with native `<input type="date">` + `MatSelect` for topic
+- [x] Search: `MatFormField` + native `<select matNativeControl>` for `#topic-select` (Playwright compat)
+- [x] Analytics: `MatCard` wrappers for Highcharts
+- [x] Chat: `MatChip` suggestion chips + `MatFormField`/`MatSelect` + `mat-flat-button`
+- [x] Budget adjusted: 1MB warning / 1.5MB error (Material adds ~400kB)
+- [x] All 35 E2E tests pass, 637 unit tests pass
+- [x] Zero TS logic changes — signals, computed, subscriptions, handlers all preserved
+- [x] Files NOT touched: `app.routes.ts`, services, guards, interceptors, models, tests
+
+**Key design decisions (M7)**:
+- Source badges = plain `<span>` (NOT MatChip) — 6 per-source colors + `[data-source]` E2E selectors
+- Date inputs = native `type="date"` inside MatFormField — E2E needs `#archive-date[type="date"][max]`
+- Search `#topic-select` = native `<select matNativeControl>` — Playwright `select_option()` requires native `<select>`
+- Message bubbles = plain divs — no Material equivalent, E2E depends on `.message.user`/`.message.assistant`
+- Stats bar = custom CSS inside MatCard — no Material stats grid component
+- Inverted buttons = `mat-flat-button` with `.submit-btn` class overriding `--mdc-filled-button-container-color`
 
 ## Next Tasks
 
@@ -487,3 +524,5 @@ pytest tests/ -x --timeout=30 -q
 | 2026-02-18 | 3 | GitHub + HuggingFace extractors, MCP server/client. 576 tests. |
 | 2026-02-18 | 4 | RAG embeddings, retriever, chat service, SSE streaming, analytics page. 666 tests. |
 | 2026-02-18 | 5 | Health 503, Nginx hardening, auto-migration, pipeline-cron, docs. 667 tests. |
+| 2026-02-18 | 6 | Frontend polish: NewsItemCard component, topic filters, markdown chat, dark editorial design. 35 E2E. |
+| 2026-02-18 | 7 | Angular Material M3 migration: MatToolbar, MatCard, MatChipListbox, MatProgressBar, MatFormField, SCSS theming. 35 E2E green. |
