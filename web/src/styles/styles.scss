@@ -1,0 +1,82 @@
+// web/src/styles/styles.scss
+// Entry point — imports all partials + Material M3 theme + base reset.
+
+@use '@angular/material' as mat;
+@use './tokens';
+@use './typography';
+@use './animations';
+@use './surfaces';
+@use './layout';
+
+// === Angular Material M3 Theme ===
+
+html.dark {
+  @include mat.theme((
+    color: (
+      primary: mat.$violet-palette,
+      tertiary: mat.$violet-palette,
+      theme-type: dark,
+    ),
+    typography: Plus Jakarta Sans,
+    density: 0,
+  ));
+
+  @include mat.theme-overrides((
+    surface: #141418,
+    surface-container: #141418,
+    surface-container-low: #0e0e12,
+    surface-container-high: #1C1C22,
+    surface-container-highest: #24242C,
+    surface-dim: #0C0C0E,
+    on-surface: #F4F4F5,
+    on-surface-variant: #A1A1AA,
+    outline: rgba(255, 255, 255, 0.10),
+    outline-variant: rgba(255, 255, 255, 0.06),
+  ));
+}
+
+html:not(.dark) {
+  @include mat.theme((
+    color: (
+      primary: mat.$violet-palette,
+      tertiary: mat.$violet-palette,
+      theme-type: light,
+    ),
+    typography: Plus Jakarta Sans,
+    density: 0,
+  ));
+
+  @include mat.theme-overrides((
+    surface: #FFFFFF,
+    surface-container: #FFFFFF,
+    surface-container-low: #FAFAFA,
+    surface-container-high: #F4F4F5,
+    surface-container-highest: #E4E4E7,
+    surface-dim: #F4F4F5,
+    on-surface: #09090B,
+    on-surface-variant: #52525B,
+    outline: rgba(0, 0, 0, 0.10),
+    outline-variant: rgba(0, 0, 0, 0.06),
+  ));
+}
+
+// === Reset & Base ===
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  transition: background-color 0.4s, color 0.3s;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: var(--leading-normal);
+}
