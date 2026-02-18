@@ -1,6 +1,8 @@
 import { Component, inject, signal, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { AuthService } from '../services/auth.service';
 
 interface ChatMessage {
@@ -36,7 +38,7 @@ interface ChatSource {
 
         @for (msg of messages(); track $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
-            <div class="message-content">{{ msg.content }}</div>
+            <div class="message-content" [innerHTML]="renderMarkdown(msg.content)"></div>
             @if (msg.sources && msg.sources.length > 0) {
               <div class="sources">
                 <span class="sources-label">Fuentes:</span>
@@ -148,13 +150,13 @@ interface ChatSource {
       max-width: 85%;
       line-height: 1.6;
       font-size: 0.95rem;
-      white-space: pre-wrap;
     }
     .message.user {
       align-self: flex-end;
       background: #2563eb;
       color: white;
       border-bottom-right-radius: 4px;
+      white-space: pre-wrap;
     }
     .message.assistant {
       align-self: flex-start;
@@ -163,6 +165,38 @@ interface ChatSource {
       border-bottom-left-radius: 4px;
     }
     .message-content { word-break: break-word; }
+    .message.assistant .message-content :first-child { margin-top: 0; }
+    .message.assistant .message-content :last-child { margin-bottom: 0; }
+    .message.assistant .message-content p { margin: 0.5em 0; }
+    .message.assistant .message-content ul,
+    .message.assistant .message-content ol {
+      margin: 0.5em 0;
+      padding-left: 1.5em;
+    }
+    .message.assistant .message-content code {
+      background: #e2e8f0;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+    .message.assistant .message-content pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.5em 0;
+    }
+    .message.assistant .message-content pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .message.assistant .message-content strong { font-weight: 600; }
+    .message.assistant .message-content a {
+      color: #2563eb;
+      text-decoration: underline;
+    }
 
     .cursor {
       animation: blink 0.8s infinite;
@@ -268,6 +302,11 @@ export class ChatPage implements AfterViewChecked {
     'Que papers de LLMs se publicaron recientemente?',
     'Que noticias hay sobre agentes de IA?',
   ];
+
+  renderMarkdown(text: string): string {
+    const html = marked.parse(text, { async: false }) as string;
+    return DOMPurify.sanitize(html);
+  }
 
   ngAfterViewChecked() {
     if (this.streaming()) {
