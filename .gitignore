@@ -51,6 +51,9 @@ web/dist/
 web/node_modules/
 web/.angular/
 
+# Worktrees
+.worktrees/
+
 # Misc
 *.bak
 *.tmp
