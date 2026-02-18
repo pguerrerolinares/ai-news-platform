@@ -1,0 +1,50 @@
+// web/src/styles/_layout.scss
+// Global layout utilities, scrollbar, focus ring, transitions.
+
+// === Focus Visible ===
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-glow);
+}
+
+// === Global transitions ===
+
+a, button, input, select, textarea {
+  transition: all 0.15s ease;
+}
+
+// === Scrollbar ===
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+// === Responsive ===
+
+@media (max-width: 640px) {
+  .stat { padding: 14px 8px; }
+  .stat-value { font-size: 1.25rem; }
+}
