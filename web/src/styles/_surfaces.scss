@@ -1,0 +1,146 @@
+// web/src/styles/_surfaces.scss
+// Material component overrides and shared surface classes.
+
+// === Material Component Overrides ===
+
+// MatCard
+.mat-mdc-card {
+  --mdc-elevated-card-container-color: var(--bg-elevated);
+  --mdc-outlined-card-container-color: var(--bg-elevated);
+  --mdc-outlined-card-outline-color: var(--border);
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease,
+    background 0.2s ease;
+}
+
+// MatToolbar
+.mat-toolbar {
+  --mat-toolbar-container-background-color: transparent;
+  --mat-toolbar-container-text-color: var(--text-primary);
+}
+
+// MatFormField — outline
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-outline-color: var(--border);
+  --mdc-outlined-text-field-hover-outline-color: var(--border-hover);
+  --mdc-outlined-text-field-focus-outline-color: var(--accent);
+  --mdc-outlined-text-field-input-text-color: var(--text-primary);
+  --mdc-outlined-text-field-label-text-color: var(--text-muted);
+  --mdc-outlined-text-field-focus-label-text-color: var(--accent);
+  --mdc-outlined-text-field-input-text-font: var(--font-body);
+  --mdc-outlined-text-field-label-text-font: var(--font-body);
+  --mat-form-field-container-text-font: var(--font-body);
+  --mat-form-field-subscript-text-font: var(--font-body);
+
+  .mdc-text-field--outlined {
+    --mdc-outlined-text-field-container-shape: 10px;
+  }
+}
+
+.mat-mdc-input-element::placeholder {
+  color: var(--text-muted) !important;
+}
+
+// MatSelect
+.mat-mdc-select {
+  --mat-select-trigger-text-font: var(--font-body);
+  --mat-select-trigger-text-color: var(--text-primary);
+}
+
+// MatChip
+.mat-mdc-chip {
+  --mdc-chip-elevated-container-color: var(--bg-elevated);
+  --mdc-chip-label-text-color: var(--text-secondary);
+  --mdc-chip-outline-color: var(--border);
+  --mdc-chip-label-text-font: var(--font-body);
+}
+
+// MatProgressBar
+.mat-mdc-progress-bar {
+  --mdc-linear-progress-active-indicator-color: var(--accent);
+  --mdc-linear-progress-track-color: var(--bg-hover);
+  border-radius: 4px;
+}
+
+// === Inverted Submit Button ===
+
+.dark .submit-btn.mat-mdc-unelevated-button {
+  --mdc-filled-button-container-color: var(--accent);
+  --mdc-filled-button-label-text-color: #fff;
+}
+html:not(.dark) .submit-btn.mat-mdc-unelevated-button {
+  --mdc-filled-button-container-color: var(--accent);
+  --mdc-filled-button-label-text-color: #fff;
+}
+.submit-btn.mat-mdc-unelevated-button {
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: var(--tracking-normal);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.submit-btn.mat-mdc-unelevated-button:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.submit-btn.mat-mdc-unelevated-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.submit-btn.mat-mdc-unelevated-button:disabled {
+  opacity: 0.4;
+}
+
+// === Stats Bar (shared: dashboard + archive) ===
+
+.stats-bar {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  padding: 18px 12px;
+  border-right: 1px solid var(--border);
+  animation: fade-in 0.4s ease-out both;
+}
+.stat:last-child { border-right: none; }
+// Stagger stats
+@for $i from 1 through 6 {
+  .stat:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 80}ms;
+  }
+}
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+}
+.stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+// === Utility: .card ===
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
