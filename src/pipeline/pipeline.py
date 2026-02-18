@@ -32,7 +32,7 @@ from src.core.metrics import (
     pipeline_runs_total,
     validation_duration_seconds,
 )
-from src.core.models import DailyBriefing, NewsItem
+from src.core.models import DailyBriefing, ItemEmbedding, NewsItem
 from src.extractors.arxiv import ArxivExtractor
 from src.extractors.base import BaseExtractor, ExtractedItem
 from src.extractors.github import GitHubExtractor
@@ -43,6 +43,7 @@ from src.extractors.rss import RSSExtractor
 from src.notifiers.alerts import AlertService
 from src.notifiers.telegram import TelegramNotifier
 from src.pipeline.dedup import deduplicate_items
+from src.rag.embeddings import EmbeddingService
 from src.validators.credibility import CredibilityValidator
 
 logger = get_logger(__name__)
@@ -209,6 +210,54 @@ async def _save_briefing(
     await session.commit()
 
 
+async def _embed_new_items(
+    session: AsyncSession,
+    embed_service: EmbeddingService | None = None,
+) -> int:
+    """Generate embeddings for items that don't have one yet.
+
+    Returns count of newly embedded items. Errors are logged but not raised.
+    """
+    settings = get_settings()
+
+    if embed_service is None:
+        embed_service = EmbeddingService()
+
+    model_name = settings.embedding_model
+
+    # Find items without embeddings for this model
+    subquery = select(ItemEmbedding.item_id).where(ItemEmbedding.model == model_name)
+    stmt = select(NewsItem).where(~NewsItem.id.in_(subquery))
+    result = await session.execute(stmt)
+    items = list(result.scalars().all())
+
+    if not items:
+        logger.info("embed_no_new_items")
+        return 0
+
+    try:
+        texts = [embed_service.prepare_text(item.title, item.summary) for item in items]
+        embeddings = await embed_service.embed_batch(texts)
+
+        for item, embedding in zip(items, embeddings, strict=True):
+            session.add(
+                ItemEmbedding(
+                    item_id=item.id,
+                    model=model_name,
+                    embedding=embedding,
+                )
+            )
+
+        await session.commit()
+        logger.info("embed_items_stored", count=len(items))
+        return len(items)
+
+    except Exception as exc:
+        logger.error("embed_items_failed", error=str(exc))
+        await session.rollback()
+        return 0
+
+
 async def run_pipeline(session: AsyncSession) -> bool:
     """Execute the full news pipeline.
 
@@ -293,6 +342,14 @@ async def run_pipeline(session: AsyncSession) -> bool:
             except Exception as exc:
                 notification_errors_total.inc()
                 logger.warning("notification_failed", error=str(exc))
+
+        # 9. Generate embeddings (if configured)
+        if settings.embedding_api_key:
+            try:
+                embedded_count = await _embed_new_items(session)
+                logger.info("pipeline_embeddings", count=embedded_count)
+            except Exception as exc:
+                logger.warning("pipeline_embedding_failed", error=str(exc))
 
         pipeline_runs_total.labels(status="success").inc()
         pipeline_duration_seconds.observe(duration)
