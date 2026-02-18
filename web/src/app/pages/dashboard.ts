@@ -1,12 +1,13 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { Briefing } from '../models/news-item';
+import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, DatePipe],
+  imports: [CommonModule, NewsItemCard],
   template: `
     <div class="dashboard">
       @if (loading()) {
@@ -52,9 +53,16 @@ import { Briefing } from '../models/news-item';
             <h3>Distribucion por tema</h3>
             <div class="topic-chips">
               @for (tc of topicCounts(); track tc.topic) {
-                <span class="topic-chip">
+                <button
+                  class="topic-chip"
+                  [class.active]="selectedTopic() === tc.topic"
+                  (click)="toggleTopic(tc.topic)"
+                >
                   {{ tc.topic }} <strong>{{ tc.count }}</strong>
-                </span>
+                </button>
+              }
+              @if (selectedTopic()) {
+                <button class="clear-filter" (click)="toggleTopic(selectedTopic()!)">limpiar filtro</button>
               }
             </div>
           </div>
@@ -64,45 +72,14 @@ import { Briefing } from '../models/news-item';
           <div class="empty">No hay noticias disponibles hoy. Ejecuta el pipeline primero.</div>
         }
 
-        @if (items().length > 0) {
-          <div class="count-label">{{ items().length }} noticias hoy</div>
+        @if (filteredItems().length > 0) {
+          <div class="count-label">{{ filteredItems().length }} noticias hoy</div>
         }
 
         <!-- News list -->
         <div class="news-list">
-          @for (item of items(); track item.id) {
-            <article class="news-item">
-              <div class="item-header">
-                <span class="source-badge" [attr.data-source]="item.source">{{ item.source }}</span>
-                @if (item.score) {
-                  <span class="score">{{ item.score }} pts</span>
-                }
-                @if (item.topic) {
-                  <span class="topic-badge">{{ item.topic }}</span>
-                }
-                @if (item.trending) {
-                  <span class="trending">trending</span>
-                }
-              </div>
-              <h2>
-                @if (item.url) {
-                  <a [href]="item.url" target="_blank" rel="noopener">{{ item.title }}</a>
-                } @else {
-                  {{ item.title }}
-                }
-              </h2>
-              @if (item.summary) {
-                <p class="summary">{{ item.summary }}</p>
-              }
-              <div class="item-meta">
-                @if (item.author) {
-                  <span>{{ item.author }}</span>
-                }
-                @if (item.published_at) {
-                  <span>{{ item.published_at | date:'short' }}</span>
-                }
-              </div>
-            </article>
+          @for (item of filteredItems(); track item.id) {
+            <app-news-item-card [item]="item" />
           }
         </div>
       }
@@ -161,6 +138,7 @@ import { Briefing } from '../models/news-item';
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+      align-items: center;
     }
     .topic-chip {
       font-size: 0.78rem;
@@ -168,9 +146,21 @@ import { Briefing } from '../models/news-item';
       border-radius: 12px;
       background: #dbeafe;
       color: #1e40af;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
     }
-    .topic-chip strong {
-      margin-left: 4px;
+    .topic-chip:hover { background: #bfdbfe; }
+    .topic-chip.active { background: #2563eb; color: white; }
+    .topic-chip strong { margin-left: 4px; }
+    .clear-filter {
+      background: none;
+      border: none;
+      color: #2563eb;
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin-left: 8px;
+      text-decoration: underline;
     }
 
     .count-label {
@@ -180,63 +170,6 @@ import { Briefing } from '../models/news-item';
     }
 
     .news-list { display: flex; flex-direction: column; gap: 12px; }
-    .news-item {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      transition: box-shadow 0.15s;
-    }
-    .news-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .item-header {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-    .source-badge {
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-weight: 600;
-      background: #e2e8f0;
-      color: #475569;
-      text-transform: uppercase;
-    }
-    .source-badge[data-source="hackernews"] { background: #ff6600; color: white; }
-    .source-badge[data-source="arxiv"] { background: #b31b1b; color: white; }
-    .source-badge[data-source="reddit"] { background: #ff4500; color: white; }
-    .source-badge[data-source="rss"] { background: #f59e0b; color: white; }
-    .score { font-size: 0.8rem; color: #64748b; font-weight: 500; }
-    .topic-badge {
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 3px;
-      background: #dbeafe;
-      color: #1e40af;
-    }
-    .trending {
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 3px;
-      background: #fef3c7;
-      color: #b45309;
-      font-weight: 600;
-    }
-    h2 {
-      margin: 0 0 8px;
-      font-size: 1.05rem;
-      line-height: 1.4;
-    }
-    h2 a { color: #1e293b; text-decoration: none; }
-    h2 a:hover { color: #2563eb; text-decoration: underline; }
-    .summary { margin: 0 0 8px; color: #475569; font-size: 0.9rem; line-height: 1.5; }
-    .item-meta {
-      display: flex;
-      gap: 12px;
-      color: #94a3b8;
-      font-size: 0.8rem;
-    }
   `],
 })
 export class DashboardPage implements OnInit {
@@ -246,6 +179,7 @@ export class DashboardPage implements OnInit {
   briefing = signal<Briefing | null>(null);
   loading = signal(true);
   error = signal<string | null>(null);
+  selectedTopic = signal<string | null>(null);
 
   topicCounts = computed(() => {
     const counts = new Map<string, number>();
@@ -257,6 +191,16 @@ export class DashboardPage implements OnInit {
       .map(([topic, count]) => ({ topic, count }))
       .sort((a, b) => b.count - a.count);
   });
+
+  filteredItems = computed(() => {
+    const topic = this.selectedTopic();
+    if (!topic) return this.items();
+    return this.items().filter(item => (item.topic || 'sin tema') === topic);
+  });
+
+  toggleTopic(topic: string) {
+    this.selectedTopic.set(this.selectedTopic() === topic ? null : topic);
+  }
 
   ngOnInit() {
     const today = new Date().toISOString().slice(0, 10);
