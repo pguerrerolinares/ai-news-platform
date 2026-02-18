@@ -1,0 +1,30 @@
+// web/src/styles/_typography.scss
+// Font families and type scale tokens.
+
+:root {
+  // Font families
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  // Type scale
+  --text-xs: 0.6875rem;     // 11px — labels, metadata
+  --text-sm: 0.8125rem;     // 13px — chips, nav, small body
+  --text-base: 0.9375rem;   // 15px — body default
+  --text-lg: 1.125rem;      // 18px — card titles
+  --text-xl: 1.5rem;        // 24px — page headings
+  --text-2xl: 2rem;         // 32px — login title
+  --text-display: 2.5rem;   // 40px — display
+
+  // Line heights paired to scale
+  --leading-tight: 1.25;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  // Letter spacing
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.06em;
+}
