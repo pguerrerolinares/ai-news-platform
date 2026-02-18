@@ -116,63 +116,66 @@ import { NewsItemCard } from '../components/news-item-card';
       gap: 12px;
       margin-bottom: 8px;
     }
-    .control-field {
-      min-width: 180px;
-    }
+    .control-field { min-width: 180px; }
 
-    .loading-bar {
-      margin-bottom: 24px;
-    }
+    .loading-bar { margin-bottom: 24px; }
 
     .error, .empty {
-      padding: 28px;
+      padding: 32px;
       text-align: center;
-      border-radius: 12px;
+      border-radius: 14px;
       margin: 24px 0;
-      font-size: 0.9375rem;
+      font-size: var(--text-base);
     }
     .error {
       background: var(--error-subtle);
       color: #f87171;
-      border: 1px solid rgba(239,68,68,0.15);
+      border: 1px solid rgba(239, 68, 68, 0.15);
     }
     .empty {
-      background: var(--bg-surface);
-      color: var(--text-tertiary);
+      background: var(--bg-elevated);
+      color: var(--text-muted);
       border: 1px solid var(--border);
     }
 
-    .topic-summary { margin-bottom: 20px; }
+    .topic-summary { margin-bottom: 24px; }
     .topic-summary h3 {
-      margin: 0 0 10px;
-      font-size: 0.8125rem;
-      color: var(--text-tertiary);
-      font-weight: 500;
+      margin: 0 0 12px;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: var(--tracking-wider);
     }
+
     .topic-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
     }
+
     .topic-chip {
-      font-size: 0.8125rem;
+      font-size: var(--text-sm);
       padding: 5px 14px;
       border-radius: 980px;
-      background: var(--bg-surface);
+      background: var(--bg-elevated);
       border: 1px solid var(--border);
       color: var(--text-secondary);
     }
-    .topic-chip strong { margin-left: 4px; color: var(--text-tertiary); }
+    .topic-chip strong { margin-left: 4px; color: var(--text-muted); }
 
     .count-label {
-      color: var(--text-tertiary);
-      margin-bottom: 14px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
       font-size: 0.875rem;
+      font-weight: 500;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 12px; }
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
 
     @media (max-width: 640px) {
       .controls { flex-wrap: wrap; }
