@@ -57,28 +57,56 @@ import { AuthService } from '../services/auth.service';
       align-items: center;
       min-height: 100vh;
       background: var(--bg-base);
+      position: relative;
+      overflow: hidden;
+    }
+    :host::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      right: -20%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    :host::after {
+      content: '';
+      position: absolute;
+      bottom: -30%;
+      left: -10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
     }
     .login-container {
       width: 100%;
-      max-width: 380px;
+      max-width: 400px;
       padding: 24px;
+      position: relative;
+      z-index: 1;
     }
     .login-card {
-      padding: 48px 40px;
+      padding: 52px 44px;
+      border-radius: 16px !important;
+      border: 1px solid var(--border-hover) !important;
+      animation: scale-in 0.5s ease-out both;
     }
     h1 {
-      margin: 0 0 6px;
+      margin: 0 0 8px;
       font-family: var(--font-heading);
-      font-size: 2rem;
-      font-weight: 700;
+      font-size: var(--text-2xl);
+      font-weight: 800;
       text-align: center;
-      letter-spacing: -0.02em;
+      letter-spacing: var(--tracking-tight);
       color: var(--text-primary);
+      line-height: var(--leading-tight);
     }
     .subtitle {
-      margin: 0 0 32px;
-      color: var(--text-tertiary);
-      font-size: 0.9375rem;
+      margin: 0 0 36px;
+      color: var(--text-muted);
+      font-size: var(--text-base);
       text-align: center;
       font-weight: 400;
     }
@@ -87,7 +115,7 @@ import { AuthService } from '../services/auth.service';
       color: #f87171;
       padding: 12px 16px;
       border-radius: 10px;
-      border: 1px solid rgba(239,68,68,0.15);
+      border: 1px solid rgba(239, 68, 68, 0.15);
       font-size: 0.875rem;
       margin-bottom: 20px;
       font-weight: 500;
@@ -96,22 +124,20 @@ import { AuthService } from '../services/auth.service';
       width: 100%;
     }
     mat-form-field.full-width {
-      margin-bottom: 4px;
+      margin-bottom: 8px;
     }
     button.submit-btn {
-      height: 48px;
-      font-size: 0.9375rem;
+      height: 52px;
+      font-size: var(--text-base);
       font-weight: 600;
-      letter-spacing: -0.01em;
+      letter-spacing: var(--tracking-normal);
       font-family: var(--font-body);
-      border-radius: 8px;
-    }
-    button.submit-btn:active:not(:disabled) {
-      transform: scale(0.985);
+      border-radius: 10px;
     }
     @media (max-width: 640px) {
       .login-container { padding: 16px; }
-      .login-card { padding: 36px 24px; }
+      .login-card { padding: 40px 28px; }
+      :host::before, :host::after { display: none; }
     }
   `],
 })
