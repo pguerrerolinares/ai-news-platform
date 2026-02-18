@@ -49,86 +49,99 @@ import { NewsItem } from '../models/news-item';
     :host { display: block; }
     article { display: block; }
     .news-item {
-      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease,
+        background 0.2s ease;
     }
     .news-item:hover {
-      border-color: var(--border-hover) !important;
-      background: var(--bg-surface-hover);
-      transform: translateY(-1px);
+      border-color: var(--border-accent) !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-accent);
+      transform: translateY(-2px);
     }
     mat-card-content {
-      padding: 20px;
+      padding: 24px;
     }
     .item-header {
       display: flex;
       gap: 8px;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       flex-wrap: wrap;
     }
     .source-badge {
-      font-size: 0.6875rem;
-      padding: 3px 8px;
-      border-radius: 5px;
+      font-size: var(--text-xs);
+      padding: 3px 10px;
+      border-radius: 6px;
       font-weight: 600;
-      letter-spacing: 0.02em;
-      background: rgba(255,255,255,0.08);
+      letter-spacing: var(--tracking-wide);
+      background: rgba(255, 255, 255, 0.06);
       color: var(--text-secondary);
     }
-    .source-badge[data-source="hackernews"] { background: rgba(255,102,0,0.12); color: #fb923c; }
-    .source-badge[data-source="arxiv"] { background: rgba(185,28,28,0.12); color: #f87171; }
-    .source-badge[data-source="reddit"] { background: rgba(255,69,0,0.12); color: #fb923c; }
-    .source-badge[data-source="rss"] { background: rgba(245,158,11,0.12); color: #fbbf24; }
-    .source-badge[data-source="github"] { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
-    .source-badge[data-source="huggingface"] { background: rgba(255,204,0,0.12); color: #fbbf24; }
+    .source-badge[data-source="hackernews"] { background: rgba(255, 102, 0, 0.12); color: #fb923c; }
+    .source-badge[data-source="arxiv"] { background: rgba(185, 28, 28, 0.12); color: #f87171; }
+    .source-badge[data-source="reddit"] { background: rgba(255, 69, 0, 0.12); color: #fb923c; }
+    .source-badge[data-source="rss"] { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+    .source-badge[data-source="github"] { background: rgba(255, 255, 255, 0.06); color: var(--text-secondary); }
+    .source-badge[data-source="huggingface"] { background: rgba(255, 204, 0, 0.12); color: #fbbf24; }
     .score {
       font-family: var(--font-mono);
       font-size: 0.75rem;
-      color: var(--text-tertiary);
+      color: var(--text-muted);
       font-weight: 400;
       font-variant-numeric: tabular-nums;
     }
     .topic-badge {
-      --mdc-chip-elevated-container-color: var(--accent-subtle);
-      --mdc-chip-label-text-color: #8b8bd8;
+      --mdc-chip-elevated-container-color: var(--accent-glow);
+      --mdc-chip-label-text-color: var(--accent);
       --mdc-chip-container-height: 22px;
-      --mdc-chip-label-text-size: 0.6875rem;
+      --mdc-chip-label-text-size: var(--text-xs);
       font-weight: 500;
     }
     .trending {
-      font-size: 0.6875rem;
-      padding: 3px 8px;
-      border-radius: 5px;
-      background: rgba(250,204,21,0.1);
+      font-size: var(--text-xs);
+      padding: 3px 10px;
+      border-radius: 6px;
+      background: rgba(250, 204, 21, 0.1);
       color: #facc15;
       font-weight: 600;
     }
     h2 {
       margin: 0 0 8px;
       font-family: var(--font-heading);
-      font-size: 1rem;
-      line-height: 1.4;
-      letter-spacing: -0.02em;
-      font-weight: 600;
+      font-size: var(--text-lg);
+      line-height: var(--leading-snug);
+      letter-spacing: var(--tracking-tight);
+      font-weight: 700;
     }
     h2 a {
       color: var(--text-primary);
       text-decoration: none;
-      transition: text-decoration 0.15s ease;
+      background-image: linear-gradient(var(--text-primary), var(--text-primary));
+      background-size: 0% 1px;
+      background-position: left bottom;
+      background-repeat: no-repeat;
+      transition: background-size 0.25s ease;
     }
-    h2 a:hover { text-decoration: underline; }
+    h2 a:hover {
+      background-size: 100% 1px;
+    }
     .summary {
-      margin: 0 0 10px;
+      margin: 0 0 14px;
       color: var(--text-secondary);
-      font-size: 0.875rem;
-      line-height: 1.6;
+      font-size: var(--text-base);
+      line-height: var(--leading-relaxed);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .item-meta {
       display: flex;
       gap: 12px;
       font-family: var(--font-mono);
-      color: var(--text-tertiary);
+      color: var(--text-muted);
       font-size: 0.75rem;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
     }
   `],
 })
