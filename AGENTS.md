@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-18 | **Current milestone**: 7 (Frontend Redesign — Angular Material M3) | **Status**: Complete
+> **Last updated**: 2026-02-19 | **Current milestone**: 8 (Design Overhaul — Minimal Luxury) | **Status**: Complete
 
 ## Project Overview
 
@@ -156,11 +156,17 @@ ai-news-platform/
 │   ├── tsconfig.app.json          # App-specific TS config
 │   ├── src/
 │   │   ├── main.ts                # Angular bootstrap
-│   │   ├── index.html             # HTML shell (Material Icons + Google Fonts)
-│   │   ├── styles.scss            # M3 theme (mat.$violet-palette) + design tokens + global overrides
+│   │   ├── index.html             # HTML shell (Material Icons + Plus Jakarta Sans + JetBrains Mono)
+│   │   ├── styles/                # Design system partials
+│   │   │   ├── styles.scss        # Entry point — imports all partials + M3 theme + reset
+│   │   │   ├── _tokens.scss       # CSS custom properties (colors, borders, shadows) for dark/light
+│   │   │   ├── _typography.scss   # Font families + type scale + line heights + letter spacing
+│   │   │   ├── _animations.scss   # Keyframes, View Transitions CSS, utility classes
+│   │   │   ├── _surfaces.scss     # Material overrides, submit button, stats bar, card utility
+│   │   │   └── _layout.scss       # Focus ring, scrollbar, global transitions, responsive
 │   │   └── app/
 │   │       ├── app.ts             # Root component (MatToolbar navbar + router-outlet)
-│   │       ├── app.config.ts      # provideRouter, provideHttpClient, provideAnimationsAsync
+│   │       ├── app.config.ts      # provideRouter + withViewTransitions, provideHttpClient, provideAnimationsAsync
 │   │       ├── app.routes.ts      # Route definitions (login, dashboard, archive, search, chat, analytics)
 │   │       ├── models/
 │   │       │   └── news-item.ts   # NewsItem + Briefing interfaces
@@ -508,6 +514,32 @@ pytest tests/ -x --timeout=30 -q
 - Stats bar = custom CSS inside MatCard — no Material stats grid component
 - Inverted buttons = `mat-flat-button` with `.submit-btn` class overriding `--mdc-filled-button-container-color`
 
+**Milestone 8 — Design Overhaul (Minimal Luxury)**: Complete
+- [x] Design System First: 5 SCSS partials (`_tokens`, `_typography`, `_animations`, `_surfaces`, `_layout`)
+- [x] New entry stylesheet: `web/src/styles/styles.scss` imports all partials + M3 theme
+- [x] Font change: Plus Jakarta Sans (heading + body), JetBrains Mono (mono)
+- [x] Color palette: Electric Indigo accent (#6366F1 dark / #4F46E5 light)
+- [x] Token system: CSS custom properties for runtime dark/light switching
+- [x] Route transitions: View Transitions API via `withViewTransitions()`
+- [x] Navbar: Glass blur (`backdrop-filter`), animated underlines on hover/active
+- [x] Login: Gradient mesh orbs, `scale-in` animation, larger card
+- [x] News cards: Accent border glow on hover, animated underline titles, 3-line clamp
+- [x] Dashboard: Accent-colored selected chips, staggered stat animations
+- [x] Chat: Accent-colored user bubbles (both themes), 2x2 suggestion grid, fade-in messages
+- [x] Analytics: Indigo accent charts, Plus Jakarta Sans in Highcharts
+- [x] All 35 E2E tests pass — zero selector regressions
+- [x] Zero TS logic changes — styles-only modifications across all components
+
+**Key design decisions (M8)**:
+- Design System First: Tokens as CSS custom properties, not SCSS variables (enables runtime theme switching)
+- Single font family: Plus Jakarta Sans for both heading and body (was Space Grotesk + Inter)
+- Accent color: Electric Indigo (#6366F1/#4F46E5) replacing Iris (#5b5bd6)
+- User chat bubbles: `var(--accent)` + white text (same in both themes, replacing inverted black/white)
+- Token renames: `--bg-surface-hover` → `--bg-hover`, `--text-tertiary` → `--text-muted`, `--accent-subtle` → `--accent-glow`
+- New tokens: `--bg-elevated`, `--accent-dim`, `--border-accent`, `--shadow-sm/md/lg/glow`
+- Stats bar animation: Staggered `fade-in` with SCSS `@for` loop delays
+- View Transitions: `::view-transition-old/new(root)` for route fade+slide
+
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
@@ -526,3 +558,4 @@ pytest tests/ -x --timeout=30 -q
 | 2026-02-18 | 5 | Health 503, Nginx hardening, auto-migration, pipeline-cron, docs. 667 tests. |
 | 2026-02-18 | 6 | Frontend polish: NewsItemCard component, topic filters, markdown chat, dark editorial design. 35 E2E. |
 | 2026-02-18 | 7 | Angular Material M3 migration: MatToolbar, MatCard, MatChipListbox, MatProgressBar, MatFormField, SCSS theming. 35 E2E green. |
+| 2026-02-19 | 8 | Design overhaul: SCSS design system (5 partials), Plus Jakarta Sans, Electric Indigo accent, View Transitions, glass navbar, gradient login, accent chat bubbles, indigo charts. 35 E2E green. |
