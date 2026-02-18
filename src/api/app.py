@@ -15,6 +15,7 @@ from slowapi.util import get_remote_address
 
 from src.api.routes.auth import router as auth_router
 from src.api.routes.briefings import router as briefings_router
+from src.api.routes.chat import router as chat_router
 from src.api.routes.items import router as items_router
 from src.api.routes.search import router as search_router
 from src.core.config import get_settings
@@ -74,6 +75,7 @@ app.include_router(auth_router)
 app.include_router(items_router)
 app.include_router(briefings_router)
 app.include_router(search_router)
+app.include_router(chat_router)
 
 
 @app.middleware("http")
