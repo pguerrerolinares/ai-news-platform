@@ -9,6 +9,7 @@ import { NewsService } from '../services/news.service';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  renderedHtml?: string;
   sources?: ChatSource[];
 }
 
@@ -39,7 +40,11 @@ interface ChatSource {
 
         @for (msg of messages(); track $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
-            <div class="message-content" [innerHTML]="renderMarkdown(msg.content)"></div>
+            @if (msg.role === 'assistant') {
+              <div class="message-content" [innerHTML]="msg.renderedHtml"></div>
+            } @else {
+              <div class="message-content">{{ msg.content }}</div>
+            }
             @if (msg.sources && msg.sources.length > 0) {
               <div class="sources">
                 <span class="sources-label">Fuentes:</span>
@@ -96,14 +101,14 @@ interface ChatSource {
       display: flex;
       flex-direction: column;
       height: 100%;
-      max-width: 800px;
+      max-width: 720px;
       margin: 0 auto;
     }
 
     .chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 0;
+      padding: 24px 0;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -111,17 +116,19 @@ interface ChatSource {
 
     .empty-state {
       text-align: center;
-      padding: 60px 20px;
-      color: #64748b;
+      padding: 80px 24px;
     }
     .empty-state h2 {
-      font-size: 1.5rem;
-      color: #1e293b;
+      font-size: 1.75rem;
+      color: #1d1d1f;
       margin: 0 0 8px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
     .empty-state p {
-      margin: 0 0 24px;
-      font-size: 0.95rem;
+      margin: 0 0 32px;
+      font-size: 0.9375rem;
+      color: #86868b;
     }
     .suggestions {
       display: flex;
@@ -130,40 +137,40 @@ interface ChatSource {
       justify-content: center;
     }
     .suggestion-chip {
-      padding: 8px 16px;
-      border: 1px solid #e2e8f0;
-      border-radius: 20px;
+      padding: 10px 18px;
+      border: 1px solid #d2d2d7;
+      border-radius: 980px;
       background: white;
-      color: #475569;
-      font-size: 0.85rem;
+      color: #1d1d1f;
+      font-size: 0.8125rem;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s;
     }
     .suggestion-chip:hover {
-      border-color: #2563eb;
-      color: #2563eb;
-      background: #eff6ff;
+      border-color: #0071e3;
+      color: #0071e3;
+      background: #f5f5f7;
     }
 
     .message {
-      padding: 12px 16px;
-      border-radius: 12px;
-      max-width: 85%;
+      padding: 14px 18px;
+      border-radius: 18px;
+      max-width: 82%;
       line-height: 1.6;
-      font-size: 0.95rem;
+      font-size: 0.9375rem;
     }
     .message.user {
       align-self: flex-end;
-      background: #2563eb;
+      background: #0071e3;
       color: white;
-      border-bottom-right-radius: 4px;
+      border-bottom-right-radius: 6px;
       white-space: pre-wrap;
     }
     .message.assistant {
       align-self: flex-start;
-      background: #f1f5f9;
-      color: #1e293b;
-      border-bottom-left-radius: 4px;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      border-bottom-left-radius: 6px;
     }
     .message-content { word-break: break-word; }
     .message.assistant .message-content :first-child { margin-top: 0; }
@@ -175,16 +182,16 @@ interface ChatSource {
       padding-left: 1.5em;
     }
     .message.assistant .message-content code {
-      background: #e2e8f0;
-      padding: 1px 4px;
-      border-radius: 3px;
+      background: #e8e8ed;
+      padding: 2px 5px;
+      border-radius: 4px;
       font-size: 0.85em;
     }
     .message.assistant .message-content pre {
-      background: #1e293b;
-      color: #e2e8f0;
-      padding: 12px;
-      border-radius: 6px;
+      background: #1d1d1f;
+      color: #f5f5f7;
+      padding: 14px 16px;
+      border-radius: 10px;
       overflow-x: auto;
       margin: 0.5em 0;
     }
@@ -195,13 +202,15 @@ interface ChatSource {
     }
     .message.assistant .message-content strong { font-weight: 600; }
     .message.assistant .message-content a {
-      color: #2563eb;
-      text-decoration: underline;
+      color: #0071e3;
+      text-decoration: none;
     }
+    .message.assistant .message-content a:hover { text-decoration: underline; }
 
     .cursor {
       animation: blink 0.8s infinite;
       font-weight: bold;
+      color: #86868b;
     }
     @keyframes blink {
       0%, 100% { opacity: 1; }
@@ -209,78 +218,90 @@ interface ChatSource {
     }
 
     .sources {
-      margin-top: 10px;
-      padding-top: 8px;
-      border-top: 1px solid #e2e8f0;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #e8e8ed;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       align-items: center;
     }
     .sources-label {
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
       font-weight: 600;
-      color: #64748b;
+      color: #86868b;
       text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     .source-link {
-      font-size: 0.8rem;
-      padding: 2px 8px;
-      background: #dbeafe;
-      color: #1e40af;
-      border-radius: 4px;
+      font-size: 0.8125rem;
+      padding: 3px 10px;
+      background: #e8e8ed;
+      color: #1d1d1f;
+      border-radius: 6px;
       text-decoration: none;
+      transition: background 0.15s;
     }
-    .source-link:hover { background: #bfdbfe; }
-    .source-link.no-url { color: #475569; background: #e2e8f0; }
+    .source-link:hover { background: #d2d2d7; }
+    .source-link.no-url { color: #6e6e73; }
 
     .chat-input-form {
-      padding: 12px 0;
-      border-top: 1px solid #e2e8f0;
+      padding: 14px 0;
+      border-top: 1px solid #e8e8ed;
     }
     .input-row {
       display: flex;
       gap: 8px;
+      align-items: center;
     }
     .topic-filter {
-      padding: 10px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 0.85rem;
+      padding: 10px 12px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      font-size: 0.8125rem;
       outline: none;
       min-width: 120px;
+      color: #1d1d1f;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .topic-filter:focus {
+      border-color: #0071e3;
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
     }
     .chat-input {
       flex: 1;
-      padding: 10px 14px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 0.95rem;
+      padding: 10px 16px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      font-size: 0.9375rem;
       outline: none;
+      color: #1d1d1f;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .chat-input:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      border-color: #0071e3;
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
     }
     .send-btn {
       padding: 10px 20px;
-      background: #2563eb;
+      background: #0071e3;
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
+      border-radius: 980px;
+      font-size: 0.875rem;
+      font-weight: 500;
       cursor: pointer;
       white-space: nowrap;
+      transition: background 0.2s;
     }
-    .send-btn:hover:not(:disabled) { background: #1d4ed8; }
-    .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .send-btn:hover:not(:disabled) { background: #0077ED; }
+    .send-btn:disabled { opacity: 0.42; cursor: default; }
 
     @media (max-width: 640px) {
-      :host { height: calc(100vh - 80px); }
+      :host { height: calc(100vh - 76px); }
       .input-row { flex-wrap: wrap; }
       .topic-filter { min-width: 100%; }
-      .message { max-width: 95%; }
+      .message { max-width: 92%; }
     }
   `],
 })
@@ -301,6 +322,7 @@ export class ChatPage implements OnInit, AfterViewChecked {
   ngOnInit() {
     this.newsService.getTopics().subscribe({
       next: (topics) => this.topics.set(topics),
+      error: () => {},
     });
   }
 
@@ -398,12 +420,13 @@ export class ChatPage implements OnInit, AfterViewChecked {
 
       this.messages.update(msgs => [
         ...msgs,
-        { role: 'assistant', content: fullText, sources },
+        { role: 'assistant', content: fullText, renderedHtml: this.renderMarkdown(fullText), sources },
       ]);
     } catch {
+      const errorMsg = 'Error al conectar con el servidor. Intenta de nuevo.';
       this.messages.update(msgs => [
         ...msgs,
-        { role: 'assistant', content: 'Error al conectar con el servidor. Intenta de nuevo.' },
+        { role: 'assistant', content: errorMsg, renderedHtml: this.renderMarkdown(errorMsg) },
       ]);
     } finally {
       this.streaming.set(false);

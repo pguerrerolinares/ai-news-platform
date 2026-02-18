@@ -28,99 +28,103 @@ import { AuthService } from './services/auth.service';
   styles: [`
     :host {
       display: block;
-      font-family: system-ui, -apple-system, sans-serif;
-      color: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+      color: #1d1d1f;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
     .navbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 20px;
-      height: 52px;
-      background: #1e293b;
+      padding: 0 24px;
+      height: 44px;
+      background: rgba(29, 29, 31, 0.96);
+      backdrop-filter: saturate(180%) blur(20px);
       color: white;
       position: sticky;
       top: 0;
       z-index: 100;
     }
     .nav-brand {
-      font-weight: 700;
-      font-size: 1rem;
-      letter-spacing: -0.3px;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      letter-spacing: -0.01em;
+      color: #f5f5f7;
     }
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
     }
     .nav-links a {
-      color: #94a3b8;
+      color: rgba(255, 255, 255, 0.56);
       text-decoration: none;
-      font-size: 0.85rem;
-      font-weight: 500;
-      padding: 6px 12px;
-      border-radius: 4px;
-      transition: color 0.15s, background 0.15s;
+      font-size: 0.8125rem;
+      font-weight: 400;
+      padding: 6px 14px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
     }
     .nav-links a:hover {
-      color: white;
-      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.88);
     }
     .nav-links a.active {
-      color: white;
-      background: rgba(255, 255, 255, 0.15);
+      color: #f5f5f7;
+      background: rgba(255, 255, 255, 0.1);
+      font-weight: 500;
     }
     .logout-btn {
-      color: #94a3b8;
+      color: rgba(255, 255, 255, 0.48);
       background: none;
-      border: 1px solid #475569;
-      font-size: 0.8rem;
-      padding: 5px 12px;
-      border-radius: 4px;
+      border: none;
+      font-size: 0.8125rem;
+      padding: 6px 14px;
+      border-radius: 6px;
       cursor: pointer;
-      margin-left: 8px;
-      transition: color 0.15s, border-color 0.15s;
+      margin-left: 4px;
+      transition: color 0.2s;
     }
     .logout-btn:hover {
-      color: white;
-      border-color: #94a3b8;
+      color: rgba(255, 255, 255, 0.88);
     }
     .hamburger {
       display: none;
       background: none;
       border: none;
-      color: white;
-      font-size: 1.4rem;
+      color: #f5f5f7;
+      font-size: 1.25rem;
       cursor: pointer;
       padding: 4px 8px;
     }
     main.with-nav {
-      max-width: 1024px;
+      max-width: 980px;
       margin: 0 auto;
-      padding: 20px;
+      padding: 32px 24px;
     }
     @media (max-width: 640px) {
       .navbar {
-        padding: 0 12px;
-        height: 48px;
+        padding: 0 16px;
+        height: 44px;
       }
-      .nav-brand { font-size: 0.9rem; }
+      .nav-brand { font-size: 0.875rem; }
       .hamburger { display: block; }
       .nav-links {
         display: none;
         position: absolute;
-        top: 48px;
+        top: 44px;
         left: 0;
         right: 0;
-        background: #1e293b;
+        background: rgba(29, 29, 31, 0.98);
+        backdrop-filter: saturate(180%) blur(20px);
         flex-direction: column;
-        padding: 8px 12px;
-        gap: 4px;
+        padding: 8px 16px 12px;
+        gap: 2px;
       }
       .nav-links.open { display: flex; }
-      .nav-links a { font-size: 0.78rem; padding: 8px 12px; }
-      .logout-btn { font-size: 0.75rem; padding: 4px 8px; }
-      main.with-nav { padding: 12px; }
+      .nav-links a { font-size: 0.8125rem; padding: 10px 16px; }
+      .logout-btn { font-size: 0.8125rem; padding: 10px 16px; text-align: left; }
+      main.with-nav { padding: 20px 16px; }
     }
   `],
 })

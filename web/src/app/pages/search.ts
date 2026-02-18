@@ -72,42 +72,46 @@ import { NewsItemCard } from '../components/news-item-card';
     :host { display: block; }
 
     .search-form {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
     .search-row {
       display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .search-input {
       flex: 1;
-      padding: 10px 14px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 0.95rem;
+      padding: 12px 16px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      font-size: 0.9375rem;
       outline: none;
+      color: #1d1d1f;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .search-input:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      border-color: #0071e3;
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
     }
     .search-btn {
-      padding: 10px 20px;
-      background: #2563eb;
+      padding: 12px 24px;
+      background: #0071e3;
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
+      border-radius: 980px;
+      font-size: 0.875rem;
+      font-weight: 500;
       cursor: pointer;
       white-space: nowrap;
+      transition: background 0.2s;
+      letter-spacing: -0.01em;
     }
-    .search-btn:hover:not(:disabled) { background: #1d4ed8; }
-    .search-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .search-btn:hover:not(:disabled) { background: #0077ED; }
+    .search-btn:disabled { opacity: 0.42; cursor: default; }
 
     .filters {
       display: flex;
-      gap: 16px;
+      gap: 14px;
       flex-wrap: wrap;
     }
     .filter-group {
@@ -116,43 +120,46 @@ import { NewsItemCard } from '../components/news-item-card';
       gap: 4px;
     }
     .filter-group label {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #64748b;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: #86868b;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
     }
     .filter-group select,
     .filter-group input[type="date"] {
-      padding: 7px 10px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 0.85rem;
+      padding: 8px 12px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      font-size: 0.875rem;
       outline: none;
+      color: #1d1d1f;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .filter-group select:focus,
     .filter-group input[type="date"]:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      border-color: #0071e3;
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
     }
 
     .loading, .error, .empty {
-      padding: 24px;
+      padding: 28px;
       text-align: center;
-      border-radius: 8px;
-      margin: 20px 0;
+      border-radius: 14px;
+      margin: 24px 0;
+      font-size: 0.9375rem;
     }
-    .loading { background: #f1f5f9; color: #475569; }
-    .error { background: #fef2f2; color: #dc2626; }
-    .empty { background: #f8fafc; color: #64748b; }
+    .loading { background: #f5f5f7; color: #6e6e73; }
+    .error { background: #fff2f2; color: #d70015; }
+    .empty { background: #f5f5f7; color: #86868b; }
 
     .count-label {
-      color: #64748b;
-      margin-bottom: 12px;
-      font-size: 0.9rem;
+      color: #86868b;
+      margin-bottom: 14px;
+      font-size: 0.875rem;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 12px; }
+    .news-list { display: flex; flex-direction: column; gap: 10px; }
 
     @media (max-width: 640px) {
       .search-row { flex-direction: column; }
@@ -179,6 +186,7 @@ export class SearchPage implements OnInit {
   ngOnInit() {
     this.newsService.getTopics().subscribe({
       next: (topics) => this.topics.set(topics),
+      error: () => {},
     });
   }
 

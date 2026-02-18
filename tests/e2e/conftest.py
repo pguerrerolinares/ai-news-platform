@@ -233,8 +233,6 @@ def setup_mock_routes(
     page.route("**/api/auth/token", handle_auth)
     page.route("**/api/items/today*", handle_items)
     page.route("**/api/items?*", handle_items)
-    page.route("**/api/briefings/*", handle_briefing)
-    page.route("**/api/briefings", handle_briefings_list)
     def handle_topics(route):
         route.fulfill(
             status=200,
@@ -245,6 +243,8 @@ def setup_mock_routes(
             ]}),
         )
 
+    page.route("**/api/briefings/*", handle_briefing)
+    page.route("**/api/briefings", handle_briefings_list)
     page.route("**/api/search*", handle_search)
     page.route("**/api/chat", handle_chat)
     page.route("**/api/topics", handle_topics)

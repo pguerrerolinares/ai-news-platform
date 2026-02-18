@@ -88,51 +88,61 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
     .loading, .error, .empty {
-      padding: 24px;
+      padding: 28px;
       text-align: center;
-      border-radius: 8px;
-      margin: 20px 0;
+      border-radius: 14px;
+      margin: 24px 0;
+      font-size: 0.9375rem;
     }
-    .loading { background: #f1f5f9; color: #475569; }
-    .error { background: #fef2f2; color: #dc2626; }
-    .empty { background: #f8fafc; color: #64748b; }
+    .loading { background: #f5f5f7; color: #6e6e73; }
+    .error { background: #fff2f2; color: #d70015; }
+    .empty { background: #f5f5f7; color: #86868b; }
 
     .stats-bar {
       display: flex;
-      gap: 16px;
-      padding: 16px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
+      gap: 0;
+      padding: 0;
+      background: #ffffff;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
     }
     .stat {
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-width: 60px;
+      flex: 1;
+      padding: 16px 12px;
+      border-right: 1px solid #f5f5f7;
     }
+    .stat:last-child { border-right: none; }
     .stat-value {
-      font-size: 1.3rem;
+      font-size: 1.5rem;
       font-weight: 700;
-      color: #1e293b;
+      color: #1d1d1f;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
     }
     .stat-label {
-      font-size: 0.75rem;
-      color: #64748b;
+      font-size: 0.6875rem;
+      color: #86868b;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+      font-weight: 500;
     }
 
     .topic-summary {
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
     .topic-summary h3 {
-      margin: 0 0 8px;
-      font-size: 0.9rem;
-      color: #475569;
-      font-weight: 600;
+      margin: 0 0 10px;
+      font-size: 0.8125rem;
+      color: #86868b;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
     .topic-chips {
       display: flex;
@@ -141,35 +151,50 @@ import { NewsItemCard } from '../components/news-item-card';
       align-items: center;
     }
     .topic-chip {
-      font-size: 0.78rem;
-      padding: 3px 10px;
-      border-radius: 12px;
-      background: #dbeafe;
-      color: #1e40af;
+      font-size: 0.8125rem;
+      padding: 5px 14px;
+      border-radius: 980px;
+      background: #f5f5f7;
+      color: #1d1d1f;
       border: none;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s;
+      font-weight: 400;
     }
-    .topic-chip:hover { background: #bfdbfe; }
-    .topic-chip.active { background: #2563eb; color: white; }
-    .topic-chip strong { margin-left: 4px; }
+    .topic-chip:hover { background: #e8e8ed; }
+    .topic-chip.active {
+      background: #1d1d1f;
+      color: #f5f5f7;
+    }
+    .topic-chip strong {
+      margin-left: 4px;
+      font-weight: 600;
+      color: #86868b;
+    }
+    .topic-chip.active strong { color: rgba(255, 255, 255, 0.64); }
     .clear-filter {
       background: none;
       border: none;
-      color: #2563eb;
-      font-size: 0.85rem;
+      color: #0071e3;
+      font-size: 0.8125rem;
       cursor: pointer;
       margin-left: 8px;
-      text-decoration: underline;
+      font-weight: 500;
     }
+    .clear-filter:hover { text-decoration: underline; }
 
     .count-label {
-      color: #64748b;
-      margin-bottom: 12px;
-      font-size: 0.9rem;
+      color: #86868b;
+      margin-bottom: 14px;
+      font-size: 0.875rem;
     }
 
-    .news-list { display: flex; flex-direction: column; gap: 12px; }
+    .news-list { display: flex; flex-direction: column; gap: 10px; }
+
+    @media (max-width: 640px) {
+      .stat { padding: 12px 8px; }
+      .stat-value { font-size: 1.2rem; }
+    }
   `],
 })
 export class DashboardPage implements OnInit {

@@ -52,28 +52,32 @@ import { Briefing, NewsItem } from '../models/news-item';
   styles: [`
     :host { display: block; }
     .loading, .error {
-      padding: 24px;
+      padding: 28px;
       text-align: center;
-      border-radius: 8px;
-      margin: 20px 0;
+      border-radius: 14px;
+      margin: 24px 0;
+      font-size: 0.9375rem;
     }
-    .loading { background: #f1f5f9; color: #475569; }
-    .error { background: #fef2f2; color: #dc2626; }
+    .loading { background: #f5f5f7; color: #6e6e73; }
+    .error { background: #fff2f2; color: #d70015; }
     .chart-grid {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
     }
     .chart-card {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
+      border-radius: 14px;
+      padding: 20px 22px;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06);
     }
     .chart-card h3 {
-      margin: 0 0 12px;
-      font-size: 0.95rem;
-      color: #475569;
-      font-weight: 600;
+      margin: 0 0 14px;
+      font-size: 0.8125rem;
+      color: #86868b;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
   `],
 })
