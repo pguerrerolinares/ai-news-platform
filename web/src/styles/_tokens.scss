@@ -1,0 +1,69 @@
+// web/src/styles/_tokens.scss
+// Design tokens as CSS custom properties for runtime dark/light switching.
+// Components reference these via var(--token-name) in inline styles.
+
+// Light mode (default in :root for html:not(.dark))
+:root {
+  // Surfaces
+  --bg-base: #FAFAFA;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F4F4F5;
+  --bg-hover: #E4E4E7;
+
+  // Accent
+  --accent: #4F46E5;
+  --accent-dim: #4338CA;
+  --accent-glow: rgba(79, 70, 229, 0.1);
+
+  // Text
+  --text-primary: #09090B;
+  --text-secondary: #52525B;
+  --text-muted: #A1A1AA;
+
+  // Borders
+  --border: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.10);
+  --border-accent: rgba(79, 70, 229, 0.25);
+
+  // Semantic
+  --error: #EF4444;
+  --error-subtle: rgba(239, 68, 68, 0.1);
+  --success: #10B981;
+  --warning: #F59E0B;
+
+  // Shadows
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 0 3px var(--accent-glow);
+}
+
+// Dark mode (primary experience — .dark on <html>)
+.dark {
+  --bg-base: #0C0C0E;
+  --bg-surface: #141418;
+  --bg-elevated: #1C1C22;
+  --bg-hover: #24242C;
+
+  --accent: #6366F1;
+  --accent-dim: #4F46E5;
+  --accent-glow: rgba(99, 102, 241, 0.15);
+
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #52525B;
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.10);
+  --border-accent: rgba(99, 102, 241, 0.3);
+
+  --error: #EF4444;
+  --error-subtle: rgba(239, 68, 68, 0.1);
+  --success: #10B981;
+  --warning: #F59E0B;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 0 3px var(--accent-glow);
+}
