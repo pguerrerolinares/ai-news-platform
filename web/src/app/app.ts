@@ -51,9 +51,11 @@ import { AuthService } from './services/auth.service';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
-      height: 48px;
-      background: var(--bg-surface);
+      padding: 0 28px;
+      height: 52px;
+      background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
@@ -61,9 +63,9 @@ import { AuthService } from './services/auth.service';
     }
     .nav-brand {
       font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: 0.9375rem;
-      letter-spacing: -0.02em;
+      font-weight: 800;
+      font-size: var(--text-base);
+      letter-spacing: var(--tracking-tight);
       color: var(--text-primary);
     }
     .nav-links {
@@ -72,49 +74,59 @@ import { AuthService } from './services/auth.service';
       gap: 2px;
     }
     .nav-links a.mat-mdc-button {
-      color: var(--text-tertiary);
-      font-size: 0.8125rem;
-      font-weight: 400;
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      font-weight: 500;
       padding: 6px 14px;
       min-width: auto;
-      letter-spacing: normal;
+      letter-spacing: var(--tracking-normal);
       position: relative;
-      --mdc-text-button-label-text-color: var(--text-tertiary);
+      --mdc-text-button-label-text-color: var(--text-muted);
       --mdc-text-button-hover-label-text-color: var(--text-primary);
+    }
+    .nav-links a.mat-mdc-button::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 2px;
+      border-radius: 1px;
+      background: var(--accent);
+      transition: width 0.2s ease;
     }
     .nav-links a.mat-mdc-button:hover {
       color: var(--text-primary);
     }
+    .nav-links a.mat-mdc-button:hover::after {
+      width: 16px;
+    }
     .nav-links a.mat-mdc-button.active {
       color: var(--text-primary);
-      font-weight: 500;
+      font-weight: 600;
       --mdc-text-button-label-text-color: var(--text-primary);
     }
     .nav-links a.mat-mdc-button.active::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: var(--accent);
+      width: 20px;
     }
     .theme-toggle {
-      color: var(--text-tertiary);
+      color: var(--text-muted);
       margin-left: 4px;
-      --mdc-icon-button-icon-color: var(--text-tertiary);
+      --mdc-icon-button-icon-color: var(--text-muted);
+      transition: color 0.15s ease, transform 0.3s ease;
     }
     .theme-toggle:hover {
       color: var(--text-primary);
       --mdc-icon-button-icon-color: var(--text-primary);
+      transform: rotate(15deg);
     }
     .logout-btn {
-      color: var(--text-tertiary);
-      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      font-weight: 500;
       margin-left: 4px;
-      --mdc-text-button-label-text-color: var(--text-tertiary);
+      --mdc-text-button-label-text-color: var(--text-muted);
       --mdc-text-button-hover-label-text-color: var(--text-primary);
     }
     .logout-btn:hover {
@@ -126,9 +138,9 @@ import { AuthService } from './services/auth.service';
       --mdc-icon-button-icon-color: var(--text-primary);
     }
     main.with-nav {
-      max-width: 1100px;
+      max-width: 1120px;
       margin: 0 auto;
-      padding: 32px 24px;
+      padding: 40px 32px;
     }
     @media (max-width: 640px) {
       .navbar {
@@ -149,13 +161,20 @@ import { AuthService } from './services/auth.service';
         padding: 8px 16px 12px;
         gap: 2px;
         z-index: 99;
+        backdrop-filter: blur(12px);
       }
       .nav-links.open { display: flex; }
-      .nav-links a.mat-mdc-button { font-size: 0.8125rem; padding: 10px 16px; width: 100%; justify-content: flex-start; }
+      .nav-links a.mat-mdc-button {
+        font-size: var(--text-sm);
+        padding: 10px 16px;
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .nav-links a.mat-mdc-button::after { display: none; }
       .nav-links a.mat-mdc-button.active::after { display: none; }
-      .logout-btn { font-size: 0.8125rem; padding: 10px 16px; text-align: left; }
+      .logout-btn { font-size: var(--text-sm); padding: 10px 16px; text-align: left; }
       .theme-toggle { margin: 4px 16px; }
-      main.with-nav { padding: 20px 16px; }
+      main.with-nav { padding: 24px 16px; }
     }
   `],
 })
