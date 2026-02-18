@@ -1,0 +1,122 @@
+"""SQLAlchemy ORM models for the AI News Platform."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+VALID_TOPICS = (
+    "modelos",
+    "papers",
+    "agentes",
+    "productos",
+    "herramientas",
+    "open_source",
+    "regulacion",
+)
+
+VALID_SOURCES = (
+    "hackernews",
+    "arxiv",
+    "reddit",
+    "rss",
+    "github",
+    "huggingface",
+)
+
+
+class NewsItem(Base):
+    __tablename__ = "news_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    url: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    topic: Mapped[str | None] = mapped_column(String(50))
+    relevance_score: Mapped[float | None] = mapped_column(Float)
+    dev_value_score: Mapped[float | None] = mapped_column(Float)
+    credibility_score: Mapped[float | None] = mapped_column(Float)
+    priority: Mapped[int | None] = mapped_column(Integer)
+    trending: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    content_hash: Mapped[str | None] = mapped_column(Text, unique=True)
+    url_hash: Mapped[str | None] = mapped_column(Text)
+    full_text: Mapped[str | None] = mapped_column(Text)
+    author: Mapped[str | None] = mapped_column(Text)
+    score: Mapped[int | None] = mapped_column(Integer)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+
+    __table_args__ = (
+        CheckConstraint(
+            f"topic IS NULL OR topic IN ({','.join(repr(t) for t in VALID_TOPICS)})",
+            name="valid_topic",
+        ),
+        Index("idx_news_items_date", "published_at", postgresql_ops={"published_at": "DESC"}),
+        Index("idx_news_items_topic", "topic"),
+        Index("idx_news_items_source", "source"),
+        Index("idx_news_items_content_hash", "content_hash"),
+        Index("idx_news_items_url_hash", "url_hash"),
+    )
+
+
+class DailyBriefing(Base):
+    __tablename__ = "daily_briefings"
+
+    date: Mapped[datetime] = mapped_column(Date, primary_key=True)
+    total_items: Mapped[int | None] = mapped_column(Integer)
+    items_extracted: Mapped[int | None] = mapped_column(Integer)
+    items_after_dedup: Mapped[int | None] = mapped_column(Integer)
+    items_filtered: Mapped[int | None] = mapped_column(Integer)
+    trending_count: Mapped[int | None] = mapped_column(Integer)
+    duration_seconds: Mapped[float | None] = mapped_column(Float)
+    sources_used: Mapped[dict | None] = mapped_column(JSONB)
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ItemEmbedding(Base):
+    """Vector embeddings for RAG search."""
+
+    __tablename__ = "item_embeddings"
+
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("news_items.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model: Mapped[str] = mapped_column(Text, primary_key=True, nullable=False)
+    embedding = mapped_column(Vector(1536))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("item_id", "model", name="pk_item_embeddings"),)
