@@ -35,11 +35,27 @@ def test_search_shows_results(authed_page: Page, base_url: str):
     expect(authed_page.locator("text=Open Source Tool Launch")).to_be_visible()
 
 
+def _mock_topics(page: Page):
+    """Register a mock for GET /api/topics (needed since topics are loaded dynamically)."""
+    page.route(
+        "**/api/topics",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"topics": [
+                "modelos", "herramientas", "papers", "productos",
+                "open_source", "agentes", "regulacion",
+            ]}),
+        ),
+    )
+
+
 def test_search_no_results_message(page: Page, base_url: str):
     page.route(
         "**/api/search*",
         lambda route: route.fulfill(status=200, content_type="application/json", body="[]"),
     )
+    _mock_topics(page)
     page.add_init_script(f"localStorage.setItem('ainews_token', '{MOCK_TOKEN}')")
     page.goto(base_url + "/search")
     page.fill(".search-input", "nonexistent query")
@@ -59,6 +75,7 @@ def test_topic_filter_sends_parameter(page: Page, base_url: str):
         )
 
     page.route("**/api/search*", capture_search)
+    _mock_topics(page)
     page.add_init_script(f"localStorage.setItem('ainews_token', '{MOCK_TOKEN}')")
     page.goto(base_url + "/search")
     page.select_option("#topic-select", "modelos")

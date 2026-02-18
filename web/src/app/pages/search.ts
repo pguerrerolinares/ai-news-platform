@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NewsService } from '../services/news.service';
@@ -29,7 +29,7 @@ import { NewsItemCard } from '../components/news-item-card';
             <label for="topic-select">Tema</label>
             <select id="topic-select" [(ngModel)]="selectedTopic" name="topic">
               <option value="">Todos</option>
-              @for (topic of topics; track topic) {
+              @for (topic of topics(); track topic) {
                 <option [value]="topic">{{ topic }}</option>
               }
             </select>
@@ -160,7 +160,7 @@ import { NewsItemCard } from '../components/news-item-card';
     }
   `],
 })
-export class SearchPage {
+export class SearchPage implements OnInit {
   private newsService = inject(NewsService);
 
   query = '';
@@ -174,15 +174,13 @@ export class SearchPage {
   searched = signal(false);
   lastQuery = signal('');
 
-  topics = [
-    'modelos',
-    'herramientas',
-    'papers',
-    'productos',
-    'open_source',
-    'agentes',
-    'regulacion',
-  ];
+  topics = signal<string[]>([]);
+
+  ngOnInit() {
+    this.newsService.getTopics().subscribe({
+      next: (topics) => this.topics.set(topics),
+    });
+  }
 
   onSearch() {
     const q = this.query.trim();

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { NewsItem, Briefing } from '../models/news-item';
 
 @Injectable({ providedIn: 'root' })
@@ -39,6 +39,12 @@ export class NewsService {
 
   getBriefings(): Observable<Briefing[]> {
     return this.http.get<Briefing[]>(`${this.baseUrl}/briefings`);
+  }
+
+  getTopics(): Observable<string[]> {
+    return this.http.get<{ topics: string[] }>(`${this.baseUrl}/topics`).pipe(
+      map(response => response.topics),
+    );
   }
 
   searchItems(params: {

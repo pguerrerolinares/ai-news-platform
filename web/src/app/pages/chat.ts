@@ -1,9 +1,10 @@
-import { Component, inject, signal, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
+import { Component, inject, signal, ElementRef, ViewChild, AfterViewChecked, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { AuthService } from '../services/auth.service';
+import { NewsService } from '../services/news.service';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -65,7 +66,7 @@ interface ChatSource {
         <div class="input-row">
           <select class="topic-filter" [(ngModel)]="selectedTopic" name="topic">
             <option value="">Todos los temas</option>
-            @for (t of topics; track t) {
+            @for (t of topics(); track t) {
               <option [value]="t">{{ t }}</option>
             }
           </select>
@@ -283,8 +284,9 @@ interface ChatSource {
     }
   `],
 })
-export class ChatPage implements AfterViewChecked {
+export class ChatPage implements OnInit, AfterViewChecked {
   private auth = inject(AuthService);
+  private newsService = inject(NewsService);
 
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
@@ -294,7 +296,13 @@ export class ChatPage implements AfterViewChecked {
   question = '';
   selectedTopic = '';
 
-  topics = ['modelos', 'herramientas', 'papers', 'productos', 'open_source', 'agentes', 'regulacion'];
+  topics = signal<string[]>([]);
+
+  ngOnInit() {
+    this.newsService.getTopics().subscribe({
+      next: (topics) => this.topics.set(topics),
+    });
+  }
 
   suggestions = [
     'Que modelos de IA se lanzaron esta semana?',

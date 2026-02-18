@@ -235,8 +235,19 @@ def setup_mock_routes(
     page.route("**/api/items?*", handle_items)
     page.route("**/api/briefings/*", handle_briefing)
     page.route("**/api/briefings", handle_briefings_list)
+    def handle_topics(route):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"topics": [
+                "modelos", "herramientas", "papers", "productos",
+                "open_source", "agentes", "regulacion",
+            ]}),
+        )
+
     page.route("**/api/search*", handle_search)
     page.route("**/api/chat", handle_chat)
+    page.route("**/api/topics", handle_topics)
 
 
 # ---------------------------------------------------------------------------
