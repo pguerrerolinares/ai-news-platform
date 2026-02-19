@@ -5,7 +5,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { AuthService } from '../services/auth.service';
@@ -27,7 +26,7 @@ interface ChatSource {
 
 @Component({
   selector: 'app-chat',
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatChipsModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
   template: `
     <div class="chat-page">
       <div class="chat-messages" #messagesContainer>
@@ -37,7 +36,7 @@ interface ChatSource {
             <p>Pregunta sobre noticias de IA y tecnologia</p>
             <div class="suggestions">
               @for (s of suggestions; track s) {
-                <mat-chip class="suggestion-chip" (click)="askQuestion(s)">{{ s }}</mat-chip>
+                <button type="button" class="suggestion-chip" (click)="askQuestion(s)">{{ s }}</button>
               }
             </div>
           </div>
@@ -158,17 +157,26 @@ interface ChatSource {
 
     .suggestion-chip {
       cursor: pointer;
-      --mdc-chip-elevated-container-color: var(--bg-elevated);
-      --mdc-chip-label-text-color: var(--text-secondary);
-      --mdc-chip-outline-color: var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
       border: 1px solid var(--border);
       border-radius: 12px;
+      padding: 10px 14px;
+      font-family: var(--font-body);
+      font-size: var(--text-sm);
+      font-weight: 400;
+      text-align: left;
+      width: 100%;
+      line-height: var(--leading-relaxed);
       transition: border-color 0.15s ease, background 0.15s ease;
+      white-space: normal;
+      word-break: break-word;
     }
 
     .suggestion-chip:hover {
       border-color: var(--accent);
-      --mdc-chip-elevated-container-color: var(--accent-glow);
+      background: var(--accent-glow);
+      color: var(--text-primary);
     }
 
     .message {
