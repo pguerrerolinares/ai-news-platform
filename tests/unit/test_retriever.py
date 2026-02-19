@@ -77,3 +77,18 @@ class TestRetrieve:
         retriever = Retriever(embedding_service=mock_embed)
         result = await retriever.retrieve(mock_session, "test query")
         assert result == []
+
+    async def test_no_matching_embeddings_returns_empty(self):
+        """Query that embeds successfully but has no similar items in DB."""
+        mock_embed = AsyncMock()
+        mock_embed.embed_text.return_value = _fake_embedding()
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        retriever = Retriever(embedding_service=mock_embed)
+        result = await retriever.retrieve(mock_session, "completely unrelated query")
+        assert result == []
+        mock_embed.embed_text.assert_called_once_with("completely unrelated query")
+        mock_session.execute.assert_called_once()

@@ -198,3 +198,14 @@ class TestChatStream:
 
         assert any('"error"' in e for e in events)
         assert events[-1] == "data: [DONE]\n\n"
+
+    async def test_whitespace_question_yields_error(self):
+        """Whitespace-only question is treated same as empty question."""
+        mock_session = AsyncMock()
+        with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
+            service = ChatService()
+            events = []
+            async for event in service.chat_stream(mock_session, "   \n\t  "):
+                events.append(event)
+        assert any("error" in e.lower() for e in events)
+        assert events[-1] == "data: [DONE]\n\n"

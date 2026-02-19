@@ -107,6 +107,16 @@ class TestCSVListProperties:
         s = Settings(trusted_news_domains="openai.com,arxiv.org")
         assert s.trusted_news_domains_list == ["openai.com", "arxiv.org"]
 
+    def test_csv_property_only_commas(self):
+        """A string of only commas should produce an empty list, not ['', '']."""
+        s = Settings(enabled_sources=",,")
+        assert s.enabled_sources_list == []
+
+    def test_csv_property_single_value_no_comma(self):
+        """A single value without commas should produce a one-element list."""
+        s = Settings(enabled_sources="hackernews")
+        assert s.enabled_sources_list == ["hackernews"]
+
 
 # ---------------------------------------------------------------------------
 # Env var overrides via monkeypatch

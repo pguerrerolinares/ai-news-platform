@@ -128,3 +128,47 @@ class TestEmbedBatch:
             service = EmbeddingService(client=mock_client)
             with pytest.raises(Exception, match="API error"):
                 await service.embed_batch(["text"])
+
+
+class TestEmbedTextEdgeCases:
+    """Edge cases for embed_text: empty, whitespace-only, and boundary-length input."""
+
+    async def test_embed_empty_text(self):
+        """Empty string is still sent to API (no guard in embed_text)."""
+        mock_client = AsyncMock()
+        mock_client.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=_fake_embedding())]
+        )
+        with patch("src.rag.embeddings.get_settings", return_value=_mock_settings()):
+            service = EmbeddingService(client=mock_client)
+            result = await service.embed_text("")
+        # The service doesn't reject empty text; it forwards it to the API.
+        assert isinstance(result, list)
+        call_kwargs = mock_client.embeddings.create.call_args
+        assert call_kwargs.kwargs["input"] == ""
+
+    async def test_embed_whitespace_only(self):
+        """Whitespace-only text is forwarded as-is (truncated to itself)."""
+        mock_client = AsyncMock()
+        mock_client.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=_fake_embedding())]
+        )
+        with patch("src.rag.embeddings.get_settings", return_value=_mock_settings()):
+            service = EmbeddingService(client=mock_client)
+            result = await service.embed_text("   \n\t  ")
+        assert isinstance(result, list)
+        call_kwargs = mock_client.embeddings.create.call_args
+        assert call_kwargs.kwargs["input"] == "   \n\t  "
+
+    async def test_embed_text_at_max_chars_boundary(self):
+        """Text exactly at _MAX_CHARS (30000) is NOT truncated."""
+        mock_client = AsyncMock()
+        mock_client.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=_fake_embedding())]
+        )
+        exact_text = "a" * 30000
+        with patch("src.rag.embeddings.get_settings", return_value=_mock_settings()):
+            service = EmbeddingService(client=mock_client)
+            await service.embed_text(exact_text)
+        call_kwargs = mock_client.embeddings.create.call_args
+        assert len(call_kwargs.kwargs["input"]) == 30000

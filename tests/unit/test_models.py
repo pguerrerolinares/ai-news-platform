@@ -160,3 +160,30 @@ class TestItemEmbeddingModel:
     def test_has_created_at(self):
         column_names = {c.name for c in ItemEmbedding.__table__.columns}
         assert "created_at" in column_names
+
+
+# ---------------------------------------------------------------------------
+# Topic constraint validation
+# ---------------------------------------------------------------------------
+class TestTopicConstraint:
+    """Verify the CHECK constraint on NewsItem.topic rejects invalid values."""
+
+    def test_valid_topic_check_constraint_exists(self):
+        """The table has a CHECK constraint named 'valid_topic'."""
+        constraints = NewsItem.__table__.constraints
+        check_constraints = [
+            c for c in constraints if hasattr(c, "sqltext") and c.name == "valid_topic"
+        ]
+        assert len(check_constraints) == 1
+
+    def test_valid_topic_constraint_references_all_topics(self):
+        """The CHECK constraint SQL text mentions every VALID_TOPICS entry."""
+        constraints = NewsItem.__table__.constraints
+        check_constraint = next(
+            c for c in constraints if hasattr(c, "sqltext") and c.name == "valid_topic"
+        )
+        sql_text = str(check_constraint.sqltext)
+        for topic in VALID_TOPICS:
+            assert topic in sql_text, f"Topic '{topic}' not found in constraint SQL"
+        # An invalid topic should NOT appear in the constraint
+        assert "invalid_topic" not in sql_text
