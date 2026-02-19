@@ -128,3 +128,26 @@ class TestBaseExtractorAbstract:
 
         extractor = Complete()
         assert extractor.source_name == "test"
+
+
+# ---------------------------------------------------------------------------
+# Edge cases for ExtractedItem hashing and sorting
+# ---------------------------------------------------------------------------
+class TestEdgeCases:
+    """Edge cases for ExtractedItem hashing and sorting."""
+
+    def test_content_hash_empty_title(self):
+        """Empty title still produces a deterministic hash."""
+        item = ExtractedItem(title="", source="test", url="https://x.com")
+        assert isinstance(item.content_hash, str)
+        assert len(item.content_hash) == 16
+
+    def test_url_hash_empty_url(self):
+        """Empty URL returns None (no URL to hash)."""
+        item = ExtractedItem(title="Foo", source="test", url="")
+        assert item.url_hash is None
+
+    def test_url_hash_none_url(self):
+        """None URL returns None."""
+        item = ExtractedItem(title="Foo", source="test", url=None)
+        assert item.url_hash is None

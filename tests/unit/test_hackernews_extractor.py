@@ -306,3 +306,101 @@ class TestExtract:
 
         assert result[0].published_at is not None
         assert result[0].published_at.year == 2024
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+class TestEdgeCases:
+    """Edge cases for HackerNewsExtractor.extract()."""
+
+    @respx.mock
+    async def test_story_missing_title(self):
+        """A hit with null title should still be extracted (title defaults via get)."""
+        hit = _make_hit("1", title="", url="https://x.com", points=200)
+        hit["title"] = None
+        respx.get(BASE_URL).mock(
+            return_value=httpx.Response(200, json=_algolia_response([hit])),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.hackernews.get_settings", return_value=settings):
+            result = await HackerNewsExtractor().extract()
+
+        # hit.get("title", "") returns None when key exists with None value
+        assert len(result) == 1
+        assert result[0].title is None
+
+    @respx.mock
+    async def test_negative_points(self):
+        """A story with negative points is still extracted (if above min_points filter)."""
+        hit = _make_hit("1", "Negative Story", "https://x.com", points=-5)
+        respx.get(BASE_URL).mock(
+            return_value=httpx.Response(200, json=_algolia_response([hit])),
+        )
+
+        settings = _mock_settings(hn_min_points=0)
+        with patch("src.extractors.hackernews.get_settings", return_value=settings):
+            result = await HackerNewsExtractor().extract()
+
+        assert len(result) == 1
+        assert result[0].score == -5
+
+    @respx.mock
+    async def test_unexpected_created_at_value(self):
+        """A non-numeric created_at_i raises TypeError, caught by extract()'s
+        broad except, so the entire query yields no items."""
+        hit = _make_hit("1", "Story", "https://x.com", points=100)
+        hit["created_at_i"] = "not-a-timestamp"
+        respx.get(BASE_URL).mock(
+            return_value=httpx.Response(200, json=_algolia_response([hit])),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.hackernews.get_settings", return_value=settings):
+            result = await HackerNewsExtractor().extract()
+
+        # TypeError from datetime.fromtimestamp("not-a-timestamp") is not caught
+        # in _search's inner try/except (ValueError, OSError), so it propagates
+        # to extract()'s broad except Exception which logs a warning and continues.
+        assert result == []
+
+    @respx.mock
+    async def test_hit_missing_object_id(self):
+        """A hit without objectID should be handled (defaults to empty string)."""
+        hit = _make_hit("", "No ID Story", "https://x.com", points=100)
+        hit.pop("objectID", None)
+        respx.get(BASE_URL).mock(
+            return_value=httpx.Response(200, json=_algolia_response([hit])),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.hackernews.get_settings", return_value=settings):
+            result = await HackerNewsExtractor().extract()
+
+        assert len(result) == 1
+        assert result[0].metadata["story_id"] == ""
+
+    @respx.mock
+    async def test_timeout_returns_empty(self):
+        """A timeout exception returns empty list gracefully."""
+        respx.get(BASE_URL).mock(side_effect=httpx.TimeoutException("read timeout"))
+
+        settings = _mock_settings()
+        with patch("src.extractors.hackernews.get_settings", return_value=settings):
+            result = await HackerNewsExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_json_decode_error_returns_empty(self):
+        """A non-JSON response body returns empty list."""
+        respx.get(BASE_URL).mock(
+            return_value=httpx.Response(200, text="<html>Not JSON</html>"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.hackernews.get_settings", return_value=settings):
+            result = await HackerNewsExtractor().extract()
+
+        assert result == []
