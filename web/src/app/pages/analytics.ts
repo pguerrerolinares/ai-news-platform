@@ -153,7 +153,6 @@ export class AnalyticsPage implements OnInit {
       yAxis: {
         ...this.darkTheme.yAxis as Highcharts.YAxisOptions,
         title: { text: 'Items', style: { color: '#5a5a6e' } },
-        min: 0,
       },
       series: [{ type: 'line', name: 'Items', data: data.map(d => d.count), color: '#6366F1' }],
       credits: { enabled: false },
