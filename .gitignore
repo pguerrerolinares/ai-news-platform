@@ -54,6 +54,16 @@ web/.angular/
 # Worktrees
 .worktrees/
 
+# Ad-hoc screenshots (docs/screenshots/ is tracked intentionally)
+/screenshots/
+
+# OMC plugin state
+.omc/
+web/.omc/
+
+# Dev database
+dev.db
+
 # Misc
 *.bak
 *.tmp
