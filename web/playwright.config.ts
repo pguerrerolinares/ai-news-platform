@@ -18,6 +18,8 @@ export default defineConfig({
   projects: [
     // Functional tests (existing)
     { name: 'chromium', testMatch: /.*\.spec\.ts/, testIgnore: /visual-|screenshot-docs/, use: { ...devices['Desktop Chrome'] } },
+    // Screenshot docs — standalone project (viewports defined in spec)
+    { name: 'screendocs', testMatch: /screenshot-docs\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
     // Visual regression — desktop dark
     {
       name: 'desktop-dark',
