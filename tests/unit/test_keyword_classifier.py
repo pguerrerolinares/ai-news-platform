@@ -389,3 +389,53 @@ class TestKeywordClassifier:
         assert r.source_count == 1
         assert r.dev_value_score is None
         assert r.credibility_score is None
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests
+# ---------------------------------------------------------------------------
+class TestKeywordEdgeCases:
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(
+            "src.classifiers.keyword.get_settings",
+            return_value=_make_settings(),
+        ):
+            yield
+
+    @pytest.fixture()
+    def classifier(self):
+        return KeywordClassifier()
+
+    async def test_empty_title_and_text(self, classifier):
+        """Item with empty title and text gets relevance=0, filtered out."""
+        items = [make_extracted_item(title="", text="")]
+        results = await classifier.classify(items)
+        assert len(results) == 0
+
+    async def test_title_only_emojis(self, classifier):
+        """Title with only emojis has no keyword match, filtered out."""
+        items = [make_extracted_item(title="\U0001f916\U0001f525\U0001f4af", text="")]
+        results = await classifier.classify(items)
+        assert len(results) == 0
+
+    async def test_title_only_stopwords(self, classifier):
+        """Title with only stopwords has no keyword match, filtered out."""
+        items = [make_extracted_item(title="the and or is", text="")]
+        results = await classifier.classify(items)
+        assert len(results) == 0
+
+    async def test_all_topics_disabled(self):
+        """Config with no topics enabled filters everything."""
+        settings = _make_settings(topics="")
+        with patch("src.classifiers.keyword.get_settings", return_value=settings):
+            classifier = KeywordClassifier()
+            items = [
+                make_extracted_item(
+                    title="GPT-5 LLM achieves SOTA on MMLU benchmark with transformer",
+                    text="New model training fine-tuning attention weights parameters",
+                    score=100,
+                ),
+            ]
+            results = await classifier.classify(items)
+            assert len(results) == 0

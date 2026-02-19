@@ -515,3 +515,117 @@ class TestLLMClassifier:
                     base_url="https://api.test.com/v1",
                 )
                 assert client is mock_instance
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests: _parse_llm_json
+# ---------------------------------------------------------------------------
+class TestParseLlmJsonEdgeCases:
+    def test_truncated_json(self):
+        """Truncated JSON string returns empty list."""
+        result = _parse_llm_json('[{"topic": "modelos"')
+        assert result == []
+
+    def test_empty_string_parse(self):
+        """Empty string returns empty list."""
+        result = _parse_llm_json("")
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests: LLMClassifier
+# ---------------------------------------------------------------------------
+class TestLLMClassifierEdgeCases:
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with (
+            patch(
+                "src.classifiers.llm.get_settings",
+                return_value=_make_settings(),
+            ),
+            patch(
+                "src.classifiers.keyword.get_settings",
+                return_value=_make_settings(),
+            ),
+        ):
+            yield
+
+    async def test_batch_partial_failure(self):
+        """First batch OK, second raises -> first batch results + fallback for second."""
+        # Build a response for the first batch (BATCH_SIZE items, all classified)
+        first_batch_response = _make_llm_response(
+            [
+                {
+                    "idx": i,
+                    "is_news": True,
+                    "topic": "modelos",
+                    "relevance": 0.9,
+                    "summary": f"Resumen batch1 item {i}",
+                }
+                for i in range(BATCH_SIZE)
+            ]
+        )
+
+        # Create enough items to trigger 2 batches
+        items = [
+            make_extracted_item(
+                title=f"GPT model {i} LLM transformer SOTA MMLU benchmark architecture",
+                text="New model training fine-tuning attention weights parameters",
+                url=f"https://example.com/{i}",
+                score=100,
+            )
+            for i in range(BATCH_SIZE + 2)
+        ]
+
+        client = _make_mock_client(first_batch_response)
+        # First call succeeds, second raises
+        client.chat.completions.create = AsyncMock(
+            side_effect=[
+                SimpleNamespace(
+                    choices=[
+                        SimpleNamespace(
+                            message=SimpleNamespace(content=first_batch_response),
+                        )
+                    ]
+                ),
+                openai.BadRequestError(
+                    message="bad request",
+                    response=MagicMock(status_code=400),
+                    body=None,
+                ),
+            ]
+        )
+
+        classifier = LLMClassifier(client=client)
+        results = await classifier.classify(items)
+
+        assert client.chat.completions.create.call_count == 2
+        # First batch: BATCH_SIZE LLM results; second batch: 2 items via keyword fallback
+        # Keyword fallback may or may not classify items depending on keyword matches
+        # But we should have at least the BATCH_SIZE from the first batch
+        assert len(results) >= BATCH_SIZE
+
+    async def test_non_retryable_auth_error(self):
+        """AuthenticationError is NOT retryable -> falls back immediately, only 1 call."""
+        client = _make_mock_client("")
+        client.chat.completions.create = AsyncMock(
+            side_effect=openai.AuthenticationError(
+                message="invalid api key",
+                response=MagicMock(status_code=401),
+                body=None,
+            )
+        )
+        classifier = LLMClassifier(client=client)
+        items = [
+            make_extracted_item(
+                title="GPT-5 LLM achieves SOTA on MMLU benchmark with transformer architecture",
+                text="New model training fine-tuning attention weights parameters",
+                score=100,
+            ),
+        ]
+        results = await classifier.classify(items)
+        # AuthenticationError is not retryable, so only 1 call
+        assert client.chat.completions.create.call_count == 1
+        # Falls back to keyword classifier, which should classify this item
+        assert len(results) >= 1
+        assert results[0].topic == "modelos"

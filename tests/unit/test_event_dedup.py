@@ -387,3 +387,52 @@ class TestDeduplicateEvents:
         client = _make_mock_client("[[0, 99], [1]]")
         results = await deduplicate_events(items, client=client)
         assert len(results) == 2
+
+    async def test_all_items_same_event(self):
+        """LLM groups all 5 items into one event -> 1 winner with trending and source_count=5."""
+        items = [
+            make_classified_item(
+                title=f"GPT-5 article {i}",
+                topic="modelos",
+                relevance_score=0.85 + i * 0.02,
+                priority=3,
+                item=make_extracted_item(
+                    title=f"GPT-5 article {i}",
+                    score=50 + i * 50,
+                    url=f"https://example.com/{i}",
+                ),
+            )
+            for i in range(5)
+        ]
+        client = _make_mock_client("[[0, 1, 2, 3, 4]]")
+        results = await deduplicate_events(items, client=client)
+        assert len(results) == 1
+        assert results[0].trending is True
+        assert results[0].source_count == 5
+
+    async def test_empty_groups_from_llm(self):
+        """LLM returns '[]' -> all items kept as orphans."""
+        items = [
+            make_classified_item(
+                title="Item A",
+                topic="modelos",
+                item=make_extracted_item(
+                    title="Item A",
+                    score=100,
+                ),
+            ),
+            make_classified_item(
+                title="Item B",
+                topic="modelos",
+                item=make_extracted_item(
+                    title="Item B",
+                    score=200,
+                    url="https://example.com/b",
+                ),
+            ),
+        ]
+        client = _make_mock_client("[]")
+        results = await deduplicate_events(items, client=client)
+        assert len(results) == 2
+        titles = {r.item.title for r in results}
+        assert titles == {"Item A", "Item B"}
