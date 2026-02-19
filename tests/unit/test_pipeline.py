@@ -1122,3 +1122,199 @@ class TestRunPipelineExceptionPath:
                 await run_pipeline(session)
 
             mock_alerts.pipeline_failure.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests (M9 Task 6)
+# ---------------------------------------------------------------------------
+class TestPipelineEdgeCases:
+    """Edge-case scenarios for pipeline orchestration."""
+
+    @pytest.mark.asyncio
+    async def test_classifier_returns_empty(self):
+        """When classifier returns [], pipeline continues with 0 items and returns True."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+            embedding_api_key="",
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline._extract_all",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+            patch("src.pipeline.pipeline._store_classified_items", new_callable=AsyncMock) as mock_store,
+            patch("src.pipeline.pipeline._save_briefing", new_callable=AsyncMock) as mock_briefing,
+            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
+        ):
+            mock_classifier = AsyncMock()
+            mock_classifier.classify.return_value = []  # <-- empty classification
+            mock_kw_cls.return_value = mock_classifier
+
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = []
+            mock_validator_cls.return_value = mock_validator
+
+            mock_store.return_value = 0
+
+            mock_alerts = AsyncMock()
+            mock_alerts_cls.return_value = mock_alerts
+
+            result = await run_pipeline(session)
+
+        assert result is True
+        mock_store.assert_called_once_with(session, [])
+        # Briefing should still be saved with items_stored=0
+        mock_briefing.assert_called_once()
+        assert mock_briefing.call_args[1]["items_stored"] == 0
+        assert mock_briefing.call_args[1]["trending_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_validator_filters_all(self):
+        """When validator returns [], pipeline still succeeds with 0 stored items."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=True,
+            embedding_api_key="",
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline._extract_all",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+            patch("src.pipeline.pipeline._store_classified_items", new_callable=AsyncMock) as mock_store,
+            patch("src.pipeline.pipeline._save_briefing", new_callable=AsyncMock) as mock_briefing,
+            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
+        ):
+            mock_classifier = AsyncMock()
+            mock_classifier.classify.return_value = classified
+            mock_kw_cls.return_value = mock_classifier
+
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = []  # <-- validator filters everything
+            mock_validator_cls.return_value = mock_validator
+
+            mock_store.return_value = 0
+
+            mock_alerts = AsyncMock()
+            mock_alerts_cls.return_value = mock_alerts
+
+            result = await run_pipeline(session)
+
+        assert result is True
+        mock_validator.validate.assert_called_once_with(classified)
+        mock_store.assert_called_once_with(session, [])
+        assert mock_briefing.call_args[1]["trending_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_store_integrity_error_propagates(self):
+        """IntegrityError during DB insert propagates and triggers pipeline_failure alert."""
+        from sqlalchemy.exc import IntegrityError
+
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        # Make session.execute raise IntegrityError (e.g., a non-content_hash constraint)
+        session.execute = AsyncMock(
+            side_effect=IntegrityError("duplicate key", {}, None),
+        )
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline._extract_all",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
+        ):
+            mock_classifier = AsyncMock()
+            mock_classifier.classify.return_value = classified
+            mock_kw_cls.return_value = mock_classifier
+
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = classified
+            mock_validator_cls.return_value = mock_validator
+
+            mock_alerts = AsyncMock()
+            mock_alerts_cls.return_value = mock_alerts
+
+            with pytest.raises(IntegrityError):
+                await run_pipeline(session)
+
+            # Alert should fire for the unhandled DB error
+            mock_alerts.pipeline_failure.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_embedding_skipped_when_api_key_not_set(self):
+        """Embedding step is skipped entirely when embedding_api_key is empty."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+            embedding_api_key="",  # <-- no key
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline._extract_all",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+            patch(
+                "src.pipeline.pipeline._embed_new_items",
+                new_callable=AsyncMock,
+            ) as mock_embed,
+            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
+        ):
+            mock_classifier = AsyncMock()
+            mock_classifier.classify.return_value = classified
+            mock_kw_cls.return_value = mock_classifier
+
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = classified
+            mock_validator_cls.return_value = mock_validator
+
+            mock_alerts = AsyncMock()
+            mock_alerts_cls.return_value = mock_alerts
+
+            result = await run_pipeline(session)
+
+        assert result is True
+        # _embed_new_items should NOT have been called
+        mock_embed.assert_not_called()
