@@ -4,8 +4,11 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "mock": "ng serve --configuration mock",
     "build": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report playwright-report"
   },
   "prettier": {
     "printWidth": 100,
@@ -42,6 +45,7 @@
     "@angular/build": "^21.0.4",
     "@angular/cli": "^21.0.4",
     "@angular/compiler-cli": "^21.0.0",
+    "@playwright/test": "^1.58.2",
     "@types/dompurify": "^3.0.5",
     "typescript": "~5.9.2"
   }
