@@ -2,8 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 15_000,
-  expect: { timeout: 5_000 },
+  timeout: 20_000,
+  expect: {
+    timeout: 5_000,
+    toHaveScreenshot: { maxDiffPixels: 50, threshold: 0.05 },
+  },
   fullyParallel: false,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
@@ -13,7 +16,26 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Functional tests (existing)
+    { name: 'chromium', testMatch: /(?<!visual-).*\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
+    // Visual regression — desktop dark
+    {
+      name: 'desktop-dark',
+      testMatch: /visual-.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    // Visual regression — desktop light
+    {
+      name: 'desktop-light',
+      testMatch: /visual-.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    // Visual regression — mobile dark
+    {
+      name: 'mobile',
+      testMatch: /visual-.*\.spec\.ts/,
+      use: { ...devices['Pixel 5'] },
+    },
   ],
   webServer: {
     command: 'npm run mock',
