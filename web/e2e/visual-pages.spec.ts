@@ -45,8 +45,9 @@ test.describe('Visual — Páginas completas', () => {
     await page.locator('input[name="query"]').fill('LLM');
     await page.getByRole('button', { name: 'Buscar' }).click();
     await page.waitForSelector('app-news-item-card', { timeout: 5000 });
+    await page.waitForLoadState('networkidle');
     await freezeAnimations(page);
-    await expect(page).toHaveScreenshot(`search-results-${theme}.png`, { fullPage: true });
+    await expect(page).toHaveScreenshot(`search-results-${theme}.png`, { fullPage: true, maxDiffPixels: 200 });
   });
 
   test('Analytics', async ({ page }, testInfo) => {

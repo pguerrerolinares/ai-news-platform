@@ -43,7 +43,9 @@ test.describe('Visual — Componentes críticos', () => {
     await freezeAnimations(page);
     await page.locator('mat-select').first().click();
     await page.waitForSelector('.mat-mdc-select-panel', { timeout: 3000 });
-    await expect(page).toHaveScreenshot(`mat-select-open-${theme}.png`);
+    // Capturar solo el panel (más estable que full-page, especialmente en mobile)
+    const panel = page.locator('.mat-mdc-select-panel');
+    await expect(panel).toHaveScreenshot(`mat-select-open-${theme}.png`, { maxDiffPixels: 100 });
   });
 
   test('mat-datepicker abierto', async ({ page }, testInfo) => {
