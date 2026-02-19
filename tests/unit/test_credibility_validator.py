@@ -886,9 +886,7 @@ class TestEdgeCasesIsSafeUrl:
     @pytest.mark.asyncio
     async def test_ipv4_mapped_ipv6_blocked(self):
         """IPv4-mapped IPv6 addresses (::ffff:127.0.0.1) must be blocked."""
-        ipv6_mapped = [
-            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:127.0.0.1", 0, 0, 0))
-        ]
+        ipv6_mapped = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:127.0.0.1", 0, 0, 0))]
         with _mock_loop_getaddrinfo(return_value=ipv6_mapped):
             assert await _is_safe_url("https://mapped.example.com") is False
 

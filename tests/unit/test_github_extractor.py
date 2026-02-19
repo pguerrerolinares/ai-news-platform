@@ -332,9 +332,7 @@ class TestEdgeCases:
         """Repo with missing pushed_at field uses now() as fallback."""
         repo = _make_repo("no-push-repo")
         del repo["pushed_at"]
-        respx.get(SEARCH_URL).mock(
-            return_value=httpx.Response(200, json=_search_response([repo]))
-        )
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
         assert len(result) == 1
@@ -343,9 +341,7 @@ class TestEdgeCases:
     @respx.mock
     async def test_timeout_returns_empty(self):
         """TimeoutException returns []."""
-        respx.get(SEARCH_URL).mock(
-            side_effect=httpx.TimeoutException("read timed out")
-        )
+        respx.get(SEARCH_URL).mock(side_effect=httpx.TimeoutException("read timed out"))
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
         assert result == []
@@ -359,9 +355,7 @@ class TestEdgeCases:
             "incomplete_results": True,
             "items": [repo],
         }
-        respx.get(SEARCH_URL).mock(
-            return_value=httpx.Response(200, json=data)
-        )
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=data))
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
         assert len(result) == 1

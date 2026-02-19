@@ -282,9 +282,7 @@ class TestEdgeCases:
     @respx.mock
     async def test_http_timeout(self):
         """Timeout returns []."""
-        respx.get(API_URL).mock(
-            side_effect=httpx.TimeoutException("read timed out")
-        )
+        respx.get(API_URL).mock(side_effect=httpx.TimeoutException("read timed out"))
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         assert result == []

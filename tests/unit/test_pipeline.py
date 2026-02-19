@@ -1152,7 +1152,9 @@ class TestPipelineEdgeCases:
             patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
             patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline._store_classified_items", new_callable=AsyncMock) as mock_store,
+            patch(
+                "src.pipeline.pipeline._store_classified_items", new_callable=AsyncMock
+            ) as mock_store,
             patch("src.pipeline.pipeline._save_briefing", new_callable=AsyncMock) as mock_briefing,
             patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
@@ -1201,7 +1203,9 @@ class TestPipelineEdgeCases:
             patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
             patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline._store_classified_items", new_callable=AsyncMock) as mock_store,
+            patch(
+                "src.pipeline.pipeline._store_classified_items", new_callable=AsyncMock
+            ) as mock_store,
             patch("src.pipeline.pipeline._save_briefing", new_callable=AsyncMock) as mock_briefing,
             patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):

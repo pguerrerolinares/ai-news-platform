@@ -26,7 +26,8 @@ class TestSettingsDefaults:
         s = Settings()
         assert s.api_host == "0.0.0.0"
 
-    def test_default_debug_is_false(self):
+    def test_default_debug_is_false(self, monkeypatch):
+        monkeypatch.setenv("DEBUG", "false")
         s = Settings()
         assert s.debug is False
 
