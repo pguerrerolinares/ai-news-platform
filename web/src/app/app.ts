@@ -83,6 +83,7 @@ import { AuthService } from './services/auth.service';
       position: relative;
       --mdc-text-button-label-text-color: var(--text-muted);
       --mdc-text-button-hover-label-text-color: var(--text-primary);
+      transition: color 0.2s ease;
     }
     .nav-links a.mat-mdc-button::after {
       content: '';
@@ -150,20 +151,30 @@ import { AuthService } from './services/auth.service';
       .nav-brand { font-size: 0.875rem; }
       .hamburger { display: inline-flex; }
       .nav-links {
-        display: none;
+        display: flex;
+        flex-direction: column;
         position: absolute;
         top: 48px;
         left: 0;
         right: 0;
         background: var(--bg-surface);
         border-bottom: 1px solid var(--border);
-        flex-direction: column;
         padding: 8px 16px 12px;
         gap: 2px;
         z-index: 99;
         backdrop-filter: blur(12px);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-6px);
+        transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+        pointer-events: none;
       }
-      .nav-links.open { display: flex; }
+      .nav-links.open {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
       .nav-links a.mat-mdc-button {
         font-size: var(--text-sm);
         padding: 10px 16px;
