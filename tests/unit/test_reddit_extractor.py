@@ -371,3 +371,95 @@ class TestExtract:
         assert len(result) == 2
         post_ids = {item.metadata["post_id"] for item in result}
         assert post_ids == {"ml1", "ll1"}
+
+
+class TestEdgeCases:
+    """Edge cases for RedditExtractor."""
+
+    @respx.mock
+    async def test_all_posts_stickied(self):
+        """When every post is stickied, returns empty list."""
+        posts = [
+            _make_post("s1", "Weekly Discussion", stickied=True, score=10),
+            _make_post("s2", "Monthly Showcase", stickied=True, score=5),
+        ]
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response(posts)),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            result = await RedditExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_subreddit_403_returns_empty(self):
+        """Private subreddit (403) is handled gracefully."""
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(403, text="Forbidden"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            result = await RedditExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_post_missing_id_skipped(self):
+        """Post without an id field is skipped."""
+        posts = [_make_post("", "No ID Post", score=100)]
+        posts[0]["id"] = ""
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response(posts)),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            result = await RedditExtractor().extract()
+
+        # post_id="" is falsy, so `if not post_id: continue` skips it
+        assert result == []
+
+    @respx.mock
+    async def test_timeout_returns_empty(self):
+        """Network timeout is handled gracefully."""
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            side_effect=httpx.TimeoutException("read timeout"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            result = await RedditExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_missing_data_key_returns_empty(self):
+        """Response without 'data' key returns empty list."""
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json={"kind": "Listing"}),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            result = await RedditExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_post_score_zero_included(self):
+        """Posts with score=0 are included (filtering is validator's job)."""
+        posts = [_make_post("zero1", "Zero Score Post", score=0)]
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response(posts)),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            result = await RedditExtractor().extract()
+
+        assert len(result) == 1
+        assert result[0].score == 0
+        assert result[0].metadata["post_id"] == "zero1"

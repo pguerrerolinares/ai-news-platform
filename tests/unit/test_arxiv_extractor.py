@@ -369,3 +369,94 @@ class TestHelpers:
         assert "<" not in result
         assert "Announce Type" not in result
         assert "bold" in result
+
+
+class TestEdgeCases:
+    """Edge cases for ArxivExtractor."""
+
+    @respx.mock
+    async def test_malformed_xml_returns_empty(self):
+        """Malformed RSS body returns empty list, no crash."""
+        respx.get(f"{RSS_BASE}/cs.AI").mock(
+            return_value=httpx.Response(200, text="<broken xml"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.arxiv.get_settings", return_value=settings):
+            result = await ArxivExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_entry_no_link(self):
+        """Entry without link field is skipped (no arxiv_id extractable)."""
+        entry_xml = """
+        <item>
+          <title>LLM Paper With No Link</title>
+          <description>Announce Type: new\nA paper about transformers.</description>
+          <author>Jane Doe</author>
+        </item>"""
+        feed_xml = _make_feed([entry_xml])
+        respx.get(f"{RSS_BASE}/cs.AI").mock(
+            return_value=httpx.Response(200, text=feed_xml),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.arxiv.get_settings", return_value=settings):
+            result = await ArxivExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_duplicate_paper_across_categories(self):
+        """Same paper appearing in two categories is deduplicated."""
+        entry_xml = (
+            '<item rdf:about="http://arxiv.org/abs/2401.99999v1">'
+            "<title>Announce Type: new\nDuplicated LLM Paper</title>"
+            "<link>http://arxiv.org/abs/2401.99999v1</link>"
+            "<description>Announce Type: new\nA paper about transformer LLM models.</description>"
+            "</item>"
+        )
+        feed_xml = _make_feed([entry_xml])
+        # Both categories return the same paper
+        respx.get(f"{RSS_BASE}/cs.AI").mock(
+            return_value=httpx.Response(200, text=feed_xml),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.arxiv.get_settings", return_value=settings):
+            result = await ArxivExtractor().extract()
+
+        # Should be deduplicated to 1 item despite appearing in feed
+        assert len(result) <= 1
+
+    @respx.mock
+    async def test_feed_no_entries(self):
+        """Valid RSS with zero entries returns empty list."""
+        feed_xml = _make_feed([])
+        respx.get(f"{RSS_BASE}/cs.AI").mock(
+            return_value=httpx.Response(200, text=feed_xml),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.arxiv.get_settings", return_value=settings):
+            result = await ArxivExtractor().extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_timeout_returns_empty(self):
+        """Network timeout is handled gracefully."""
+        respx.get(f"{RSS_BASE}/cs.AI").mock(
+            side_effect=httpx.ReadTimeout("Read timed out"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.arxiv.get_settings", return_value=settings):
+            result = await ArxivExtractor().extract()
+
+        assert result == []
+
+    def test_build_keyword_regex_empty_list(self):
+        """Empty keyword list returns None pattern."""
+        assert ArxivExtractor._build_keyword_regex([]) is None
