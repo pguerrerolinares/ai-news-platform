@@ -59,6 +59,14 @@ import { NewsItemCard } from '../components/news-item-card';
         </div>
       </form>
 
+      @if (!searched() && !loading()) {
+        <div class="search-empty-state">
+          <div class="search-empty-icon">🔍</div>
+          <p class="search-empty-title">Busca entre las noticias archivadas</p>
+          <p class="search-empty-hint">Prueba con: LLM, agentes, open source, GPT-4, Mistral...</p>
+        </div>
+      }
+
       @if (loading()) {
         <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
       }
@@ -143,6 +151,35 @@ import { NewsItemCard } from '../components/news-item-card';
       display: flex;
       flex-direction: column;
       gap: 14px;
+    }
+
+    .search-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 64px 24px;
+      text-align: center;
+      animation: fade-in 0.4s ease-out both;
+    }
+
+    .search-empty-icon {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .search-empty-title {
+      margin: 0 0 8px;
+      font-size: var(--text-base);
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .search-empty-hint {
+      margin: 0;
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
     }
 
     @media (max-width: 640px) {
