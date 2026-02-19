@@ -875,3 +875,84 @@ class TestScoreClamping:
             result = await validator._validate_item(item, client)
         assert result.credibility_score is not None
         assert result.credibility_score >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests (M9 milestone)
+# ---------------------------------------------------------------------------
+class TestEdgeCasesIsSafeUrl:
+    """Edge cases for SSRF protection in _is_safe_url."""
+
+    @pytest.mark.asyncio
+    async def test_ipv4_mapped_ipv6_blocked(self):
+        """IPv4-mapped IPv6 addresses (::ffff:127.0.0.1) must be blocked."""
+        ipv6_mapped = [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:127.0.0.1", 0, 0, 0))
+        ]
+        with _mock_loop_getaddrinfo(return_value=ipv6_mapped):
+            assert await _is_safe_url("https://mapped.example.com") is False
+
+    @pytest.mark.asyncio
+    async def test_empty_url_returns_false(self):
+        """Completely empty URL string must return False."""
+        assert await _is_safe_url("") is False
+
+
+class TestEdgeCasesUrlVerification:
+    """Edge cases for _verify_url_content."""
+
+    async def test_ssl_error_no_bonus(self):
+        """An SSL/TLS error should yield bonus=0.0, not crash."""
+        mock_client = AsyncMock(spec=httpx.AsyncClient)
+        # ConnectError is what httpx raises for SSL failures; it inherits HTTPError
+        mock_client.head = AsyncMock(
+            side_effect=httpx.ConnectError("SSL: CERTIFICATE_VERIFY_FAILED")
+        )
+
+        from src.validators.credibility import _verify_url_content
+
+        bonus = await _verify_url_content("https://bad-cert.example.com/article", mock_client)
+        assert bonus == 0.0
+
+    async def test_read_timeout_no_bonus(self):
+        """A ReadTimeout (very slow response) should yield bonus=0.0."""
+        mock_client = AsyncMock(spec=httpx.AsyncClient)
+        mock_client.head = AsyncMock(side_effect=httpx.ReadTimeout("read timed out"))
+
+        from src.validators.credibility import _verify_url_content
+
+        bonus = await _verify_url_content("https://slow.example.com/article", mock_client)
+        assert bonus == 0.0
+
+
+class TestEdgeCasesTokenize:
+    """Edge cases for _tokenize."""
+
+    def test_only_punctuation_returns_empty(self):
+        """Input of only punctuation should yield an empty token set."""
+        tokens = _tokenize("!!! ??? ...")
+        assert tokens == set()
+
+    def test_unicode_text_includes_ascii_tokens(self):
+        """Unicode text should still tokenize ASCII words correctly.
+
+        The regex [a-zA-Z0-9]+ drops non-ASCII chars, but ASCII words
+        like 'transformer' must survive.
+        """
+        tokens = _tokenize("réseau neuronal 神经网络 transformer")
+        assert "transformer" in tokens
+        # 'r' and 'seau' may appear as fragments — the key assertion is 'transformer'
+
+
+class TestEdgeCasesJaccard:
+    """Edge cases for _jaccard_similarity."""
+
+    def test_both_only_stopwords_different_sets_returns_zero(self):
+        """Two texts with only stopwords (different sets) must return 0.0, no ZeroDivisionError."""
+        sim = _jaccard_similarity("the is a an", "and or but")
+        assert sim == 0.0
+
+    def test_one_word_overlap_between_zero_and_one(self):
+        """Partial overlap should give a Jaccard score strictly between 0 and 1."""
+        sim = _jaccard_similarity("quantum computing revolution", "quantum physics breakthrough")
+        assert 0.0 < sim < 1.0
