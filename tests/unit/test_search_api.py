@@ -183,6 +183,12 @@ class TestSearchValidation:
         resp = await api_client.get("/api/search", params={"q": "test", "limit": 0})
         assert resp.status_code == 422
 
+    async def test_sql_injection_attempt_is_safe(self, api_client: AsyncClient):
+        """SQL injection in query parameter must not cause a 500 error."""
+        resp = await api_client.get("/api/search", params={"q": "'; DROP TABLE--"})
+        assert resp.status_code in (200, 422)
+        assert resp.status_code != 500
+
 
 # ---------------------------------------------------------------------------
 # Filters

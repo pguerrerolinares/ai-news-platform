@@ -172,6 +172,33 @@ class TestChatValidation:
         )
         assert resp.status_code == 422
 
+    async def test_empty_question_returns_422(self, api_client: AsyncClient):
+        """An empty string question should return 422 (min_length=3 constraint)."""
+        resp = await api_client.post("/api/chat", json={"question": ""})
+        assert resp.status_code == 422
+
+    async def test_invalid_topic_accepted_or_rejected(self, api_client: AsyncClient):
+        """A nonexistent topic string should not cause a 500 error.
+
+        The topic field has no enum constraint in ChatRequest, so the API
+        should either accept it (200) or reject it (422), but never crash.
+        """
+        mock_service = MagicMock()
+
+        async def mock_stream(*_a, **_kw):
+            yield "data: [DONE]\n\n"
+
+        mock_service.chat_stream = mock_stream
+
+        with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
+            resp = await api_client.post(
+                "/api/chat",
+                json={"question": "valid question", "topic": "nonexistent_topic_xyz"},
+            )
+
+        assert resp.status_code in (200, 422)
+        assert resp.status_code != 500
+
     async def test_default_limit_is_5(self, api_client: AsyncClient):
         """When limit is omitted, it should default to 5."""
         captured_kwargs = {}

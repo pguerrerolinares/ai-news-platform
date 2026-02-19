@@ -105,6 +105,16 @@ class TestListItems:
         resp = await api_client.get("/api/items", params={"limit": 10, "offset": 5})
         assert resp.status_code == 200
 
+    async def test_negative_limit_returns_422(self, api_client: AsyncClient):
+        """GET /api/items?limit=-1 should return 422 (ge=1 constraint)."""
+        resp = await api_client.get("/api/items", params={"limit": -1})
+        assert resp.status_code == 422
+
+    async def test_very_large_limit_returns_422(self, api_client: AsyncClient):
+        """GET /api/items?limit=99999 should return 422 (le=200 constraint)."""
+        resp = await api_client.get("/api/items", params={"limit": 99999})
+        assert resp.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # GET /api/items/today
