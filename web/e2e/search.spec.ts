@@ -10,7 +10,7 @@ test.describe('Search', () => {
   test('muestra empty state al cargar sin búsqueda', async ({ page }) => {
     await expect(page.locator('.search-empty-state')).toBeVisible();
     await expect(page.locator('.search-empty-title')).toContainText('Busca entre las noticias archivadas');
-    await expect(page.locator('.search-empty-hint')).toContainText('LLM');
+    await expect(page.locator('.search-suggestions .quick-chip').first()).toBeVisible();
   });
 
   test('buscar "LLM" retorna resultados y oculta empty state', async ({ page }) => {

@@ -8,7 +8,7 @@ import { NewsItem } from '../models/news-item';
   selector: 'app-news-item-card',
   imports: [CommonModule, DatePipe, MatCardModule, MatChipsModule],
   template: `
-    <article>
+    <article [attr.aria-label]="item.title">
       <mat-card class="news-item" [class.hero]="hero">
         <mat-card-content>
           <div class="item-header">
@@ -20,7 +20,7 @@ import { NewsItem } from '../models/news-item';
               <mat-chip class="topic-badge" disabled [attr.data-topic]="item.topic">{{ item.topic }}</mat-chip>
             }
             @if (item.trending) {
-              <span class="trending">trending</span>
+              <span class="trending" role="status" aria-label="trending">trending</span>
             }
           </div>
           <h2>
@@ -77,11 +77,11 @@ import { NewsItem } from '../models/news-item';
       color: var(--text-secondary);
     }
     .source-badge[data-source="hackernews"] { background: color-mix(in srgb, var(--source-hackernews) 15%, transparent); color: var(--source-hackernews); }
-    .source-badge[data-source="arxiv"] { background: color-mix(in srgb, var(--source-arxiv) 15%, transparent); color: #f87171; }
+    .source-badge[data-source="arxiv"] { background: color-mix(in srgb, var(--source-arxiv) 15%, transparent); color: var(--source-arxiv); }
     .source-badge[data-source="reddit"] { background: color-mix(in srgb, var(--source-reddit) 15%, transparent); color: var(--source-reddit); }
     .source-badge[data-source="rss"] { background: color-mix(in srgb, var(--source-rss) 15%, transparent); color: var(--source-rss); }
     .source-badge[data-source="github"] { background: color-mix(in srgb, var(--source-github) 15%, transparent); color: var(--source-github); }
-    .source-badge[data-source="huggingface"] { background: color-mix(in srgb, var(--source-huggingface) 15%, transparent); color: #e6b800; }
+    .source-badge[data-source="huggingface"] { background: color-mix(in srgb, var(--source-huggingface) 15%, transparent); color: var(--source-huggingface); }
     .score {
       font-family: var(--font-mono);
       font-size: 0.75rem;

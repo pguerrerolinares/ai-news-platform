@@ -204,7 +204,6 @@ import { NewsItemCard } from '../components/news-item-card';
 export class ArchivePage implements OnInit {
   private newsService = inject(NewsService);
 
-  todayStr = new Date().toISOString().slice(0, 10);
   today = new Date();
   selectedDate: Date = new Date();
   selectedTopic = signal('');
@@ -232,7 +231,7 @@ export class ArchivePage implements OnInit {
   });
 
   ngOnInit() {
-    this.loadBriefing(this.todayStr);
+    this.loadBriefing(this.today.toISOString().slice(0, 10));
   }
 
   onDateChange() {

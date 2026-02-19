@@ -3,6 +3,11 @@ import { authenticate } from './helpers/auth';
 
 test.describe('Chat', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/chat', route => route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: 'data: {"token":"Respuesta mock del asistente."}\n\ndata: [DONE]\n\n',
+    }));
     await authenticate(page);
     await page.goto('/chat');
     await expect(page.locator('.empty-state')).toBeVisible();

@@ -261,7 +261,7 @@ export class SearchPage implements OnInit {
   ngOnInit() {
     this.newsService.getTopics().subscribe({
       next: (topics) => this.topics.set(topics),
-      error: () => {},
+      error: (err) => console.error('Failed to load topics:', err),
     });
   }
 

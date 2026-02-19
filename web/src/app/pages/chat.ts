@@ -38,22 +38,12 @@ interface ChatSource {
             <h2 class="gradient-title">Chat con IA</h2>
             <p>Pregunta sobre noticias de IA y tecnologia</p>
             <div class="suggestions">
-              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[0])">
-                <mat-icon class="chip-icon">auto_awesome</mat-icon>
-                <span>{{ suggestions[0] }}</span>
-              </button>
-              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[1])">
-                <mat-icon class="chip-icon">code</mat-icon>
-                <span>{{ suggestions[1] }}</span>
-              </button>
-              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[2])">
-                <mat-icon class="chip-icon">description</mat-icon>
-                <span>{{ suggestions[2] }}</span>
-              </button>
-              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[3])">
-                <mat-icon class="chip-icon">smart_toy</mat-icon>
-                <span>{{ suggestions[3] }}</span>
-              </button>
+              @for (s of suggestions; track s.text) {
+                <button type="button" class="suggestion-chip" (click)="askQuestion(s.text)">
+                  <mat-icon class="chip-icon">{{ s.icon }}</mat-icon>
+                  <span>{{ s.text }}</span>
+                </button>
+              }
             </div>
           </div>
         }
@@ -430,15 +420,15 @@ export class ChatPage implements OnInit, AfterViewChecked {
   ngOnInit() {
     this.newsService.getTopics().subscribe({
       next: (topics) => this.topics.set(topics),
-      error: () => {},
+      error: (err) => console.error('Failed to load topics:', err),
     });
   }
 
   suggestions = [
-    'Que modelos de IA se lanzaron esta semana?',
-    'Cuales son las herramientas open source mas populares?',
-    'Que papers de LLMs se publicaron recientemente?',
-    'Que noticias hay sobre agentes de IA?',
+    { text: 'Que modelos de IA se lanzaron esta semana?', icon: 'auto_awesome' },
+    { text: 'Cuales son las herramientas open source mas populares?', icon: 'code' },
+    { text: 'Que papers de LLMs se publicaron recientemente?', icon: 'description' },
+    { text: 'Que noticias hay sobre agentes de IA?', icon: 'smart_toy' },
   ];
 
   renderMarkdown(text: string): string {

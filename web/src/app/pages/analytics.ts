@@ -186,7 +186,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
               [0, dark ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.15)'],
               [1, 'rgba(99, 102, 241, 0.02)'],
             ],
-          } as unknown as string,
+          } as Highcharts.GradientColorObject,
           marker: {
             enabled: true,
             radius: 4,

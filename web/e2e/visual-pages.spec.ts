@@ -55,7 +55,7 @@ test.describe('Visual — Páginas completas', () => {
     await page.goto('/analytics');
     await page.waitForSelector('.chart-grid', { timeout: 10000 });
     await page.waitForSelector('highcharts-chart svg', { timeout: 10000 });
-    await page.waitForTimeout(500);
+    await page.waitForSelector('highcharts-chart svg .highcharts-series-group', { timeout: 10000 });
     await freezeAnimations(page);
     await expect(page).toHaveScreenshot(`analytics-${theme}.png`, { fullPage: true });
   });

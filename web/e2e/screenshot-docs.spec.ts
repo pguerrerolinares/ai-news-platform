@@ -67,7 +67,7 @@ test.describe('Docs — Desktop Dark', () => {
     // Analytics
     await page.goto('/analytics');
     await page.waitForSelector('highcharts-chart svg', { timeout: 10000 });
-    await page.waitForTimeout(500);
+    await page.waitForSelector('highcharts-chart svg .highcharts-series-group', { timeout: 10000 });
     await freezeAnimations(page);
     await shotFull(page, 'pages', 'analytics-dark');
 
@@ -150,7 +150,7 @@ test.describe('Docs — Desktop Light', () => {
 
     await page.goto('/analytics');
     await page.waitForSelector('highcharts-chart svg', { timeout: 10000 });
-    await page.waitForTimeout(500);
+    await page.waitForSelector('highcharts-chart svg .highcharts-series-group', { timeout: 10000 });
     await freezeAnimations(page);
     await shotFull(page, 'pages', 'analytics-light');
 
@@ -226,7 +226,7 @@ test.describe('Docs — Mobile Dark', () => {
 
     await page.goto('/analytics');
     await page.waitForSelector('highcharts-chart svg', { timeout: 10000 });
-    await page.waitForTimeout(500);
+    await page.waitForSelector('highcharts-chart svg .highcharts-series-group', { timeout: 10000 });
     await freezeAnimations(page);
     await shotFull(page, 'mobile', 'analytics-dark');
 
