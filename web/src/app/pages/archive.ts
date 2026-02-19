@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -183,7 +183,7 @@ import { NewsItemCard } from '../components/news-item-card';
     }
   `],
 })
-export class ArchivePage {
+export class ArchivePage implements OnInit {
   private newsService = inject(NewsService);
 
   todayStr = new Date().toISOString().slice(0, 10);
@@ -211,6 +211,10 @@ export class ArchivePage {
     if (!topic) return this.items();
     return this.items().filter(item => (item.topic || 'sin tema') === topic);
   });
+
+  ngOnInit() {
+    this.loadBriefing(this.todayStr);
+  }
 
   onDateChange() {
     if (!this.selectedDate) return;
