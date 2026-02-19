@@ -5,6 +5,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { NewsService } from '../services/news.service';
@@ -14,7 +16,7 @@ import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-archive',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatChipsModule, MatProgressBarModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatChipsModule, MatProgressBarModule],
   template: `
     <div class="archive">
       <div class="controls">
@@ -22,12 +24,13 @@ import { NewsItemCard } from '../components/news-item-card';
           <mat-label>Fecha</mat-label>
           <input
             matInput
-            id="archive-date"
-            type="date"
+            [matDatepicker]="pickerDate"
             [(ngModel)]="selectedDate"
             (ngModelChange)="onDateChange()"
-            [max]="todayStr"
+            [max]="today"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="pickerDate"></mat-datepicker-toggle>
+          <mat-datepicker #pickerDate></mat-datepicker>
         </mat-form-field>
         <mat-form-field appearance="outline" class="control-field">
           <mat-label>Tema</mat-label>
@@ -96,7 +99,7 @@ import { NewsItemCard } from '../components/news-item-card';
         }
 
         @if (filteredItems().length > 0) {
-          <div class="count-label">{{ filteredItems().length }} noticias del {{ selectedDate }}</div>
+          <div class="count-label">{{ filteredItems().length }} noticias del {{ selectedDate | date:'yyyy-MM-dd' }}</div>
         }
 
         <div class="news-list">
@@ -187,7 +190,8 @@ export class ArchivePage implements OnInit {
   private newsService = inject(NewsService);
 
   todayStr = new Date().toISOString().slice(0, 10);
-  selectedDate = this.todayStr;
+  today = new Date();
+  selectedDate: Date = new Date();
   selectedTopic = signal('');
 
   items = signal<NewsItem[]>([]);
@@ -219,7 +223,7 @@ export class ArchivePage implements OnInit {
   onDateChange() {
     if (!this.selectedDate) return;
     this.selectedTopic.set('');
-    this.loadBriefing(this.selectedDate);
+    this.loadBriefing(this.selectedDate.toISOString().slice(0, 10));
   }
 
   private loadBriefing(date: string) {

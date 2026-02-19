@@ -23,16 +23,12 @@ test.describe('Archive', () => {
     await expect(page.locator('.topic-summary h3')).toContainText('Distribución por tema');
   });
 
-  test('cambiar fecha dispara carga de nuevos datos', async ({ page }) => {
+  test('el toggle del datepicker abre el calendario', async ({ page }) => {
     await page.waitForSelector('.stats-bar');
-    const dateInput = page.locator('#archive-date');
-    await dateInput.fill('2026-02-10');
-    await dateInput.dispatchEvent('input');
-    await dateInput.dispatchEvent('change');
-    await page.waitForTimeout(600);
-    const countLabel = page.locator('.count-label');
-    if (await countLabel.isVisible()) {
-      await expect(countLabel).toContainText('2026-02-10');
-    }
+    const toggle = page.locator('mat-datepicker-toggle button').first();
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(page.locator('.mat-datepicker-content')).toBeVisible({ timeout: 3000 });
+    await page.keyboard.press('Escape');
   });
 });

@@ -77,6 +77,25 @@ html:not(.dark) .mat-mdc-card {
   --mdc-list-list-item-label-text-color: var(--accent);
 }
 
+// MatDatepicker calendar panel (CDK overlay)
+.mat-datepicker-content {
+  --mat-datepicker-calendar-container-background-color: var(--bg-elevated);
+  --mat-datepicker-calendar-container-text-color: var(--text-secondary);
+  --mat-datepicker-calendar-date-today-outline-color: var(--accent);
+  --mat-datepicker-calendar-date-selected-container-background-color: var(--accent);
+  --mat-datepicker-calendar-date-selected-text-color: #fff;
+  --mat-datepicker-calendar-date-hover-state-background-color: var(--bg-hover);
+  --mat-datepicker-calendar-header-text-color: var(--text-primary);
+  --mat-datepicker-calendar-navigation-button-icon-color: var(--text-muted);
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16) !important;
+}
+
+.mat-datepicker-toggle {
+  --mat-datepicker-toggle-icon-color: var(--text-muted);
+}
+
 // MatChip
 .mat-mdc-chip {
   --mdc-chip-elevated-container-color: var(--bg-elevated);

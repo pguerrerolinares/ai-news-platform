@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { NewsService } from '../services/news.service';
@@ -12,7 +14,7 @@ import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatProgressBarModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatProgressBarModule],
   template: `
     <div class="search-page">
       <form class="search-form" (ngSubmit)="onSearch()">
@@ -50,11 +52,15 @@ import { NewsItemCard } from '../components/news-item-card';
           </mat-form-field>
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Desde</mat-label>
-            <input matInput id="date-from" type="date" [(ngModel)]="dateFrom" name="dateFrom" />
+            <input matInput [matDatepicker]="pickerFrom" [(ngModel)]="dateFrom" name="dateFrom" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+            <mat-datepicker #pickerFrom></mat-datepicker>
           </mat-form-field>
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Hasta</mat-label>
-            <input matInput id="date-to" type="date" [(ngModel)]="dateTo" name="dateTo" />
+            <input matInput [matDatepicker]="pickerTo" [(ngModel)]="dateTo" name="dateTo" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerTo"></mat-datepicker-toggle>
+            <mat-datepicker #pickerTo></mat-datepicker>
           </mat-form-field>
         </div>
       </form>
@@ -196,8 +202,8 @@ export class SearchPage implements OnInit {
 
   query = '';
   selectedTopic = '';
-  dateFrom = '';
-  dateTo = '';
+  dateFrom: Date | null = null;
+  dateTo: Date | null = null;
 
   results = signal<NewsItem[]>([]);
   loading = signal(false);
@@ -228,8 +234,8 @@ export class SearchPage implements OnInit {
       .searchItems({
         q,
         topic: this.selectedTopic || undefined,
-        date_from: this.dateFrom || undefined,
-        date_to: this.dateTo || undefined,
+        date_from: this.dateFrom ? this.dateFrom.toISOString().slice(0, 10) : undefined,
+        date_to: this.dateTo ? this.dateTo.toISOString().slice(0, 10) : undefined,
         limit: 50,
       })
       .subscribe({
