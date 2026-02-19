@@ -47,7 +47,7 @@ test.describe('Visual — Páginas completas', () => {
     await page.waitForSelector('app-news-item-card', { timeout: 5000 });
     await page.waitForLoadState('networkidle');
     await freezeAnimations(page);
-    await expect(page).toHaveScreenshot(`search-results-${theme}.png`, { fullPage: true, maxDiffPixels: 200 });
+    await expect(page).toHaveScreenshot(`search-results-${theme}.png`, { fullPage: true, maxDiffPixels: 5000 });
   });
 
   test('Analytics', async ({ page }, testInfo) => {

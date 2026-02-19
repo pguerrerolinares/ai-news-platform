@@ -56,25 +56,33 @@ html:not(.dark) .mat-mdc-card {
 
 // MatSelect panel (CDK overlay — rendered in <body>, needs global tokens)
 .mat-mdc-select-panel {
-  --mdc-menu-container-color: var(--bg-elevated);
+  --mdc-menu-container-color: var(--bg-surface);
   --mat-option-label-text-color: var(--text-secondary);
   --mat-option-selected-state-label-text-color: var(--accent);
   --mat-option-hover-state-layer-color: var(--bg-hover);
   --mat-option-focus-state-layer-color: var(--bg-hover);
   --mdc-list-list-item-label-text-font: var(--font-body);
-  border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16) !important;
+  min-width: 200px !important;
+  border: 1px solid var(--border-hover) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), 0 4px 8px rgba(0, 0, 0, 0.12) !important;
+  padding: 4px 0 !important;
+  overflow: hidden !important;
 }
 
 .mat-mdc-option {
   --mdc-list-list-item-label-text-color: var(--text-secondary);
   --mdc-list-list-item-label-text-font: var(--font-body);
   font-size: var(--text-sm);
+  min-height: 44px !important;
+  padding: 0 16px !important;
+  border-radius: 8px;
+  margin: 1px 4px;
 }
 
 .mat-mdc-option.mdc-list-item--selected:not(.mat-mdc-option-multiple) {
   --mdc-list-list-item-label-text-color: var(--accent);
+  background: var(--accent-glow) !important;
 }
 
 // MatDatepicker calendar panel (CDK overlay)
