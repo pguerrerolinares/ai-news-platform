@@ -64,6 +64,9 @@ web/.omc/
 # Dev database
 dev.db
 
+# Personal dev journal (not tracked)
+docs/JOURNEY.md
+
 # Misc
 *.bak
 *.tmp
