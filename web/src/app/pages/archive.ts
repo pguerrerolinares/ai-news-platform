@@ -9,6 +9,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatIconModule } from '@angular/material/icon';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { Briefing } from '../models/news-item';
@@ -16,7 +17,7 @@ import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-archive',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatChipsModule, MatProgressBarModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatChipsModule, MatProgressBarModule, MatIconModule],
   template: `
     <div class="archive">
       <div class="controls">
@@ -56,23 +57,28 @@ import { NewsItemCard } from '../components/news-item-card';
         @if (briefing()) {
           <div class="stats-bar">
             <div class="stat">
+              <mat-icon class="stat-icon">cloud_download</mat-icon>
               <span class="stat-value">{{ briefing()!.total_items ?? '-' }}</span>
               <span class="stat-label">Extraídas</span>
             </div>
             <div class="stat">
+              <mat-icon class="stat-icon">filter_list</mat-icon>
               <span class="stat-value">{{ briefing()!.items_after_dedup ?? '-' }}</span>
               <span class="stat-label">Dedup</span>
             </div>
             <div class="stat">
+              <mat-icon class="stat-icon">done_all</mat-icon>
               <span class="stat-value">{{ briefing()!.items_filtered ?? '-' }}</span>
               <span class="stat-label">Filtradas</span>
             </div>
             <div class="stat">
+              <mat-icon class="stat-icon">trending_up</mat-icon>
               <span class="stat-value">{{ briefing()!.trending_count ?? '-' }}</span>
               <span class="stat-label">Trending</span>
             </div>
             @if (briefing()!.duration_seconds) {
               <div class="stat">
+                <mat-icon class="stat-icon">timer</mat-icon>
                 <span class="stat-value">{{ briefing()!.duration_seconds }}s</span>
                 <span class="stat-label">Duración</span>
               </div>
@@ -86,7 +92,7 @@ import { NewsItemCard } from '../components/news-item-card';
             <h3>Distribución por tema</h3>
             <div class="topic-chips">
               @for (tc of topicCounts(); track tc.topic) {
-                <span class="topic-chip">
+                <span class="topic-chip" [attr.data-topic]="tc.topic">
                   {{ tc.topic }} <strong>{{ tc.count }}</strong>
                 </span>
               }
@@ -166,6 +172,15 @@ import { NewsItemCard } from '../components/news-item-card';
       color: var(--text-secondary);
     }
     .topic-chip strong { margin-left: 4px; color: var(--text-muted); }
+
+    /* Topic color tints */
+    .topic-chip[data-topic="modelos"] { border-color: color-mix(in srgb, var(--topic-modelos) 30%, transparent); color: var(--topic-modelos); }
+    .topic-chip[data-topic="herramientas"] { border-color: color-mix(in srgb, var(--topic-herramientas) 30%, transparent); color: var(--topic-herramientas); }
+    .topic-chip[data-topic="papers"] { border-color: color-mix(in srgb, var(--topic-papers) 30%, transparent); color: var(--topic-papers); }
+    .topic-chip[data-topic="open_source"] { border-color: color-mix(in srgb, var(--topic-open_source) 30%, transparent); color: var(--topic-open_source); }
+    .topic-chip[data-topic="productos"] { border-color: color-mix(in srgb, var(--topic-productos) 30%, transparent); color: var(--topic-productos); }
+    .topic-chip[data-topic="agentes"] { border-color: color-mix(in srgb, var(--topic-agentes) 30%, transparent); color: var(--topic-agentes); }
+    .topic-chip[data-topic="regulacion"] { border-color: color-mix(in srgb, var(--topic-regulacion) 30%, transparent); color: var(--topic-regulacion); }
 
     .count-label {
       color: var(--text-muted);

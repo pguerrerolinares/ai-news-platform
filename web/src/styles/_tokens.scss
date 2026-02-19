@@ -31,6 +31,23 @@
   --success: #10B981;
   --warning: #F59E0B;
 
+  // Source colors
+  --source-hackernews: #FF6600;
+  --source-arxiv: #B31B1B;
+  --source-github: #8B5CF6;
+  --source-rss: #F59E0B;
+  --source-huggingface: #FFD21E;
+  --source-reddit: #FF4500;
+
+  // Topic colors
+  --topic-modelos: #6366F1;
+  --topic-herramientas: #10B981;
+  --topic-papers: #F59E0B;
+  --topic-open_source: #8B5CF6;
+  --topic-productos: #06B6D4;
+  --topic-agentes: #F43F5E;
+  --topic-regulacion: #64748B;
+
   // Shadows
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
@@ -50,8 +67,8 @@
   --accent-glow: rgba(99, 102, 241, 0.15);
 
   --text-primary: #F4F4F5;
-  --text-secondary: #A1A1AA;
-  --text-muted: #52525B;
+  --text-secondary: #B4B4BE;
+  --text-muted: #6B6B78;
 
   --border: rgba(255, 255, 255, 0.06);
   --border-hover: rgba(255, 255, 255, 0.10);
@@ -61,6 +78,23 @@
   --error-subtle: rgba(239, 68, 68, 0.1);
   --success: #10B981;
   --warning: #F59E0B;
+
+  // Topic colors (same in dark, bg opacity handled in components)
+  --topic-modelos: #818CF8;
+  --topic-herramientas: #34D399;
+  --topic-papers: #FBBF24;
+  --topic-open_source: #A78BFA;
+  --topic-productos: #22D3EE;
+  --topic-agentes: #FB7185;
+  --topic-regulacion: #94A3B8;
+
+  // Source colors (same brand colors, adjusted bg opacity in components)
+  --source-hackernews: #FF6600;
+  --source-arxiv: #B31B1B;
+  --source-github: #8B5CF6;
+  --source-rss: #F59E0B;
+  --source-huggingface: #FFD21E;
+  --source-reddit: #FF4500;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);

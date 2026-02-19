@@ -85,11 +85,21 @@ import { Briefing, NewsItem } from '../models/news-item';
 
     .chart-card h3 {
       margin: 0 0 16px;
-      font-size: var(--text-xs);
-      color: var(--text-muted);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: var(--tracking-wider);
+      letter-spacing: var(--tracking-normal);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-card h3::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
     }
 
     @media (max-width: 640px) {
@@ -112,7 +122,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
 
   private chartTheme = computed<Partial<Highcharts.Options>>(() => {
     const dark = this.isDark();
-    const labelColor = dark ? '#A1A1AA' : '#71717A';
+    const labelColor = dark ? '#B4B4BE' : '#71717A';
     const gridColor = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)';
     const lineColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
     return {
@@ -132,13 +142,16 @@ export class AnalyticsPage implements OnInit, OnDestroy {
         title: { style: { color: labelColor } },
       },
       legend: {
-        itemStyle: { color: dark ? '#A1A1AA' : '#52525B' },
+        itemStyle: { color: dark ? '#B4B4BE' : '#52525B' },
         itemHoverStyle: { color: dark ? '#F4F4F5' : '#09090B' },
       },
       tooltip: {
         backgroundColor: dark ? '#1C1C22' : '#FFFFFF',
         borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-        style: { color: dark ? '#F4F4F5' : '#09090B' },
+        borderRadius: 10,
+        shadow: { color: 'rgba(0,0,0,0.15)', offsetX: 0, offsetY: 4, width: 12, opacity: 1 },
+        style: { color: dark ? '#F4F4F5' : '#09090B', fontSize: '13px' },
+        padding: 12,
       },
     };
   });
@@ -148,23 +161,43 @@ export class AnalyticsPage implements OnInit, OnDestroy {
     const data = this.briefings()
       .map(b => ({ date: b.date, count: b.total_items ?? 0 }))
       .sort((a, b) => a.date.localeCompare(b.date));
+    const dark = this.isDark();
     return {
       ...theme,
-      chart: { ...theme.chart, type: 'line', height: 280 },
+      chart: { ...theme.chart, type: 'areaspline', height: 300 },
       title: { text: undefined },
       xAxis: {
         ...theme.xAxis as Highcharts.XAxisOptions,
         categories: data.map(d => d.date),
         labels: {
           rotation: -45,
-          style: { fontSize: '11px', color: this.isDark() ? '#A1A1AA' : '#71717A' },
+          style: { fontSize: '11px', color: dark ? '#B4B4BE' : '#71717A' },
         },
       },
       yAxis: {
         ...theme.yAxis as Highcharts.YAxisOptions,
-        title: { text: 'Items', style: { color: this.isDark() ? '#A1A1AA' : '#71717A' } },
+        title: { text: 'Items', style: { color: dark ? '#B4B4BE' : '#71717A' } },
       },
-      series: [{ type: 'line', name: 'Items', data: data.map(d => d.count), color: '#6366F1' }],
+      plotOptions: {
+        areaspline: {
+          fillColor: {
+            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+            stops: [
+              [0, dark ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.15)'],
+              [1, 'rgba(99, 102, 241, 0.02)'],
+            ],
+          } as unknown as string,
+          marker: {
+            enabled: true,
+            radius: 4,
+            fillColor: '#6366F1',
+            lineWidth: 2,
+            lineColor: dark ? '#141418' : '#FFFFFF',
+          },
+          lineWidth: 2.5,
+        },
+      },
+      series: [{ type: 'areaspline' as const, name: 'Items', data: data.map(d => d.count), color: '#6366F1' }],
       credits: { enabled: false },
       legend: { enabled: false },
       tooltip: theme.tooltip,
@@ -178,25 +211,28 @@ export class AnalyticsPage implements OnInit, OnDestroy {
       const topic = item.topic || 'sin tema';
       counts.set(topic, (counts.get(topic) || 0) + 1);
     }
-    const indigoPalette = ['#6366F1', '#818CF8', '#A5B4FC', '#C7D2FE', '#A1A1AA', '#71717A', '#52525B'];
+    const chartPalette = ['#6366F1', '#818CF8', '#A78BFA', '#6EE7B7', '#FBBF24', '#F472B6', '#94A3B8'];
+    const dark = this.isDark();
     const data = Array.from(counts.entries()).map(([name, y], i) => ({
       name,
       y,
-      color: indigoPalette[i % indigoPalette.length],
+      color: chartPalette[i % chartPalette.length],
     }));
     return {
       ...theme,
-      chart: { ...theme.chart, type: 'pie', height: 280 },
+      chart: { ...theme.chart, type: 'pie', height: 300 },
       title: { text: undefined },
-      series: [{ type: 'pie', name: 'Items', data, innerSize: '50%' }],
+      series: [{ type: 'pie', name: 'Items', data, innerSize: '55%' }],
       credits: { enabled: false },
       plotOptions: {
         pie: {
           dataLabels: {
             format: '{point.name}: {point.y}',
-            style: { color: this.isDark() ? '#a0a0b0' : '#52525B', textOutline: 'none', fontSize: '11px' },
+            style: { color: dark ? '#B4B4BE' : '#52525B', textOutline: 'none', fontSize: '12px', fontWeight: '500' },
+            connectorColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
           },
-          borderColor: this.isDark() ? '#141418' : '#FFFFFF',
+          borderColor: dark ? '#141418' : '#FFFFFF',
+          borderWidth: 2,
         },
       },
       tooltip: theme.tooltip,
@@ -210,23 +246,23 @@ export class AnalyticsPage implements OnInit, OnDestroy {
       counts.set(item.source, (counts.get(item.source) || 0) + 1);
     }
     const sourceColors: Record<string, string> = {
-      hackernews: '#fb923c', arxiv: '#f87171', reddit: '#fb923c',
-      rss: '#fbbf24', github: '#a0a0b0', huggingface: '#fbbf24',
+      hackernews: '#FF6600', arxiv: '#f87171', reddit: '#FF4500',
+      rss: '#F59E0B', github: '#8B5CF6', huggingface: '#e6b800',
     };
     const categories = Array.from(counts.keys());
     const data = categories.map(s => ({ y: counts.get(s) || 0, color: sourceColors[s] || '#71717a' }));
     return {
       ...theme,
-      chart: { ...theme.chart, type: 'bar', height: 280 },
+      chart: { ...theme.chart, type: 'bar', height: 300 },
       title: { text: undefined },
       xAxis: {
         ...theme.xAxis as Highcharts.XAxisOptions,
         categories,
-        labels: { style: { fontSize: '12px', color: this.isDark() ? '#a0a0b0' : '#52525B' } },
+        labels: { style: { fontSize: '12px', fontWeight: '500', color: this.isDark() ? '#B4B4BE' : '#52525B' } },
       },
       yAxis: {
         ...theme.yAxis as Highcharts.YAxisOptions,
-        title: { text: 'Items', style: { color: this.isDark() ? '#A1A1AA' : '#71717A' } },
+        title: { text: 'Items', style: { color: this.isDark() ? '#B4B4BE' : '#71717A' } },
         min: 0,
       },
       series: [{ type: 'bar', name: 'Items', data }],

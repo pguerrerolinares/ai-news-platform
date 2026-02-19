@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { AuthService } from '../services/auth.service';
@@ -26,18 +27,33 @@ interface ChatSource {
 
 @Component({
   selector: 'app-chat',
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule],
   template: `
     <div class="chat-page">
       <div class="chat-messages" #messagesContainer>
         @if (messages().length === 0) {
           <div class="empty-state">
-            <h2>Chat con IA</h2>
+            <div class="welcome-glow"></div>
+            <mat-icon class="welcome-icon">auto_awesome</mat-icon>
+            <h2 class="gradient-title">Chat con IA</h2>
             <p>Pregunta sobre noticias de IA y tecnologia</p>
             <div class="suggestions">
-              @for (s of suggestions; track s) {
-                <button type="button" class="suggestion-chip" (click)="askQuestion(s)">{{ s }}</button>
-              }
+              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[0])">
+                <mat-icon class="chip-icon">auto_awesome</mat-icon>
+                <span>{{ suggestions[0] }}</span>
+              </button>
+              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[1])">
+                <mat-icon class="chip-icon">code</mat-icon>
+                <span>{{ suggestions[1] }}</span>
+              </button>
+              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[2])">
+                <mat-icon class="chip-icon">description</mat-icon>
+                <span>{{ suggestions[2] }}</span>
+              </button>
+              <button type="button" class="suggestion-chip" (click)="askQuestion(suggestions[3])">
+                <mat-icon class="chip-icon">smart_toy</mat-icon>
+                <span>{{ suggestions[3] }}</span>
+              </button>
             </div>
           </div>
         }
@@ -100,6 +116,7 @@ interface ChatSource {
             class="send-btn submit-btn"
             [disabled]="streaming() || !question.trim()"
           >
+            <mat-icon>send</mat-icon>
             Enviar
           </button>
         </div>
@@ -130,29 +147,62 @@ interface ChatSource {
       text-align: center;
       padding: 80px 24px;
       animation: fade-in 0.5s ease-out both;
+      position: relative;
     }
 
-    .empty-state h2 {
+    .welcome-glow {
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      height: 200px;
+      background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .welcome-icon {
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+      color: var(--accent);
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+      opacity: 0.8;
+    }
+
+    .gradient-title {
       font-family: var(--font-heading);
       font-size: var(--text-xl);
-      color: var(--text-primary);
       margin: 0 0 8px;
       font-weight: 800;
       letter-spacing: var(--tracking-tight);
+      background: linear-gradient(135deg, var(--accent), #A78BFA);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      position: relative;
+      z-index: 1;
     }
 
     .empty-state p {
       margin: 0 0 36px;
       font-size: var(--text-base);
       color: var(--text-muted);
+      position: relative;
+      z-index: 1;
     }
 
     .suggestions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      max-width: 480px;
+      gap: 10px;
+      max-width: 500px;
       margin: 0 auto;
+      position: relative;
+      z-index: 1;
     }
 
     .suggestion-chip {
@@ -161,22 +211,41 @@ interface ChatSource {
       color: var(--text-secondary);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 10px 14px;
+      padding: 14px 16px;
       font-family: var(--font-body);
       font-size: var(--text-sm);
       font-weight: 400;
       text-align: left;
       width: 100%;
       line-height: var(--leading-relaxed);
-      transition: border-color 0.15s ease, background 0.15s ease;
+      transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
       white-space: normal;
       word-break: break-word;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .chip-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--accent);
+      opacity: 0.6;
+      flex-shrink: 0;
+      margin-top: 2px;
     }
 
     .suggestion-chip:hover {
       border-color: var(--accent);
       background: var(--accent-glow);
       color: var(--text-primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+    }
+
+    .suggestion-chip:hover .chip-icon {
+      opacity: 1;
     }
 
     .message {
@@ -299,6 +368,11 @@ interface ChatSource {
     .chat-input-form {
       padding: 16px 0;
       border-top: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg-base) 85%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      bottom: 0;
     }
 
     .input-row {
@@ -317,11 +391,20 @@ interface ChatSource {
       font-weight: 600;
       font-family: var(--font-body);
       border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .send-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
 
     @media (max-width: 640px) {
       :host { height: calc(100vh - 80px); }
       .suggestions { grid-template-columns: 1fr; }
+      .welcome-glow { width: 200px; height: 150px; }
       .input-row { flex-wrap: wrap; }
       .topic-field { min-width: 100%; }
       .chat-field { min-width: 0; flex: 1; }

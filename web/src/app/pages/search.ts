@@ -8,19 +8,21 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatIconModule } from '@angular/material/icon';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatProgressBarModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatProgressBarModule, MatIconModule],
   template: `
     <div class="search-page">
       <form class="search-form" (ngSubmit)="onSearch()">
         <div class="search-row">
           <mat-form-field appearance="outline" class="search-field">
             <mat-label>Buscar noticias</mat-label>
+            <mat-icon matPrefix class="search-icon">search</mat-icon>
             <input
               matInput
               type="text"
@@ -67,9 +69,13 @@ import { NewsItemCard } from '../components/news-item-card';
 
       @if (!searched() && !loading()) {
         <div class="search-empty-state">
-          <div class="search-empty-icon">🔍</div>
+          <mat-icon class="search-empty-icon">manage_search</mat-icon>
           <p class="search-empty-title">Busca entre las noticias archivadas</p>
-          <p class="search-empty-hint">Prueba con: LLM, agentes, open source, GPT-4, Mistral...</p>
+          <div class="search-suggestions">
+            @for (term of quickTerms; track term) {
+              <button type="button" class="quick-chip" (click)="quickSearch(term)">{{ term }}</button>
+            }
+          </div>
         </div>
       }
 
@@ -159,6 +165,11 @@ import { NewsItemCard } from '../components/news-item-card';
       gap: 14px;
     }
 
+    .search-icon {
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
     .search-empty-state {
       display: flex;
       flex-direction: column;
@@ -169,23 +180,51 @@ import { NewsItemCard } from '../components/news-item-card';
     }
 
     .search-empty-icon {
-      font-size: 2.5rem;
-      margin-bottom: 16px;
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+      color: var(--accent);
       opacity: 0.5;
+      margin-bottom: 16px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
     }
 
     .search-empty-title {
-      margin: 0 0 8px;
+      margin: 0 0 20px;
       font-size: var(--text-base);
       font-weight: 500;
       color: var(--text-secondary);
     }
 
-    .search-empty-hint {
-      margin: 0;
+    .search-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .quick-chip {
+      cursor: pointer;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: 980px;
+      padding: 6px 16px;
+      font-family: var(--font-body);
       font-size: var(--text-sm);
-      color: var(--text-muted);
-      font-family: var(--font-mono);
+      font-weight: 500;
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+
+    .quick-chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      color: var(--accent);
     }
 
     @media (max-width: 640px) {
@@ -212,6 +251,12 @@ export class SearchPage implements OnInit {
   lastQuery = signal('');
 
   topics = signal<string[]>([]);
+  quickTerms = ['LLM', 'agentes', 'open source', 'GPT-4', 'Mistral', 'RAG'];
+
+  quickSearch(term: string) {
+    this.query = term;
+    this.onSearch();
+  }
 
   ngOnInit() {
     this.newsService.getTopics().subscribe({
