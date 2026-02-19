@@ -13,3 +13,18 @@ export async function authenticate(page: Page): Promise<void> {
     localStorage.setItem('ainews_token', token);
   }, MOCK_JWT);
 }
+
+/** Autentica Y establece el tema antes de cargar la app */
+export async function authenticateWithTheme(
+  page: Page,
+  theme: 'dark' | 'light'
+): Promise<void> {
+  await page.goto('/');
+  await page.evaluate(
+    ({ token, theme }) => {
+      localStorage.setItem('ainews_token', token);
+      localStorage.setItem('theme', theme);
+    },
+    { token: MOCK_JWT, theme }
+  );
+}
