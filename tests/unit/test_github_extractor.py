@@ -322,3 +322,47 @@ class TestExtract:
             result = await GitHubExtractor().extract()
         assert result[0].title == "bare-repo"
         assert ": " not in result[0].title
+
+
+class TestEdgeCases:
+    """Edge-case tests for GitHubExtractor robustness."""
+
+    @respx.mock
+    async def test_repo_missing_pushed_at(self):
+        """Repo with missing pushed_at field uses now() as fallback."""
+        repo = _make_repo("no-push-repo")
+        del repo["pushed_at"]
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(200, json=_search_response([repo]))
+        )
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        assert result[0].published_at is not None
+
+    @respx.mock
+    async def test_timeout_returns_empty(self):
+        """TimeoutException returns []."""
+        respx.get(SEARCH_URL).mock(
+            side_effect=httpx.TimeoutException("read timed out")
+        )
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert result == []
+
+    @respx.mock
+    async def test_incomplete_results_still_returns_items(self):
+        """incomplete_results=true in response still returns available items."""
+        repo = _make_repo("partial-repo")
+        data = {
+            "total_count": 100,
+            "incomplete_results": True,
+            "items": [repo],
+        }
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(200, json=data)
+        )
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+        assert result[0].title.startswith("partial-repo")

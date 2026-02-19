@@ -13,6 +13,12 @@ from src.extractors.base import ExtractedItem
 from src.extractors.huggingface import API_URL, HuggingFaceExtractor
 
 
+def _recent_iso() -> str:
+    """Return an ISO 8601 date string for 1 hour ago (always within 48h window)."""
+    dt = datetime.now(tz=UTC) - timedelta(hours=1)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
 def _make_model(
     model_id: str = "meta-llama/Llama-3-8B",
     author: str = "meta-llama",
@@ -20,7 +26,7 @@ def _make_model(
     likes: int = 1200,
     pipeline_tag: str = "text-generation",
     tags: list[str] | None = None,
-    last_modified: str = "2026-02-17T10:00:00.000Z",
+    last_modified: str | None = None,
     card_data: dict | None = None,
 ) -> dict:
     return {
@@ -31,7 +37,7 @@ def _make_model(
         "likes": likes,
         "pipeline_tag": pipeline_tag,
         "tags": tags or ["text-generation", "pytorch"],
-        "lastModified": last_modified,
+        "lastModified": last_modified or _recent_iso(),
         "cardData": card_data,
     }
 
@@ -245,3 +251,40 @@ class TestExtract:
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         assert result[0].score == 42000
+
+
+class TestEdgeCases:
+    """Edge-case tests for HuggingFaceExtractor robustness."""
+
+    @respx.mock
+    async def test_model_no_pipeline_tag(self):
+        """Model without pipeline_tag is still extracted with None in metadata."""
+        model = _make_model("org/no-pipe", downloads=5000)
+        del model["pipeline_tag"]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert len(result) == 1
+        assert result[0].metadata["pipeline_tag"] is None
+
+    @respx.mock
+    async def test_missing_model_id_keys(self):
+        """Model missing both modelId and id falls back to empty string."""
+        model = _make_model("org/fallback", downloads=5000)
+        del model["modelId"]
+        del model["id"]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert len(result) == 1
+        assert result[0].url == "https://huggingface.co/"
+
+    @respx.mock
+    async def test_http_timeout(self):
+        """Timeout returns []."""
+        respx.get(API_URL).mock(
+            side_effect=httpx.TimeoutException("read timed out")
+        )
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result == []

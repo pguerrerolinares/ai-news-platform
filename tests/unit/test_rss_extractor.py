@@ -408,3 +408,35 @@ class TestHelpers:
 
         feed = feedparser.parse("<rss><channel></channel></rss>")
         assert RSSExtractor._get_source_name(feed, "https://example.com/rss") == "example.com"
+
+
+class TestEdgeCases:
+    """Edge-case tests for RSSExtractor robustness."""
+
+    @respx.mock
+    async def test_feed_http_404(self):
+        """Feed returning 404 is skipped, returns []."""
+        respx.get(FEED_URL_OPENAI).mock(
+            return_value=httpx.Response(404, text="Not Found"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.rss.get_settings", return_value=settings):
+            extractor = RSSExtractor()
+            result = await extractor.extract()
+
+        assert result == []
+
+    @respx.mock
+    async def test_timeout_returns_empty(self):
+        """Feed timeout is handled gracefully, returning []."""
+        respx.get(FEED_URL_OPENAI).mock(
+            side_effect=httpx.TimeoutException("read timed out"),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.rss.get_settings", return_value=settings):
+            extractor = RSSExtractor()
+            result = await extractor.extract()
+
+        assert result == []
