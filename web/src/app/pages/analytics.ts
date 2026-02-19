@@ -26,7 +26,7 @@ import { Briefing, NewsItem } from '../models/news-item';
         <div class="chart-grid">
           <mat-card class="chart-card full-width">
             <mat-card-content>
-              <h3>Items por dia (ultimos 14 dias)</h3>
+              <h3>Items por día (últimos 14 días)</h3>
               <highcharts-chart
                 [options]="itemsPerDayOptions()"
                 style="width: 100%; display: block;"
@@ -36,7 +36,7 @@ import { Briefing, NewsItem } from '../models/news-item';
 
           <mat-card class="chart-card">
             <mat-card-content>
-              <h3>Distribucion por tema</h3>
+              <h3>Distribución por tema</h3>
               <highcharts-chart
                 [options]="topicOptions()"
                 style="width: 100%; display: block;"

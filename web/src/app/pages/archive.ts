@@ -54,7 +54,7 @@ import { NewsItemCard } from '../components/news-item-card';
           <div class="stats-bar">
             <div class="stat">
               <span class="stat-value">{{ briefing()!.total_items ?? '-' }}</span>
-              <span class="stat-label">Extraidas</span>
+              <span class="stat-label">Extraídas</span>
             </div>
             <div class="stat">
               <span class="stat-value">{{ briefing()!.items_after_dedup ?? '-' }}</span>
@@ -71,7 +71,7 @@ import { NewsItemCard } from '../components/news-item-card';
             @if (briefing()!.duration_seconds) {
               <div class="stat">
                 <span class="stat-value">{{ briefing()!.duration_seconds }}s</span>
-                <span class="stat-label">Duracion</span>
+                <span class="stat-label">Duración</span>
               </div>
             }
           </div>
@@ -80,7 +80,7 @@ import { NewsItemCard } from '../components/news-item-card';
         <!-- Topic distribution -->
         @if (topicCounts().length > 0) {
           <div class="topic-summary">
-            <h3>Distribucion por tema</h3>
+            <h3>Distribución por tema</h3>
             <div class="topic-chips">
               @for (tc of topicCounts(); track tc.topic) {
                 <span class="topic-chip">
