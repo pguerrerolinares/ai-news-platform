@@ -34,8 +34,7 @@ test.describe('Dashboard', () => {
     const totalBefore = await page.locator('app-news-item-card').count();
     await page.locator('.topic-chip').first().click();
     await page.locator('.clear-filter').click();
-    const totalAfter = await page.locator('app-news-item-card').count();
-    expect(totalAfter).toBe(totalBefore);
+    await expect(page.locator('app-news-item-card')).toHaveCount(totalBefore, { timeout: 3000 });
   });
 
   test('las news cards son visibles', async ({ page }) => {
