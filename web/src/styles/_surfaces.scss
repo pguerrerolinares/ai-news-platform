@@ -48,10 +48,33 @@ html:not(.dark) .mat-mdc-card {
   color: var(--text-muted) !important;
 }
 
-// MatSelect
+// MatSelect trigger
 .mat-mdc-select {
   --mat-select-trigger-text-font: var(--font-body);
   --mat-select-trigger-text-color: var(--text-primary);
+}
+
+// MatSelect panel (CDK overlay — rendered in <body>, needs global tokens)
+.mat-mdc-select-panel {
+  --mdc-menu-container-color: var(--bg-elevated);
+  --mat-option-label-text-color: var(--text-secondary);
+  --mat-option-selected-state-label-text-color: var(--accent);
+  --mat-option-hover-state-layer-color: var(--bg-hover);
+  --mat-option-focus-state-layer-color: var(--bg-hover);
+  --mdc-list-list-item-label-text-font: var(--font-body);
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16) !important;
+}
+
+.mat-mdc-option {
+  --mdc-list-list-item-label-text-color: var(--text-secondary);
+  --mdc-list-list-item-label-text-font: var(--font-body);
+  font-size: var(--text-sm);
+}
+
+.mat-mdc-option.mdc-list-item--selected:not(.mat-mdc-option-multiple) {
+  --mdc-list-list-item-label-text-color: var(--accent);
 }
 
 // MatChip
