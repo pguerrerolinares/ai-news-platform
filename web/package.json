@@ -10,7 +10,8 @@
     "e2e": "playwright test",
     "e2e:report": "playwright show-report playwright-report",
     "e2e:visual": "playwright test --project=desktop-dark --project=desktop-light --project=mobile",
-    "e2e:visual:update": "playwright test --update-snapshots --project=desktop-dark --project=desktop-light --project=mobile"
+    "e2e:visual:update": "playwright test --update-snapshots --project=desktop-dark --project=desktop-light --project=mobile",
+    "e2e:screendocs": "playwright test screenshot-docs.spec.ts --project=chromium --reporter=list"
   },
   "prettier": {
     "printWidth": 100,
