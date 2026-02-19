@@ -1,14 +1,17 @@
 /**
  * screenshot-docs.spec.ts
  *
- * Genera screenshots de diseño para documentación visual.
- * No hace comparación (no usa toHaveScreenshot) — solo guarda PNGs.
+ * Genera screenshots de diseno para documentacion visual.
+ * No hace comparacion (no usa toHaveScreenshot) — solo guarda PNGs.
  *
- * Cobertura completa: desktop dark/light + mobile dark/light
- * para pages y components con manejo correcto de scroll.
+ * Estructura de salida:
+ *   docs/screenshots/
+ *     desktop-dark/    (pages + components)
+ *     desktop-light/   (pages + components)
+ *     mobile-dark/     (pages + components + mobile-menu)
+ *     mobile-light/    (pages + components + mobile-menu)
  *
  * Ejecutar: npm run e2e:screendocs
- * Output:   docs/screenshots/{pages,components,mobile}/
  */
 import * as path from 'path';
 import { test, Page } from '@playwright/test';
@@ -46,7 +49,7 @@ async function ensureFullRender(page: Page): Promise<void> {
   });
 }
 
-/** Captura un elemento concreto haciendo scroll a él primero */
+/** Captura un elemento concreto haciendo scroll a el primero */
 async function shotElement(
   page: Page,
   selector: string,
@@ -61,21 +64,17 @@ async function shotElement(
 }
 
 // ─────────────────────────────────────────────
-// Shared test sequences to avoid duplication
+// Shared test sequences
 // ─────────────────────────────────────────────
 
-async function capturePages(
-  page: Page,
-  subfolder: string,
-  suffix: string,
-) {
+async function capturePages(page: Page, subfolder: string) {
   // Dashboard
   await page.goto('/dashboard');
   await page.waitForSelector('.stats-bar');
   await page.waitForSelector('app-news-item-card');
   await freezeAnimations(page);
   await ensureFullRender(page);
-  await shotFull(page, subfolder, `dashboard-${suffix}`);
+  await shotFull(page, subfolder, 'dashboard');
 
   // Archive
   await page.goto('/archive');
@@ -83,13 +82,13 @@ async function capturePages(
   await page.waitForSelector('app-news-item-card');
   await freezeAnimations(page);
   await ensureFullRender(page);
-  await shotFull(page, subfolder, `archive-${suffix}`);
+  await shotFull(page, subfolder, 'archive');
 
   // Search empty
   await page.goto('/search');
   await page.waitForSelector('.search-empty-state');
   await freezeAnimations(page);
-  await shotFull(page, subfolder, `search-empty-${suffix}`);
+  await shotFull(page, subfolder, 'search-empty');
 
   // Search results
   await page.locator('input[name="query"]').fill('LLM');
@@ -98,7 +97,7 @@ async function capturePages(
   await page.waitForLoadState('networkidle');
   await freezeAnimations(page);
   await ensureFullRender(page);
-  await shotFull(page, subfolder, `search-results-${suffix}`);
+  await shotFull(page, subfolder, 'search-results');
 
   // Analytics
   await page.goto('/analytics');
@@ -106,33 +105,29 @@ async function capturePages(
   await page.waitForSelector('highcharts-chart svg .highcharts-series-group', { timeout: 10000 });
   await freezeAnimations(page);
   await ensureFullRender(page);
-  await shotFull(page, subfolder, `analytics-${suffix}`);
+  await shotFull(page, subfolder, 'analytics');
 
   // Chat
   await page.goto('/chat');
   await page.waitForSelector('.empty-state');
   await freezeAnimations(page);
-  await shotFull(page, subfolder, `chat-${suffix}`);
+  await shotFull(page, subfolder, 'chat');
 }
 
-async function captureComponents(
-  page: Page,
-  subfolder: string,
-  suffix: string,
-) {
+async function captureComponents(page: Page, subfolder: string) {
   // Navbar
   await page.goto('/dashboard');
   await page.waitForSelector('.navbar');
   await freezeAnimations(page);
-  await shotElement(page, '.navbar', subfolder, `navbar-${suffix}`);
+  await shotElement(page, '.navbar', subfolder, 'navbar');
 
   // Stats bar
   await page.waitForSelector('.stats-bar');
-  await shotElement(page, '.stats-bar', subfolder, `stats-bar-${suffix}`);
+  await shotElement(page, '.stats-bar', subfolder, 'stats-bar');
 
   // News card
   await page.waitForSelector('app-news-item-card');
-  await shotElement(page, 'app-news-item-card', subfolder, `news-card-${suffix}`);
+  await shotElement(page, 'app-news-item-card', subfolder, 'news-card');
 
   // mat-select abierto
   await page.goto('/chat');
@@ -141,7 +136,7 @@ async function captureComponents(
   await page.locator('mat-select').first().click();
   await page.waitForSelector('.mat-mdc-select-panel', { timeout: 3000 });
   await page.locator('.mat-mdc-select-panel').screenshot({
-    path: path.join(DOCS_DIR, subfolder, `mat-select-open-${suffix}.png`),
+    path: path.join(DOCS_DIR, subfolder, 'mat-select-open.png'),
   });
   await page.keyboard.press('Escape');
 
@@ -151,7 +146,7 @@ async function captureComponents(
   await freezeAnimations(page);
   await page.locator('mat-datepicker-toggle button').first().click();
   await page.waitForSelector('.mat-datepicker-content', { timeout: 3000 });
-  await shot(page, subfolder, `mat-datepicker-open-${suffix}`);
+  await shot(page, subfolder, 'mat-datepicker-open');
   await page.keyboard.press('Escape');
 
   // Suggestion chips
@@ -159,7 +154,7 @@ async function captureComponents(
   await page.waitForSelector('.suggestions');
   await freezeAnimations(page);
   await page.locator('.suggestions').screenshot({
-    path: path.join(DOCS_DIR, subfolder, `suggestion-chips-${suffix}.png`),
+    path: path.join(DOCS_DIR, subfolder, 'suggestion-chips.png'),
   });
 }
 
@@ -174,11 +169,11 @@ test.describe('Docs — Desktop Dark', () => {
   });
 
   test('pages', async ({ page }) => {
-    await capturePages(page, 'pages', 'dark');
+    await capturePages(page, 'desktop-dark');
   });
 
   test('components', async ({ page }) => {
-    await captureComponents(page, 'components', 'dark');
+    await captureComponents(page, 'desktop-dark');
   });
 });
 
@@ -193,11 +188,11 @@ test.describe('Docs — Desktop Light', () => {
   });
 
   test('pages', async ({ page }) => {
-    await capturePages(page, 'pages', 'light');
+    await capturePages(page, 'desktop-light');
   });
 
   test('components', async ({ page }) => {
-    await captureComponents(page, 'components', 'light');
+    await captureComponents(page, 'desktop-light');
   });
 });
 
@@ -212,11 +207,11 @@ test.describe('Docs — Mobile Dark', () => {
   });
 
   test('pages', async ({ page }) => {
-    await capturePages(page, 'mobile', 'dark');
+    await capturePages(page, 'mobile-dark');
   });
 
   test('components', async ({ page }) => {
-    await captureComponents(page, 'mobile', 'dark');
+    await captureComponents(page, 'mobile-dark');
   });
 
   test('mobile menu abierto', async ({ page }) => {
@@ -225,7 +220,7 @@ test.describe('Docs — Mobile Dark', () => {
     await freezeAnimations(page);
     await page.locator('.hamburger').click();
     await page.waitForSelector('.nav-links.open', { timeout: 2000 });
-    await shot(page, 'mobile', 'navbar-menu-open-dark');
+    await shot(page, 'mobile-dark', 'navbar-menu-open');
   });
 });
 
@@ -240,11 +235,11 @@ test.describe('Docs — Mobile Light', () => {
   });
 
   test('pages', async ({ page }) => {
-    await capturePages(page, 'mobile', 'light');
+    await capturePages(page, 'mobile-light');
   });
 
   test('components', async ({ page }) => {
-    await captureComponents(page, 'mobile', 'light');
+    await captureComponents(page, 'mobile-light');
   });
 
   test('mobile menu abierto', async ({ page }) => {
@@ -253,6 +248,6 @@ test.describe('Docs — Mobile Light', () => {
     await freezeAnimations(page);
     await page.locator('.hamburger').click();
     await page.waitForSelector('.nav-links.open', { timeout: 2000 });
-    await shot(page, 'mobile', 'navbar-menu-open-light');
+    await shot(page, 'mobile-light', 'navbar-menu-open');
   });
 });
