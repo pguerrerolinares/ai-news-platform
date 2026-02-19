@@ -20,7 +20,7 @@ import { NewsItemCard } from '../components/news-item-card';
     <div class="search-page">
       <form class="search-form" (ngSubmit)="onSearch()">
         <div class="search-row">
-          <mat-form-field appearance="outline" class="search-field">
+          <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
             <mat-label>Buscar noticias</mat-label>
             <mat-icon matPrefix class="search-icon">search</mat-icon>
             <input
@@ -38,12 +38,13 @@ import { NewsItemCard } from '../components/news-item-card';
             class="search-btn submit-btn"
             [disabled]="loading() || !query.trim()"
           >
+            <mat-icon>search</mat-icon>
             Buscar
           </button>
         </div>
 
         <div class="filters">
-          <mat-form-field appearance="outline" class="filter-field">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Tema</mat-label>
             <mat-select [(ngModel)]="selectedTopic" name="topic">
               <mat-option value="">Todos</mat-option>
@@ -52,13 +53,13 @@ import { NewsItemCard } from '../components/news-item-card';
               }
             </mat-select>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="filter-field">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Desde</mat-label>
             <input matInput [matDatepicker]="pickerFrom" [(ngModel)]="dateFrom" name="dateFrom" />
             <mat-datepicker-toggle matIconSuffix [for]="pickerFrom"></mat-datepicker-toggle>
             <mat-datepicker #pickerFrom></mat-datepicker>
           </mat-form-field>
-          <mat-form-field appearance="outline" class="filter-field">
+          <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
             <mat-label>Hasta</mat-label>
             <input matInput [matDatepicker]="pickerTo" [(ngModel)]="dateTo" name="dateTo" />
             <mat-datepicker-toggle matIconSuffix [for]="pickerTo"></mat-datepicker-toggle>
@@ -110,7 +111,7 @@ import { NewsItemCard } from '../components/news-item-card';
     .search-row {
       display: flex;
       gap: 10px;
-      align-items: flex-start;
+      align-items: center;
     }
 
     .search-field { flex: 1; }
@@ -123,6 +124,14 @@ import { NewsItemCard } from '../components/news-item-card';
       letter-spacing: var(--tracking-normal);
       font-family: var(--font-body);
       border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .search-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
 
     .filters {
@@ -228,11 +237,16 @@ import { NewsItemCard } from '../components/news-item-card';
     }
 
     @media (max-width: 640px) {
-      .search-row { flex-direction: column; }
-      .search-field { width: 100%; }
-      .search-btn { width: 100%; height: 48px; }
-      .filters { flex-direction: column; }
+      .search-form {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .search-row { display: contents; }
+      .search-field { width: 100%; order: 1; }
+      .filters { order: 2; flex-direction: column; }
       .filter-field { width: 100%; min-width: 0; }
+      .search-btn { order: 3; width: 100%; height: 48px; }
     }
   `],
 })
