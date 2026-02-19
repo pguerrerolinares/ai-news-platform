@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-// MatSelect not used — native <select matNativeControl> for E2E compat
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { NewsService } from '../services/news.service';
@@ -12,7 +12,7 @@ import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatButtonModule, MatProgressBarModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatProgressBarModule],
   template: `
     <div class="search-page">
       <form class="search-form" (ngSubmit)="onSearch()">
@@ -41,12 +41,12 @@ import { NewsItemCard } from '../components/news-item-card';
         <div class="filters">
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Tema</mat-label>
-            <select matNativeControl id="topic-select" [(ngModel)]="selectedTopic" name="topic">
-              <option value="">Todos</option>
+            <mat-select [(ngModel)]="selectedTopic" name="topic">
+              <mat-option value="">Todos</mat-option>
               @for (topic of topics(); track topic) {
-                <option [value]="topic">{{ topic }}</option>
+                <mat-option [value]="topic">{{ topic }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline" class="filter-field">
             <mat-label>Desde</mat-label>
