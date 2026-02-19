@@ -45,6 +45,19 @@ html:not(.dark) ::-webkit-scrollbar-thumb:hover {
 // === Responsive ===
 
 @media (max-width: 640px) {
-  .stat { padding: 14px 8px; }
-  .stat-value { font-size: 1.25rem; }
+  .stats-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+  .stat {
+    padding: 12px 10px;
+    min-width: 68px;
+  }
+  .stat-value { font-size: 1.125rem; }
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
 }
