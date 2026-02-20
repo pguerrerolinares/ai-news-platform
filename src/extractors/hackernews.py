@@ -121,10 +121,10 @@ class HackerNewsExtractor(BaseExtractor):
 
             items.append(
                 ExtractedItem(
-                    title=hit.get("title", ""),
+                    title=hit.get("title") or "",
                     source=self.source_name,
                     url=url,
-                    text=hit.get("title", ""),
+                    text=hit.get("title") or "",
                     author=hit.get("author", "unknown"),
                     published_at=created_at,
                     score=hit.get("points", 0),

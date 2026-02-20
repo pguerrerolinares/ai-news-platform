@@ -1245,7 +1245,7 @@ class TestPipelineEdgeCases:
 
         # Make session.execute raise IntegrityError (e.g., a non-content_hash constraint)
         session.execute = AsyncMock(
-            side_effect=IntegrityError("duplicate key", {}, None),
+            side_effect=IntegrityError("duplicate key", {}, Exception("unique constraint")),
         )
 
         with (

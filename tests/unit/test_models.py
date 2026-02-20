@@ -170,7 +170,7 @@ class TestTopicConstraint:
 
     def test_valid_topic_check_constraint_exists(self):
         """The table has a CHECK constraint named 'valid_topic'."""
-        constraints = NewsItem.__table__.constraints
+        constraints = NewsItem.__table__.constraints  # type: ignore[attr-defined]
         check_constraints = [
             c for c in constraints if hasattr(c, "sqltext") and c.name == "valid_topic"
         ]
@@ -178,7 +178,7 @@ class TestTopicConstraint:
 
     def test_valid_topic_constraint_references_all_topics(self):
         """The CHECK constraint SQL text mentions every VALID_TOPICS entry."""
-        constraints = NewsItem.__table__.constraints
+        constraints = NewsItem.__table__.constraints  # type: ignore[attr-defined]
         check_constraint = next(
             c for c in constraints if hasattr(c, "sqltext") and c.name == "valid_topic"
         )

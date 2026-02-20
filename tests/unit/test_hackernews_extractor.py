@@ -327,9 +327,8 @@ class TestEdgeCases:
         with patch("src.extractors.hackernews.get_settings", return_value=settings):
             result = await HackerNewsExtractor().extract()
 
-        # hit.get("title", "") returns None when key exists with None value
         assert len(result) == 1
-        assert result[0].title is None
+        assert result[0].title == ""
 
     @respx.mock
     async def test_negative_points(self):

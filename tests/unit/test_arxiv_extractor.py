@@ -428,7 +428,7 @@ class TestEdgeCases:
             result = await ArxivExtractor().extract()
 
         # Should be deduplicated to 1 item despite appearing in feed
-        assert len(result) <= 1
+        assert len(result) == 1
 
     @respx.mock
     async def test_feed_no_entries(self):
