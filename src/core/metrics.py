@@ -90,3 +90,16 @@ notification_errors_total = Counter(
     "ainews_notification_errors_total",
     "Total notification errors",
 )
+
+# Pipeline validation metrics (M14)
+items_validation_failed_total = Counter(
+    "ainews_items_validation_failed_total",
+    "Items rejected by pre-storage validation",
+    ["reason"],
+)
+
+# Embedding metrics (M14)
+embedding_failures_total = Counter(
+    "ainews_embedding_failures_total",
+    "Total embedding generation failures",
+)
