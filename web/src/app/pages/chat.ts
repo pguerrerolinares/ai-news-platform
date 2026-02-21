@@ -486,7 +486,8 @@ export class ChatPage implements OnInit, AfterViewChecked {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const reader = response.body!.getReader();
+      if (!response.body) throw new Error('No response body');
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullText = '';
       let sources: ChatSource[] = [];

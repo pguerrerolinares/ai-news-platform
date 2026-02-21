@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import {
   NewsItem,
@@ -15,6 +15,13 @@ export class NewsService {
   private http = inject(HttpClient);
   private baseUrl = '/api';
 
+  private toPaginated<T>(res: HttpResponse<T[]>): PaginatedResponse<T> {
+    return {
+      items: res.body ?? [],
+      totalCount: parseInt(res.headers.get('X-Total-Count') ?? '0', 10),
+    };
+  }
+
   getTodayItems(params?: {
     limit?: number;
     offset?: number;
@@ -29,12 +36,7 @@ export class NewsService {
         params: httpParams,
         observe: 'response',
       })
-      .pipe(
-        map((res) => ({
-          items: res.body ?? [],
-          totalCount: parseInt(res.headers.get('X-Total-Count') ?? '0', 10),
-        }))
-      );
+      .pipe(map((res) => this.toPaginated(res)));
   }
 
   getItems(params?: {
@@ -58,12 +60,7 @@ export class NewsService {
         params: httpParams,
         observe: 'response',
       })
-      .pipe(
-        map((res) => ({
-          items: res.body ?? [],
-          totalCount: parseInt(res.headers.get('X-Total-Count') ?? '0', 10),
-        }))
-      );
+      .pipe(map((res) => this.toPaginated(res)));
   }
 
   getBriefing(date: string): Observable<Briefing> {
@@ -82,12 +79,7 @@ export class NewsService {
         params: httpParams,
         observe: 'response',
       })
-      .pipe(
-        map((res) => ({
-          items: res.body ?? [],
-          totalCount: parseInt(res.headers.get('X-Total-Count') ?? '0', 10),
-        }))
-      );
+      .pipe(map((res) => this.toPaginated(res)));
   }
 
   getTopics(): Observable<string[]> {
@@ -117,12 +109,7 @@ export class NewsService {
         params: httpParams,
         observe: 'response',
       })
-      .pipe(
-        map((res) => ({
-          items: res.body ?? [],
-          totalCount: parseInt(res.headers.get('X-Total-Count') ?? '0', 10),
-        }))
-      );
+      .pipe(map((res) => this.toPaginated(res)));
   }
 
   getStatsSummary(): Observable<StatsSummary> {

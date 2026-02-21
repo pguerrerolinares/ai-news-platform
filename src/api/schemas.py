@@ -41,7 +41,7 @@ class BriefingResponse(BaseModel):
     items_filtered: int | None = None
     trending_count: int | None = None
     duration_seconds: float | None = None
-    sources_used: dict | None = None
+    sources_used: dict[str, list[str]] | None = None
     generated_at: datetime
     items: list[NewsItemResponse] = []
 
