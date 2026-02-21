@@ -66,6 +66,34 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, _send_with_headers)
 
 
+_MAX_BODY_SIZE = 1_048_576  # 1MB
+
+
+class BodySizeLimitMiddleware:
+    """ASGI middleware that rejects request bodies larger than _MAX_BODY_SIZE."""
+
+    def __init__(self, app: ASGIApplication) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict, receive: object, send: object) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Check Content-Length header if present
+        headers = dict(scope.get("headers", []))
+        content_length = headers.get(b"content-length")
+        if content_length and int(content_length) > _MAX_BODY_SIZE:
+            response = JSONResponse(
+                status_code=413,
+                content={"detail": "Request body too large"},
+            )
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: setup and teardown."""
@@ -97,6 +125,7 @@ app = FastAPI(
 
 # Security headers (must wrap CORS so headers appear on preflight too)
 app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type]
+app.add_middleware(BodySizeLimitMiddleware)  # type: ignore[arg-type]
 
 # CORS
 settings = get_settings()
