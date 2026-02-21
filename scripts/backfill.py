@@ -244,7 +244,7 @@ async def phase_classify(
     filtered: list[ExtractedItem] = []
     for ei in extracted:
         topic, relevance = classify_by_keywords(ei)
-        if topic is not None and relevance >= 0.3:
+        if topic is not None and relevance >= 0.15:
             filtered.append(ei)
 
     # Enforce --max-items on items sent to LLM
@@ -262,43 +262,64 @@ async def phase_classify(
         _print_dry_run_summary(raw_items, extracted, filtered)
         return 0
 
-    # LLM classification in batches
+    # LLM classification in concurrent batches
     batch_size = 10
-    classified_items = []
-    for i in range(0, len(filtered), batch_size):
-        if cost_tracker.budget_exceeded:
-            logger.warning("budget_exceeded", cost=cost_tracker.estimated_cost_usd)
-            break
+    concurrency = 5
+    all_batches = [filtered[i : i + batch_size] for i in range(0, len(filtered), batch_size)]
+    total_batches = len(all_batches)
+    classified_items: list = []
+    completed = 0
+    stopped = False
 
-        batch = filtered[i : i + batch_size]
-        try:
-            results = await llm_clf.classify(batch)
-            classified_items.extend(results)
+    print(f"  Classifying {len(filtered)} items in {total_batches} batches "
+          f"(concurrency={concurrency})...", flush=True)
 
-            cost_tracker.add_tokens(
-                input_tokens=len(batch) * EST_INPUT_TOKENS_PER_ITEM,
-                output_tokens=len(batch) * EST_OUTPUT_TOKENS_PER_ITEM,
-            )
-        except (httpx.HTTPStatusError, openai.APIStatusError) as exc:
-            status = getattr(exc, "status_code", None) or getattr(exc.response, "status_code", 0)
-            logger.warning("classify_batch_failed", error=str(exc), batch=i, status=status)
-            checkpoint.cost_usd = cost_tracker.estimated_cost_usd
-            checkpoint.save()
-            if status in (402, 429):
-                logger.error("api_balance_or_rate_limit", status=status)
-                break
-            continue
-        except openai.APIConnectionError as exc:
-            logger.warning("classify_connection_error", error=str(exc), batch=i)
-            checkpoint.cost_usd = cost_tracker.estimated_cost_usd
-            checkpoint.save()
-            continue
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _classify_one(batch_num: int, batch: list) -> list:
+        nonlocal completed, stopped
+        if stopped:
+            return []
+        async with sem:
+            if cost_tracker.budget_exceeded or stopped:
+                return []
+            try:
+                results = await llm_clf.classify(batch)
+                cost_tracker.add_tokens(
+                    input_tokens=len(batch) * EST_INPUT_TOKENS_PER_ITEM,
+                    output_tokens=len(batch) * EST_OUTPUT_TOKENS_PER_ITEM,
+                )
+                completed += 1
+                if completed % 25 == 0 or completed == 1:
+                    print(
+                        f"  [{completed}/{total_batches}] "
+                        f"cost=${cost_tracker.estimated_cost_usd:.3f}",
+                        flush=True,
+                    )
+                return results
+            except (httpx.HTTPStatusError, openai.APIError) as exc:
+                status = getattr(exc, "status_code", None) or getattr(
+                    getattr(exc, "response", None), "status_code", 0
+                )
+                logger.warning("classify_batch_failed", error=str(exc), batch=batch_num)
+                if status in (402, 429):
+                    stopped = True
+                return []
+            except Exception as exc:
+                logger.warning("classify_batch_unexpected", error=str(exc), batch=batch_num)
+                return []
+
+    tasks = [_classify_one(i, batch) for i, batch in enumerate(all_batches)]
+    batch_results = await asyncio.gather(*tasks)
+    for br in batch_results:
+        classified_items.extend(br)
+
+    checkpoint.cost_usd = cost_tracker.estimated_cost_usd
+    checkpoint.save()
 
     # Store classified items
     async with factory() as session:
         for ci in classified_items:
-            if not ci.is_news:
-                continue
             ei = ci.item
             stmt = (
                 insert(NewsItem)
