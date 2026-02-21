@@ -34,7 +34,8 @@ export class AuthService {
       );
       this.storeTokens(res);
       return true;
-    } catch {
+    } catch (err) {
+      console.error('[AuthService] Token refresh failed:', err);
       this.logout();
       return false;
     }
@@ -60,7 +61,8 @@ export class AuthService {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload.exp * 1000 > Date.now();
-    } catch {
+    } catch (err) {
+      console.warn('[AuthService] JWT decode failed:', err);
       return false;
     }
   }
