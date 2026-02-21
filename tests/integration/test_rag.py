@@ -20,12 +20,8 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")
 class TestEmbeddingStorage:
     async def test_store_and_retrieve_by_similarity(self, db_session):
         """Items with embeddings can be retrieved by cosine similarity."""
-        item_a = await seed_news_item(
-            db_session, title="Close Match", url="https://x.com/close"
-        )
-        item_b = await seed_news_item(
-            db_session, title="Far Match", url="https://x.com/far"
-        )
+        item_a = await seed_news_item(db_session, title="Close Match", url="https://x.com/close")
+        item_b = await seed_news_item(db_session, title="Far Match", url="https://x.com/far")
 
         # item_a: vector pointing "right" — item_b: vector pointing "left"
         vec_a = [1.0] + [0.0] * 1535
@@ -69,9 +65,7 @@ class TestEmbeddingStorage:
         mock_embed.embed_text.return_value = vec
 
         retriever = Retriever(embedding_service=mock_embed)
-        results = await retriever.retrieve(
-            db_session, "test", limit=10, topic="modelos"
-        )
+        results = await retriever.retrieve(db_session, "test", limit=10, topic="modelos")
 
         assert len(results) == 1
         assert results[0].topic == "modelos"
@@ -114,9 +108,7 @@ class TestChatStream:
     async def test_returns_sse_events(self, db_session):
         """ChatService.chat_stream yields SSE token + sources + [DONE]."""
         # Seed item + embedding
-        item = await seed_news_item(
-            db_session, title="Chat Context Item", url="https://x.com/chat"
-        )
+        item = await seed_news_item(db_session, title="Chat Context Item", url="https://x.com/chat")
         await seed_embedding(db_session, item, vector=[0.5] * 1536)
 
         # Mock embedding service (for retriever query embedding)

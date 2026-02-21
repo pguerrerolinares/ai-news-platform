@@ -109,9 +109,7 @@ class TestSaveBriefing:
         )
 
         today = datetime.now(tz=UTC).date()
-        result = await db_session.execute(
-            select(DailyBriefing).where(DailyBriefing.date == today)
-        )
+        result = await db_session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
         briefing = result.scalar_one()
 
         assert briefing.items_extracted == 20
@@ -145,9 +143,7 @@ class TestSaveBriefing:
         from datetime import UTC, datetime
 
         today = datetime.now(tz=UTC).date()
-        result = await db_session.execute(
-            select(DailyBriefing).where(DailyBriefing.date == today)
-        )
+        result = await db_session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
         briefing = result.scalar_one()
 
         assert briefing.items_extracted == 16  # 10 + 6
@@ -169,9 +165,7 @@ class TestSaveBriefing:
         )
 
         today = datetime.now(tz=UTC).date()
-        result = await db_session.execute(
-            select(DailyBriefing).where(DailyBriefing.date == today)
-        )
+        result = await db_session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
         briefing = result.scalar_one()
         assert briefing.total_items == 0
 

@@ -25,12 +25,12 @@ interaction boundary: pipeline storage, API query routes, RAG embeddings, and au
 
 ## Success Criteria
 
-- [ ] All ~27 integration tests pass (`pytest tests/integration/ -m integration --timeout=60`)
-- [ ] Tests run against real PostgreSQL with pgvector
-- [ ] No unit test regressions (702 still pass)
-- [ ] `ruff check .` clean
-- [ ] CI pipeline runs integration tests after unit tests
-- [ ] Every DB interaction in the codebase has at least one integration test
+- [x] All 28 integration tests pass (`pytest tests/integration/ -m integration --timeout=60`)
+- [x] Tests run against real PostgreSQL with pgvector
+- [x] No unit test regressions (702 still pass)
+- [x] `ruff check .` clean
+- [x] CI pipeline runs integration tests after unit tests
+- [x] Every DB interaction in the codebase has at least one integration test
 
 ---
 

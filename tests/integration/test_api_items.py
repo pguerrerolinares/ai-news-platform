@@ -94,9 +94,7 @@ class TestItemsCount:
     async def test_count_matches(self, client, db_session, auth_headers):
         """GET /api/items/count returns correct count."""
         for i in range(4):
-            await seed_news_item(
-                db_session, title=f"Count {i}", url=f"https://x.com/c-{i}"
-            )
+            await seed_news_item(db_session, title=f"Count {i}", url=f"https://x.com/c-{i}")
 
         resp = await client.get("/api/items/count", headers=auth_headers)
 

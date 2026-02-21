@@ -42,10 +42,19 @@ def _mock_topics(page: Page):
         lambda route: route.fulfill(
             status=200,
             content_type="application/json",
-            body=json.dumps({"topics": [
-                "modelos", "herramientas", "papers", "productos",
-                "open_source", "agentes", "regulacion",
-            ]}),
+            body=json.dumps(
+                {
+                    "topics": [
+                        "modelos",
+                        "herramientas",
+                        "papers",
+                        "productos",
+                        "open_source",
+                        "agentes",
+                        "regulacion",
+                    ]
+                }
+            ),
         ),
     )
 

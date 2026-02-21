@@ -36,9 +36,7 @@ class TestGetBriefingByDate:
         await seed_news_item(db_session, title="Today A", url="https://x.com/ba")
         await seed_news_item(db_session, title="Today B", url="https://x.com/bb")
 
-        resp = await client.get(
-            f"/api/briefings/{today.isoformat()}", headers=auth_headers
-        )
+        resp = await client.get(f"/api/briefings/{today.isoformat()}", headers=auth_headers)
 
         assert resp.status_code == 200
         data = resp.json()
