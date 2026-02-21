@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     # --- Auth ---
     jwt_secret: str = Field(default="change-me-in-production", description="JWT signing secret")
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440  # 24 hours
+    jwt_access_expire_minutes: int = 30
+    jwt_refresh_expire_days: int = 7
     shared_password: str = Field(
         default="change-me-in-production",
         description="Shared password for login (semi-public app)",
@@ -111,6 +112,10 @@ class Settings(BaseSettings):
     # --- Observability ---
     log_level: str = "INFO"
     log_format: str = "json"  # json or console
+
+    @property
+    def jwt_expire_minutes(self) -> int:
+        return self.jwt_access_expire_minutes
 
     @property
     def enabled_sources_list(self) -> list[str]:

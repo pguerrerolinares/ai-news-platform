@@ -25,7 +25,8 @@ def _make_test_settings(**overrides) -> Settings:
     defaults = {
         "jwt_secret": TEST_SECRET,
         "jwt_algorithm": TEST_ALGORITHM,
-        "jwt_expire_minutes": 1440,
+        "jwt_access_expire_minutes": 30,
+        "jwt_refresh_expire_days": 7,
         "shared_password": TEST_PASSWORD,
         "database_url": "postgresql+asyncpg://x:x@localhost/x",
         "database_url_sync": "postgresql://x:x@localhost/x",
@@ -55,6 +56,10 @@ def _override_settings():
         patch("src.api.auth.get_settings", return_value=test_settings),
         patch("src.api.routes.auth.get_settings", return_value=test_settings),
     ):
+        # Clear refresh token state between tests
+        from src.api.auth import _refresh_tokens
+
+        _refresh_tokens.clear()
         yield
     limiter.enabled = original_enabled
 
@@ -263,6 +268,77 @@ class TestRequireAuth:
         try:
             resp = await api_client.get(
                 "/api/items", headers={"Authorization": f"Bearer {bad_token}"}
+            )
+            assert resp.status_code == 401
+        finally:
+            app.dependency_overrides.pop(get_session, None)
+
+
+# ---------------------------------------------------------------------------
+# Refresh tokens
+# ---------------------------------------------------------------------------
+class TestRefreshTokens:
+    """Tests for refresh token functionality."""
+
+    async def test_login_returns_refresh_token(self, api_client: AsyncClient):
+        """Login should return both access_token and refresh_token."""
+        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert "expires_in" in data
+
+    async def test_refresh_returns_new_tokens(self, api_client: AsyncClient):
+        """Refresh endpoint returns new access and refresh tokens."""
+        login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
+        refresh_token = login.json()["refresh_token"]
+
+        resp = await api_client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+
+    async def test_refresh_with_invalid_token_fails(self, api_client: AsyncClient):
+        """Refresh with invalid token returns 401."""
+        resp = await api_client.post("/api/auth/refresh", json={"refresh_token": "invalid-token"})
+        assert resp.status_code == 401
+
+    async def test_old_refresh_token_rejected_after_rotation(self, api_client: AsyncClient):
+        """After refreshing, the old refresh token should be invalid."""
+        login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
+        old_refresh = login.json()["refresh_token"]
+
+        # Use the refresh token once
+        await api_client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
+
+        # Try to use the same refresh token again -- should fail
+        resp = await api_client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
+        assert resp.status_code == 401
+
+    async def test_access_token_with_refresh_type_rejected(self, api_client: AsyncClient):
+        """Using a refresh token as access token should fail."""
+        login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
+        refresh_token = login.json()["refresh_token"]
+
+        from src.core.database import get_session
+        from unittest.mock import AsyncMock, MagicMock
+
+        async def _mock_session():
+            mock_result = MagicMock()
+            mock_scalars = MagicMock()
+            mock_scalars.all.return_value = []
+            mock_result.scalars.return_value = mock_scalars
+            mock_result.scalar_one.return_value = 0
+            session = AsyncMock()
+            session.execute = AsyncMock(return_value=mock_result)
+            yield session
+
+        app.dependency_overrides[get_session] = _mock_session
+        try:
+            resp = await api_client.get(
+                "/api/items", headers={"Authorization": f"Bearer {refresh_token}"}
             )
             assert resp.status_code == 401
         finally:
