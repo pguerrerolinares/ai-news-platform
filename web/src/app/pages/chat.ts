@@ -491,28 +491,37 @@ export class ChatPage implements OnInit, AfterViewChecked {
         const parts = buffer.split('\n');
         buffer = parts.pop()!; // keep incomplete last line
 
+        let currentEvent = '';
+
         for (const line of parts) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+            continue;
+          }
           if (!line.startsWith('data: ')) continue;
           const data = line.slice(6);
 
-          if (data === '[DONE]') continue;
-
           try {
             const parsed = JSON.parse(data);
-            if (parsed.token) {
-              fullText += parsed.token;
+
+            if (currentEvent === 'message') {
+              if (parsed.type === 'token' && parsed.content) {
+                fullText += parsed.content;
+                this.streamBuffer.set(fullText);
+              } else if (parsed.type === 'sources' && parsed.content) {
+                sources = parsed.content;
+              }
+            } else if (currentEvent === 'error') {
+              const errMsg = parsed.error?.message || 'Error desconocido';
+              fullText += errMsg;
               this.streamBuffer.set(fullText);
             }
-            if (parsed.sources) {
-              sources = parsed.sources;
-            }
-            if (parsed.error) {
-              fullText += parsed.error;
-              this.streamBuffer.set(fullText);
-            }
+            // 'done' event — no action needed, stream ends naturally
           } catch {
             // ignore parse errors on partial chunks
           }
+
+          currentEvent = '';
         }
       }
 
