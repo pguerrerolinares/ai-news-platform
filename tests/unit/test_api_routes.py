@@ -313,3 +313,48 @@ class TestItemsByDate:
         app.dependency_overrides.pop(require_auth, None)
         resp = await api_client.get("/api/items/by-date/2026-02-22")
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /api/briefings/{date} — resilient synthesis
+# ---------------------------------------------------------------------------
+class TestResilientBriefing:
+    """Briefing endpoint should return synthesized response when no DailyBriefing exists."""
+
+    async def test_briefing_no_record_returns_200_when_items_exist(self, api_client: AsyncClient):
+        """When no DailyBriefing but items exist for that date, return 200."""
+        mock_session = _make_mock_session()
+        call_count = 0
+
+        async def _side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+            mock_scalars = MagicMock()
+            mock_scalars.all.return_value = []
+            result.scalars.return_value = mock_scalars
+            if call_count == 1:
+                result.scalar_one_or_none.return_value = None  # no briefing
+            elif call_count == 2:
+                result.scalar_one.return_value = 5  # items exist
+            else:
+                pass  # items query
+            return result
+
+        mock_session.execute = AsyncMock(side_effect=_side_effect)
+
+        async def _session_override():
+            yield mock_session
+
+        app.dependency_overrides[get_session] = _session_override
+        resp = await api_client.get("/api/briefings/2026-02-22")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["date"] == "2026-02-22"
+        assert data["generated_at"] is None
+        assert data["total_items"] is None
+
+    async def test_briefing_no_record_no_items_returns_404(self, api_client: AsyncClient):
+        """When no DailyBriefing and no items, return 404."""
+        resp = await api_client.get("/api/briefings/2026-02-22")
+        assert resp.status_code == 404

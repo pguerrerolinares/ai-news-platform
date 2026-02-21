@@ -41,9 +41,6 @@ async def get_briefing(
     result = await session.execute(select(DailyBriefing).where(DailyBriefing.date == briefing_date))
     briefing = result.scalar_one_or_none()
 
-    if not briefing:
-        raise APIError(404, "BRIEFING_NOT_FOUND", f"No briefing found for {briefing_date}")
-
     # Use timestamp range for index-friendly queries
     day_start = datetime.combine(briefing_date, time.min, tzinfo=UTC)
     day_end = day_start + timedelta(days=1)
@@ -55,6 +52,11 @@ async def get_briefing(
             select(func.count(NewsItem.id)).where(date_filter)
         )
     ).scalar_one()
+
+    # If no briefing AND no items, truly nothing exists for this date
+    if not briefing and items_count == 0:
+        raise APIError(404, "BRIEFING_NOT_FOUND", f"No data found for {briefing_date}")
+
     set_total_count_header(response, items_count)
 
     # Fetch paginated items
@@ -67,16 +69,24 @@ async def get_briefing(
     )
     items = items_result.scalars().all()
 
+    if briefing:
+        return BriefingResponse(
+            date=briefing.date,
+            total_items=briefing.total_items,
+            items_extracted=briefing.items_extracted,
+            items_after_dedup=briefing.items_after_dedup,
+            items_filtered=briefing.items_filtered,
+            trending_count=briefing.trending_count,
+            duration_seconds=briefing.duration_seconds,
+            sources_used=briefing.sources_used,
+            generated_at=briefing.generated_at,
+            items=[NewsItemResponse.model_validate(item) for item in items],
+        )
+
+    # Synthesize minimal response from items only (no DailyBriefing record exists)
     return BriefingResponse(
-        date=briefing.date,
-        total_items=briefing.total_items,
-        items_extracted=briefing.items_extracted,
-        items_after_dedup=briefing.items_after_dedup,
-        items_filtered=briefing.items_filtered,
-        trending_count=briefing.trending_count,
-        duration_seconds=briefing.duration_seconds,
-        sources_used=briefing.sources_used,
-        generated_at=briefing.generated_at,
+        date=briefing_date,
+        generated_at=None,
         items=[NewsItemResponse.model_validate(item) for item in items],
     )
 
