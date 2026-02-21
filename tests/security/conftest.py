@@ -57,6 +57,23 @@ async def security_client() -> AsyncGenerator[AsyncClient, None]:
 
 
 # ---------------------------------------------------------------------------
+# Rate limiter reset — clears in-memory state between tests
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters() -> None:
+    """Reset all slowapi rate limiter storage so tests don't leak state."""
+    from src.api.app import limiter as app_limiter
+    from src.api.routes.auth import limiter as auth_limiter
+    from src.api.routes.chat import limiter as chat_limiter
+
+    for lim in (app_limiter, auth_limiter, chat_limiter):
+        lim.reset()
+    yield  # type: ignore[misc]
+    for lim in (app_limiter, auth_limiter, chat_limiter):
+        lim.reset()
+
+
+# ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
 @pytest.fixture()
