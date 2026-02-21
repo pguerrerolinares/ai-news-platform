@@ -8,6 +8,9 @@ from src.core.config import Settings
 class TestEmbeddingConfig:
     def test_defaults(self):
         s = Settings(
+            embedding_api_key="",
+            embedding_base_url="https://api.openai.com/v1",
+            embedding_model="text-embedding-3-small",
             telegram_bot_token="",
             telegram_chat_id="",
             telegram_alerts_enabled=False,
@@ -31,6 +34,7 @@ class TestEmbeddingConfig:
 
     def test_embedding_not_configured_when_empty_key(self):
         s = Settings(
+            embedding_api_key="",
             telegram_bot_token="",
             telegram_chat_id="",
             telegram_alerts_enabled=False,
