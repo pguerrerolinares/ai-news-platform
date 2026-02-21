@@ -102,3 +102,49 @@ class TestStatsByDate:
     async def test_by_date_rejects_excessive_days(self, api_client: AsyncClient):
         resp = await api_client.get("/api/stats/by-date", params={"days": 999})
         assert resp.status_code == 422
+
+
+class TestStatsByTopicDate:
+    async def test_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-topic-date")
+        assert resp.status_code == 200
+
+    async def test_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-topic-date")
+        assert isinstance(resp.json(), list)
+
+    async def test_accepts_days_param(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-topic-date", params={"days": 7})
+        assert resp.status_code == 200
+
+    async def test_rejects_excessive_days(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-topic-date", params={"days": 999})
+        assert resp.status_code == 422
+
+
+class TestStatsBySourceDate:
+    async def test_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-source-date")
+        assert resp.status_code == 200
+
+    async def test_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-source-date")
+        assert isinstance(resp.json(), list)
+
+    async def test_accepts_days_param(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/by-source-date", params={"days": 14})
+        assert resp.status_code == 200
+
+
+class TestTrendingTimeline:
+    async def test_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/trending-timeline")
+        assert resp.status_code == 200
+
+    async def test_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/trending-timeline")
+        assert isinstance(resp.json(), list)
+
+    async def test_accepts_days_param(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/trending-timeline", params={"days": 60})
+        assert resp.status_code == 200

@@ -12,6 +12,7 @@ from src.api.auth import require_auth
 from src.api.schemas import (
     ErrorWrapper,
     StatsDateResponse,
+    StatsGroupDateResponse,
     StatsGroupResponse,
     StatsSummaryResponse,
 )
@@ -128,5 +129,100 @@ async def stats_by_date(
         .where(NewsItem.created_at >= since_dt)
         .group_by(created_date)
         .order_by(created_date.desc())
+    )
+    return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
+
+
+@router.get(
+    "/by-topic-date",
+    response_model=list[StatsGroupDateResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def stats_by_topic_date(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to include"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[StatsGroupDateResponse]:
+    """Get item count grouped by topic and date for the last N days."""
+    since_dt = datetime.combine(
+        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    )
+    created_date = func.date(NewsItem.created_at)
+    result = await session.execute(
+        select(
+            created_date.label("date"),
+            NewsItem.topic.label("group"),
+            func.count(NewsItem.id).label("count"),
+        )
+        .where((NewsItem.created_at >= since_dt) & NewsItem.topic.isnot(None))
+        .group_by(created_date, NewsItem.topic)
+        .order_by(created_date.asc(), NewsItem.topic.asc())
+    )
+    return [
+        StatsGroupDateResponse(date=row.date, group=row.group, count=row.count)
+        for row in result.all()
+    ]
+
+
+@router.get(
+    "/by-source-date",
+    response_model=list[StatsGroupDateResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def stats_by_source_date(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to include"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[StatsGroupDateResponse]:
+    """Get item count grouped by source and date for the last N days."""
+    since_dt = datetime.combine(
+        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    )
+    created_date = func.date(NewsItem.created_at)
+    result = await session.execute(
+        select(
+            created_date.label("date"),
+            NewsItem.source.label("group"),
+            func.count(NewsItem.id).label("count"),
+        )
+        .where(NewsItem.created_at >= since_dt)
+        .group_by(created_date, NewsItem.source)
+        .order_by(created_date.asc(), NewsItem.source.asc())
+    )
+    return [
+        StatsGroupDateResponse(date=row.date, group=row.group, count=row.count)
+        for row in result.all()
+    ]
+
+
+@router.get(
+    "/trending-timeline",
+    response_model=list[StatsDateResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def stats_trending_timeline(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to include"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[StatsDateResponse]:
+    """Get trending item count by date for the last N days."""
+    since_dt = datetime.combine(
+        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    )
+    created_date = func.date(NewsItem.created_at)
+    result = await session.execute(
+        select(
+            created_date.label("date"),
+            func.count(NewsItem.id).label("count"),
+        )
+        .where((NewsItem.created_at >= since_dt) & NewsItem.trending.is_(True))
+        .group_by(created_date)
+        .order_by(created_date.asc())
     )
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
