@@ -120,3 +120,28 @@ class ItemEmbedding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (UniqueConstraint("item_id", "model", name="pk_item_embeddings"),)
+
+
+class RawExtraction(Base):
+    """Raw API responses preserved for future reprocessing."""
+
+    __tablename__ = "raw_extractions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    raw_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    extracted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    backfill_batch: Mapped[str | None] = mapped_column(String(50))
+
+    __table_args__ = (
+        UniqueConstraint("source", "source_id", name="uq_raw_source_id"),
+        Index("idx_raw_source", "source"),
+        Index("idx_raw_batch", "backfill_batch"),
+    )
