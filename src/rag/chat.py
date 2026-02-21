@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncGenerator
 
@@ -108,20 +109,25 @@ class ChatService:
 
         # 3. Stream LLM response
         try:
-            stream = await self._llm.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.3,
-                stream=True,
-            )
+            async with asyncio.timeout(30):
+                stream = await self._llm.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.3,
+                    stream=True,
+                )
 
-            async for chunk in stream:
-                content = chunk.choices[0].delta.content
-                if content:
-                    yield f"data: {json.dumps({'token': content})}\n\n"
+                async for chunk in stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        yield f"data: {json.dumps({'token': content})}\n\n"
+
+        except TimeoutError:
+            logger.error("chat_stream_timeout", question=question[:100])
+            yield f'data: {json.dumps({"error": {"code": "LLM_TIMEOUT", "message": "AI response timed out"}})}\n\n'
 
         except Exception as exc:
             logger.error("chat_stream_error", error=str(exc))
