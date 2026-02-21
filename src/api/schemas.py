@@ -42,7 +42,7 @@ class BriefingResponse(BaseModel):
     trending_count: int | None = None
     duration_seconds: float | None = None
     sources_used: dict[str, list[str]] | None = None
-    generated_at: datetime
+    generated_at: datetime | None = None
     items: list[NewsItemResponse] = []
 
     model_config = {"from_attributes": True}
@@ -98,3 +98,25 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=3, max_length=500)
     topic: str | None = Field(None, description="Filter context by topic")
     limit: int = Field(5, ge=1, le=20, description="Number of context items")
+
+
+class SourceInfo(BaseModel):
+    name: str
+    count: int
+
+
+class SourcesResponse(BaseModel):
+    sources: list[SourceInfo]
+
+
+class StatsGroupDateResponse(BaseModel):
+    date: date
+    group: str
+    count: int
+
+
+class ScoreDistributionResponse(BaseModel):
+    range: str
+    min_score: int
+    max_score: int
+    count: int
