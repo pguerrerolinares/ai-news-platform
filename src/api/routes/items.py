@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +16,13 @@ from src.core.database import get_session
 from src.core.models import NewsItem
 
 router = APIRouter(prefix="/api/items", tags=["items"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("", response_model=list[NewsItemResponse])
+@limiter.limit("30/minute")
 async def list_items(
+    request: Request,
     source: str | None = Query(None, description="Filter by source"),
     topic: str | None = Query(None, description="Filter by topic"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),
@@ -70,7 +75,9 @@ async def list_items(
 
 
 @router.get("/count")
+@limiter.limit("30/minute")
 async def count_items(
+    request: Request,
     source: str | None = Query(None),
     topic: str | None = Query(None),
     date_from: date | None = Query(None),
@@ -97,7 +104,9 @@ async def count_items(
 
 
 @router.get("/today", response_model=list[NewsItemResponse])
+@limiter.limit("30/minute")
 async def list_today_items(
+    request: Request,
     topic: str | None = Query(None, description="Filter by topic"),
     limit: int = Query(100, ge=1, le=200),
     session: AsyncSession = Depends(get_session),

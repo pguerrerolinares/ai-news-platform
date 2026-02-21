@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -44,6 +44,15 @@ async def security_client() -> AsyncGenerator[AsyncClient, None]:
 
     mock_session = AsyncMock(spec=AsyncSession)
 
+    # Configure execute() to return a sync MagicMock so that
+    # .scalars().all() / .scalar_one() / .scalar_one_or_none() work
+    # without producing unawaited coroutines.
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_result.scalar_one.return_value = 0
+    mock_result.scalar_one_or_none.return_value = None
+    mock_session.execute.return_value = mock_result
+
     async def _override() -> AsyncGenerator[AsyncSession, None]:
         yield mock_session
 
@@ -64,12 +73,25 @@ def _reset_rate_limiters() -> None:
     """Reset all slowapi rate limiter storage so tests don't leak state."""
     from src.api.app import limiter as app_limiter
     from src.api.routes.auth import limiter as auth_limiter
+    from src.api.routes.briefings import limiter as briefings_limiter
     from src.api.routes.chat import limiter as chat_limiter
+    from src.api.routes.items import limiter as items_limiter
+    from src.api.routes.search import limiter as search_limiter
+    from src.api.routes.topics import limiter as topics_limiter
 
-    for lim in (app_limiter, auth_limiter, chat_limiter):
+    all_limiters = (
+        app_limiter,
+        auth_limiter,
+        briefings_limiter,
+        chat_limiter,
+        items_limiter,
+        search_limiter,
+        topics_limiter,
+    )
+    for lim in all_limiters:
         lim.reset()
     yield  # type: ignore[misc]
-    for lim in (app_limiter, auth_limiter, chat_limiter):
+    for lim in all_limiters:
         lim.reset()
 
 

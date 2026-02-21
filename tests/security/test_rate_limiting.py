@@ -66,3 +66,43 @@ class TestRateLimiting:
                 return
 
         pytest.fail("Could not trigger rate limit to test response format")
+
+
+class TestDataEndpointRateLimiting:
+    """Verify rate limits on data endpoints added in M12."""
+
+    async def test_search_rate_limit(
+        self, security_client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
+        """21st search request within a minute must be rate-limited (429)."""
+        for i in range(21):
+            resp = await security_client.get(
+                "/api/search", params={"q": f"test-{i}"}, headers=auth_headers
+            )
+            if resp.status_code == 429:
+                assert i >= 20  # Should happen on 21st request (index 20)
+                return
+
+        pytest.fail("Expected 429 after 21 search requests, but all returned non-429")
+
+    async def test_items_rate_limit(
+        self, security_client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
+        """31st items request within a minute must be rate-limited (429)."""
+        for i in range(31):
+            resp = await security_client.get("/api/items", headers=auth_headers)
+            if resp.status_code == 429:
+                assert i >= 30  # Should happen on 31st request (index 30)
+                return
+
+        pytest.fail("Expected 429 after 31 items requests, but all returned non-429")
+
+    async def test_topics_rate_limit(self, security_client: AsyncClient) -> None:
+        """31st topics request within a minute must be rate-limited (429)."""
+        for i in range(31):
+            resp = await security_client.get("/api/topics")
+            if resp.status_code == 429:
+                assert i >= 30
+                return
+
+        pytest.fail("Expected 429 after 31 topics requests, but all returned non-429")

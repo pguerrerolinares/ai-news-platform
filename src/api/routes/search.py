@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +16,13 @@ from src.core.database import get_session
 from src.core.models import NewsItem
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("", response_model=list[NewsItemResponse])
+@limiter.limit("20/minute")
 async def search_items(
+    request: Request,
     q: str = Query(..., min_length=1, description="Search text"),
     topic: str | None = Query(None, description="Filter by topic"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),

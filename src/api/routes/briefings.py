@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +16,13 @@ from src.core.database import get_session
 from src.core.models import DailyBriefing, NewsItem
 
 router = APIRouter(prefix="/api/briefings", tags=["briefings"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/{briefing_date}", response_model=BriefingResponse)
+@limiter.limit("30/minute")
 async def get_briefing(
+    request: Request,
     briefing_date: date,
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
@@ -72,7 +77,9 @@ async def get_briefing(
 
 
 @router.get("", response_model=list[BriefingResponse])
+@limiter.limit("30/minute")
 async def list_briefings(
+    request: Request,
     limit: int = Query(30, ge=1, le=90, description="Max briefings to return"),
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
