@@ -84,13 +84,13 @@ New ASGI middleware:
 
 ## Success Criteria
 
-- [ ] All security headers present on API responses
-- [ ] CORS rejects disallowed methods/headers
-- [ ] Rate limits enforced on all data endpoints
-- [ ] Request body > 1MB returns 413
-- [ ] All new tests pass
-- [ ] No regressions (unit: 702, integration: 28, security: 37+12)
-- [ ] `ruff check .` clean
+- [x] All security headers present on API responses
+- [x] CORS rejects disallowed methods/headers
+- [x] Rate limits enforced on all data endpoints
+- [x] Request body > 1MB returns 413
+- [x] All new tests pass (49 security tests — 37 M11 + 12 M12)
+- [x] No regressions (3 pre-existing Pydantic ForwardRef failures unrelated to M12)
+- [x] `ruff check .` clean
 
 ## Files to Modify
 
