@@ -18,6 +18,36 @@ HN_BASE_URL = "https://hn.algolia.com/api/v1/search"
 GH_SEARCH_URL = "https://api.github.com/search/repositories"
 HF_API_URL = "https://huggingface.co/api/models"
 
+_MAX_RETRIES = 3
+_BACKOFF_BASE_SECONDS = 2
+
+
+async def request_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+) -> httpx.Response:
+    """HTTP GET with retry for 429 (rate limit) and 5xx (server errors)."""
+    for attempt in range(_MAX_RETRIES):
+        resp = await client.get(url, params=params)
+        if resp.status_code == 429:
+            retry_after = int(resp.headers.get("Retry-After", str(_BACKOFF_BASE_SECONDS)))
+            logger.warning("rate_limited", url=url, retry_after=retry_after, attempt=attempt)
+            await asyncio.sleep(retry_after)
+            continue
+        if resp.status_code >= 500:
+            wait = _BACKOFF_BASE_SECONDS * (2**attempt)
+            logger.warning("server_error", status=resp.status_code, wait=wait, attempt=attempt)
+            await asyncio.sleep(wait)
+            continue
+        resp.raise_for_status()
+        return resp
+    # Final attempt — let it raise on failure
+    resp = await client.get(url, params=params)
+    resp.raise_for_status()
+    return resp
+
 
 def generate_month_ranges(from_month: str, to_month: str) -> list[tuple[str, str]]:
     """Generate (start, end) month pairs from 'YYYY-MM' strings."""
@@ -94,8 +124,7 @@ class HistoricalHNExtractor:
                     "page": page,
                 }
 
-                resp = await client.get(HN_BASE_URL, params=params)
-                resp.raise_for_status()
+                resp = await request_with_retry(client, HN_BASE_URL, params=params)
                 data = resp.json()
 
                 for hit in data.get("hits", []):
@@ -176,8 +205,7 @@ class HistoricalGitHubExtractor:
                     "page": page,
                 }
 
-                resp = await client.get(GH_SEARCH_URL, params=params)
-                resp.raise_for_status()
+                resp = await request_with_retry(client, GH_SEARCH_URL, params=params)
                 data = resp.json()
 
                 repos = data.get("items", [])
@@ -244,8 +272,7 @@ class HistoricalHFExtractor:
                 "offset": offset,
             }
 
-            resp = await client.get(HF_API_URL, params=params)
-            resp.raise_for_status()
+            resp = await request_with_retry(client, HF_API_URL, params=params)
             models = resp.json()
 
             if not models:

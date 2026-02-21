@@ -19,11 +19,13 @@ class CostTracker:
         self.max_cost_usd = max_cost_usd
         self.total_input_tokens: int = 0
         self.total_output_tokens: int = 0
+        self._warning_emitted: bool = False
 
     def add_tokens(self, *, input_tokens: int, output_tokens: int) -> None:
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
-        if self.at_warning_threshold and not self.budget_exceeded:
+        if self.at_warning_threshold and not self.budget_exceeded and not self._warning_emitted:
+            self._warning_emitted = True
             logger.warning(
                 "cost_warning",
                 cost_usd=f"{self.estimated_cost_usd:.4f}",

@@ -217,7 +217,7 @@ def _calculate_priority(item: ExtractedItem, relevance: float) -> int:
     return max(1, min(5, priority_score))
 
 
-def _classify_by_keywords(item: ExtractedItem) -> tuple[str | None, float]:
+def classify_by_keywords(item: ExtractedItem) -> tuple[str | None, float]:
     """Classify a single item by keyword matching.
 
     Returns:
@@ -265,7 +265,7 @@ class KeywordClassifier(BaseClassifier):
 
         results: list[ClassifiedItem] = []
         for item in items:
-            topic, relevance = _classify_by_keywords(item)
+            topic, relevance = classify_by_keywords(item)
 
             if topic is None or relevance < min_relevance:
                 continue

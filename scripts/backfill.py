@@ -19,11 +19,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
+import openai
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from src.classifiers.keyword import _classify_by_keywords
-from src.core.config import get_settings
+from src.classifiers.keyword import classify_by_keywords
+from src.core.config import Settings, get_settings
 from src.core.database import get_session_factory
 from src.core.logging import get_logger
 from src.core.models import NewsItem, RawExtraction
@@ -41,6 +42,11 @@ from src.pipeline.backfill.extractors import (
 logger = get_logger(__name__)
 
 CHECKPOINT_PATH = Path("data/backfill-checkpoint.json")
+_STORE_BATCH_SIZE = 500  # commit every N items in _store_raw_items
+
+# Estimated tokens per item for LLM classification cost tracking
+EST_INPUT_TOKENS_PER_ITEM = 95
+EST_OUTPUT_TOKENS_PER_ITEM = 55
 
 
 # -- Phase 1: Extract raw -----------------------------------------------------
@@ -53,18 +59,25 @@ async def phase_extract(
     """Extract raw items from all sources, store in raw_extractions."""
     settings = get_settings()
     total_stored = 0
+    batch_id = f"backfill-{datetime.now(tz=UTC).strftime('%Y%m%d-%H%M')}"
 
     async with httpx.AsyncClient(
         timeout=30, headers={"User-Agent": "AI-News-Platform-Backfill/1.0"}
     ) as client:
-        if "hackernews" in args.sources:
-            total_stored += await _extract_hn(client, args, checkpoint, settings)
+        if "hackernews" in args.sources and total_stored < args.max_items:
+            total_stored += await _extract_hn(
+                client, args, checkpoint, settings, batch_id, args.max_items - total_stored
+            )
 
-        if "github" in args.sources:
-            total_stored += await _extract_github(client, args, checkpoint, settings)
+        if "github" in args.sources and total_stored < args.max_items:
+            total_stored += await _extract_github(
+                args, checkpoint, settings, batch_id, args.max_items - total_stored
+            )
 
-        if "huggingface" in args.sources:
-            total_stored += await _extract_hf(client, args, checkpoint)
+        if "huggingface" in args.sources and total_stored < args.max_items:
+            total_stored += await _extract_hf(
+                client, args, checkpoint, batch_id, args.max_items - total_stored
+            )
 
     return total_stored
 
@@ -73,11 +86,13 @@ async def _extract_hn(
     client: httpx.AsyncClient,
     args: argparse.Namespace,
     checkpoint: BackfillCheckpoint,
-    settings: object,
+    settings: Settings,
+    batch_id: str,
+    remaining: int,
 ) -> int:
     extractor = HistoricalHNExtractor(
         min_points=args.min_points,
-        queries=get_settings().hn_search_queries_list,
+        queries=settings.hn_search_queries_list,
     )
     months = generate_month_ranges(args.from_month, args.to_month)
     stored = 0
@@ -86,11 +101,14 @@ async def _extract_hn(
     last_month = cp_data.get("last_month")
 
     for start, end in months:
+        if stored >= remaining:
+            logger.info("max_items_reached", source="hackernews", stored=stored)
+            break
         if last_month and start <= last_month:
             continue
 
         items = await extractor.fetch_month(client, start, end)
-        stored += await _store_raw_items(items)
+        stored += await _store_raw_items(items, batch_id)
 
         checkpoint.update_source("hackernews", last_month=start, items_stored=stored)
         checkpoint.save()
@@ -100,12 +118,13 @@ async def _extract_hn(
 
 
 async def _extract_github(
-    client: httpx.AsyncClient,
     args: argparse.Namespace,
     checkpoint: BackfillCheckpoint,
-    settings: object,
+    settings: Settings,
+    batch_id: str,
+    remaining: int,
 ) -> int:
-    token = get_settings().github_token
+    token = settings.github_token
     gh_headers: dict[str, str] = {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "AI-News-Platform-Backfill/1.0",
@@ -122,11 +141,14 @@ async def _extract_github(
         last_month = cp_data.get("last_month")
 
         for start, end in months:
+            if stored >= remaining:
+                logger.info("max_items_reached", source="github", stored=stored)
+                break
             if last_month and start <= last_month:
                 continue
 
             items = await extractor.fetch_month(gh_client, start, end)
-            stored += await _store_raw_items(items)
+            stored += await _store_raw_items(items, batch_id)
 
             checkpoint.update_source("github", last_month=start, items_stored=stored)
             checkpoint.save()
@@ -139,36 +161,41 @@ async def _extract_hf(
     client: httpx.AsyncClient,
     args: argparse.Namespace,
     checkpoint: BackfillCheckpoint,
+    batch_id: str,
+    remaining: int,
 ) -> int:
     extractor = HistoricalHFExtractor(min_downloads=100, since_date=args.from_month)
-    items = await extractor.fetch_all(client, max_items=2000)
-    stored = await _store_raw_items(items)
+    items = await extractor.fetch_all(client, max_items=min(2000, remaining))
+    stored = await _store_raw_items(items, batch_id)
 
     checkpoint.update_source("huggingface", items_stored=stored)
     checkpoint.save()
     return stored
 
 
-async def _store_raw_items(items: list[RawItem]) -> int:
-    """Insert raw items into raw_extractions, skip duplicates."""
+async def _store_raw_items(items: list[RawItem], batch_id: str = "") -> int:
+    """Insert raw items into raw_extractions, skip duplicates. Commits in batches."""
     if not items:
         return 0
     stored = 0
     factory = get_session_factory()
     async with factory() as session:
-        for item in items:
+        for i, item in enumerate(items):
             stmt = (
                 insert(RawExtraction)
                 .values(
                     source=item.source,
                     source_id=item.source_id,
                     raw_json=item.raw_json,
+                    backfill_batch=batch_id or None,
                 )
                 .on_conflict_do_nothing(constraint="uq_raw_source_id")
             )
             result = await session.execute(stmt)
             if result.rowcount and result.rowcount > 0:
                 stored += 1
+            if (i + 1) % _STORE_BATCH_SIZE == 0:
+                await session.commit()
         await session.commit()
     return stored
 
@@ -216,9 +243,14 @@ async def phase_classify(
     # Keyword pre-filter (lenient, 0.3 threshold)
     filtered: list[ExtractedItem] = []
     for ei in extracted:
-        topic, relevance = _classify_by_keywords(ei)
+        topic, relevance = classify_by_keywords(ei)
         if topic is not None and relevance >= 0.3:
             filtered.append(ei)
+
+    # Enforce --max-items on items sent to LLM
+    if len(filtered) > args.max_items:
+        logger.info("max_items_cap", original=len(filtered), capped=args.max_items)
+        filtered = filtered[: args.max_items]
 
     logger.info(
         "classify_after_keyword",
@@ -243,18 +275,23 @@ async def phase_classify(
             results = await llm_clf.classify(batch)
             classified_items.extend(results)
 
-            # Track cost (estimate tokens)
             cost_tracker.add_tokens(
-                input_tokens=len(batch) * 95,
-                output_tokens=len(batch) * 55,
+                input_tokens=len(batch) * EST_INPUT_TOKENS_PER_ITEM,
+                output_tokens=len(batch) * EST_OUTPUT_TOKENS_PER_ITEM,
             )
-        except Exception as exc:
-            logger.warning("classify_batch_failed", error=str(exc), batch=i)
+        except (httpx.HTTPStatusError, openai.APIStatusError) as exc:
+            status = getattr(exc, "status_code", None) or getattr(exc.response, "status_code", 0)
+            logger.warning("classify_batch_failed", error=str(exc), batch=i, status=status)
             checkpoint.cost_usd = cost_tracker.estimated_cost_usd
             checkpoint.save()
-            if "402" in str(exc) or "insufficient" in str(exc).lower():
-                logger.error("api_balance_exhausted")
+            if status in (402, 429):
+                logger.error("api_balance_or_rate_limit", status=status)
                 break
+            continue
+        except openai.APIConnectionError as exc:
+            logger.warning("classify_connection_error", error=str(exc), batch=i)
+            checkpoint.cost_usd = cost_tracker.estimated_cost_usd
+            checkpoint.save()
             continue
 
     # Store classified items
@@ -370,7 +407,7 @@ def _print_dry_run_summary(
 
 async def phase_embed() -> int:
     """Generate embeddings for items that don't have them yet."""
-    from src.pipeline.pipeline import _embed_new_items
+    from src.pipeline.pipeline import _embed_new_items as embed_new_items
     from src.rag.embeddings import EmbeddingService
 
     settings = get_settings()
@@ -381,7 +418,7 @@ async def phase_embed() -> int:
     embed_service = EmbeddingService()
     factory = get_session_factory()
     async with factory() as session:
-        count = await _embed_new_items(session, embed_service)
+        count = await embed_new_items(session, embed_service)
     logger.info("embed_complete", count=count)
     return count
 

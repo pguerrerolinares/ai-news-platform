@@ -60,6 +60,7 @@ class TestHistoricalHNExtractor:
         }
 
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json = MagicMock(side_effect=[page0, page1])
 
@@ -90,6 +91,7 @@ class TestHistoricalHNExtractor:
         }
 
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json = MagicMock(return_value=page)
 
