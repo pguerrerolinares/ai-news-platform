@@ -237,3 +237,35 @@ class TestSearchFilters:
         """The ?limit= parameter should work within bounds."""
         resp = await api_client.get("/api/search", params={"q": "test", "limit": 25})
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Pagination
+# ---------------------------------------------------------------------------
+class TestSearchPagination:
+    """Tests for search offset and sort_by parameters."""
+
+    async def test_search_accepts_offset_parameter(self, api_client: AsyncClient):
+        """Search endpoint should accept offset query parameter."""
+        resp = await api_client.get("/api/search", params={"q": "test", "offset": 10})
+        assert resp.status_code == 200
+
+    async def test_search_accepts_sort_by_parameter(self, api_client: AsyncClient):
+        """Search endpoint should accept sort_by query parameter."""
+        for sort in ["relevance", "date", "score"]:
+            resp = await api_client.get(
+                "/api/search", params={"q": "test", "sort_by": sort}
+            )
+            assert resp.status_code == 200
+
+    async def test_search_invalid_sort_by_rejected(self, api_client: AsyncClient):
+        """Search endpoint should reject invalid sort_by values."""
+        resp = await api_client.get(
+            "/api/search", params={"q": "test", "sort_by": "invalid"}
+        )
+        assert resp.status_code == 422
+
+    async def test_search_returns_total_count_header(self, api_client: AsyncClient):
+        """Search endpoint should return X-Total-Count header."""
+        resp = await api_client.get("/api/search", params={"q": "test"})
+        assert "X-Total-Count" in resp.headers
