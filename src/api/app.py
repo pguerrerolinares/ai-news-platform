@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import ClassVar
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +27,43 @@ from src.core.logging import get_logger, set_correlation_id, setup_logging
 from src.core.metrics import api_request_duration_seconds, api_requests_total
 
 logger = get_logger(__name__)
+
+type ASGIApplication = object
+
+
+class SecurityHeadersMiddleware:
+    """ASGI middleware that adds standard security headers to every response."""
+
+    _HEADERS: ClassVar[list[tuple[bytes, bytes]]] = [
+        (b"x-content-type-options", b"nosniff"),
+        (b"x-frame-options", b"DENY"),
+        (b"referrer-policy", b"strict-origin-when-cross-origin"),
+        (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+        (b"x-xss-protection", b"0"),
+    ]
+
+    def __init__(self, app: ASGIApplication) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict, receive: object, send: object) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        is_debug = get_settings().debug
+
+        async def _send_with_headers(message: dict) -> None:
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend(self._HEADERS)
+                if not is_debug:
+                    headers.append(
+                        (b"strict-transport-security", b"max-age=31536000; includeSubDomains")
+                    )
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, _send_with_headers)
 
 
 @asynccontextmanager
@@ -56,6 +94,9 @@ app = FastAPI(
     docs_url="/api/docs" if get_settings().debug else None,
     redoc_url=None,
 )
+
+# Security headers (must wrap CORS so headers appear on preflight too)
+app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type]
 
 # CORS
 settings = get_settings()
