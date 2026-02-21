@@ -322,8 +322,9 @@ class TestRefreshTokens:
         login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
         refresh_token = login.json()["refresh_token"]
 
-        from src.core.database import get_session
         from unittest.mock import AsyncMock, MagicMock
+
+        from src.core.database import get_session
 
         async def _mock_session():
             mock_result = MagicMock()

@@ -3,13 +3,13 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from src.api.errors import APIError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
+from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
 from src.api.schemas import BriefingResponse, NewsItemResponse
 from src.core.database import get_session

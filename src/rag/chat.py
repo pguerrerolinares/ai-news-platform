@@ -89,7 +89,9 @@ class ChatService:
     ) -> AsyncGenerator[str, None]:
         """Stream SSE events: token chunks, then sources, then [DONE]."""
         if not question.strip():
-            yield f'data: {json.dumps({"error": {"code": "INVALID_INPUT", "message": "La pregunta no puede estar vacia"}})}\n\n'
+            msg = "La pregunta no puede estar vacia"
+            err = {"error": {"code": "INVALID_INPUT", "message": msg}}
+            yield f"data: {json.dumps(err)}\n\n"
             yield "data: [DONE]\n\n"
             return
 
@@ -127,11 +129,13 @@ class ChatService:
 
         except TimeoutError:
             logger.error("chat_stream_timeout", question=question[:100])
-            yield f'data: {json.dumps({"error": {"code": "LLM_TIMEOUT", "message": "AI response timed out"}})}\n\n'
+            err = {"error": {"code": "LLM_TIMEOUT", "message": "AI response timed out"}}
+            yield f"data: {json.dumps(err)}\n\n"
 
         except Exception as exc:
             logger.error("chat_stream_error", error=str(exc))
-            yield f'data: {json.dumps({"error": {"code": "CHAT_ERROR", "message": "Error al generar la respuesta"}})}\n\n'
+            err = {"error": {"code": "CHAT_ERROR", "message": "Error al generar la respuesta"}}
+            yield f"data: {json.dumps(err)}\n\n"
 
         # 4. Send sources
         sources = self._build_sources(items)
