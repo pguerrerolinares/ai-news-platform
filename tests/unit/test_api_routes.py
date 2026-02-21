@@ -235,3 +235,29 @@ class TestGetBriefingByDate:
         """Any date without a briefing should return 404."""
         resp = await api_client.get("/api/briefings/2025-01-01")
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# /api/items/today pagination
+# ---------------------------------------------------------------------------
+class TestItemsTodayPagination:
+    """Tests for /api/items/today pagination."""
+
+    async def test_today_accepts_offset(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/today", params={"offset": 10})
+        assert resp.status_code == 200
+
+    async def test_today_returns_total_count_header(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/today")
+        assert "X-Total-Count" in resp.headers
+
+
+# ---------------------------------------------------------------------------
+# /api/items X-Total-Count header
+# ---------------------------------------------------------------------------
+class TestItemsListTotalCount:
+    """Tests for /api/items X-Total-Count header."""
+
+    async def test_list_items_returns_total_count_header(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items")
+        assert "X-Total-Count" in resp.headers

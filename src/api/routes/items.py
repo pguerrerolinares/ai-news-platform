@@ -2,13 +2,14 @@
 
 from datetime import UTC, date, datetime
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
+from src.api.pagination import set_total_count_header
 from src.api.schemas import NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
@@ -21,6 +22,7 @@ limiter = Limiter(key_func=get_remote_address)
 @limiter.limit("30/minute")
 async def list_items(
     request: Request,
+    response: Response,
     source: str | None = Query(None, description="Filter by source"),
     topic: str | None = Query(None, description="Filter by topic"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),
@@ -45,31 +47,17 @@ async def list_items(
     if trending is not None:
         query = query.where(NewsItem.trending == trending)
 
+    # Count before pagination
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
+    total = (await session.execute(count_query)).scalar_one()
+    set_total_count_header(response, total)
+
     query = query.order_by(NewsItem.published_at.desc()).offset(offset).limit(limit)
 
     result = await session.execute(query)
     items = result.scalars().all()
 
-    return [
-        NewsItemResponse(
-            id=item.id,
-            title=item.title,
-            summary=item.summary,
-            url=item.url,
-            source=item.source,
-            topic=item.topic,
-            relevance_score=item.relevance_score,
-            dev_value_score=item.dev_value_score,
-            credibility_score=item.credibility_score,
-            priority=item.priority,
-            trending=item.trending,
-            published_at=item.published_at,
-            created_at=item.created_at,
-            author=item.author,
-            score=item.score,
-        )
-        for item in items
-    ]
+    return [NewsItemResponse.model_validate(item) for item in items]
 
 
 @router.get("/count")
@@ -105,43 +93,25 @@ async def count_items(
 @limiter.limit("30/minute")
 async def list_today_items(
     request: Request,
+    response: Response,
     topic: str | None = Query(None, description="Filter by topic"),
     limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """List today's news items, sorted by score descending."""
     today = datetime.now(tz=UTC).date()
-
-    query = (
-        select(NewsItem)
-        .where(func.date(NewsItem.created_at) == today)
-        .order_by(NewsItem.score.desc().nulls_last())
-        .limit(limit)
-    )
+    query = select(NewsItem).where(func.date(NewsItem.created_at) == today)
     if topic:
         query = query.where(NewsItem.topic == topic)
 
+    # Count before pagination
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
+    total = (await session.execute(count_query)).scalar_one()
+    set_total_count_header(response, total)
+
+    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
-
-    return [
-        NewsItemResponse(
-            id=item.id,
-            title=item.title,
-            summary=item.summary,
-            url=item.url,
-            source=item.source,
-            topic=item.topic,
-            relevance_score=item.relevance_score,
-            dev_value_score=item.dev_value_score,
-            credibility_score=item.credibility_score,
-            priority=item.priority,
-            trending=item.trending,
-            published_at=item.published_at,
-            created_at=item.created_at,
-            author=item.author,
-            score=item.score,
-        )
-        for item in items
-    ]
+    return [NewsItemResponse.model_validate(item) for item in items]
