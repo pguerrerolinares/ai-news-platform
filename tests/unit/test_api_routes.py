@@ -261,3 +261,21 @@ class TestItemsListTotalCount:
     async def test_list_items_returns_total_count_header(self, api_client: AsyncClient):
         resp = await api_client.get("/api/items")
         assert "X-Total-Count" in resp.headers
+
+
+class TestBriefingsPagination:
+    """Tests for briefings pagination."""
+
+    async def test_briefing_date_accepts_limit_offset(self, api_client: AsyncClient):
+        """GET /api/briefings/{date} should accept limit and offset."""
+        resp = await api_client.get(
+            "/api/briefings/2026-02-21",
+            params={"limit": 10, "offset": 0},
+        )
+        # 404 is ok (no briefing in mock), we just test params are accepted
+        assert resp.status_code in (200, 404)
+
+    async def test_list_briefings_accepts_offset(self, api_client: AsyncClient):
+        """GET /api/briefings should accept offset."""
+        resp = await api_client.get("/api/briefings", params={"offset": 5})
+        assert resp.status_code == 200
