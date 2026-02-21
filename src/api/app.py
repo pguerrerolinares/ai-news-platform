@@ -21,6 +21,7 @@ from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.items import router as items_router
 from src.api.routes.search import router as search_router
+from src.api.routes.sources import router as sources_router
 from src.api.routes.stats import router as stats_router
 from src.api.routes.topics import router as topics_router
 from src.core.config import get_settings
@@ -154,6 +155,7 @@ app.include_router(briefings_router)
 app.include_router(search_router)
 app.include_router(chat_router)
 app.include_router(topics_router)
+app.include_router(sources_router)
 app.include_router(stats_router)
 
 
