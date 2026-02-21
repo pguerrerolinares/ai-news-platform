@@ -52,3 +52,13 @@ class TestCostTracker:
         # That's 500% of 0.01 budget — way past warning
         tracker.add_tokens(input_tokens=50_000, output_tokens=20_000)
         assert tracker.at_warning_threshold
+
+    def test_initial_cost_accumulates(self) -> None:
+        tracker = CostTracker(max_cost_usd=10.0, initial_cost_usd=2.50)
+        assert tracker.estimated_cost_usd == 2.50
+        tracker.add_tokens(input_tokens=1000, output_tokens=500)
+        assert tracker.estimated_cost_usd > 2.50
+
+    def test_initial_cost_triggers_budget_exceeded(self) -> None:
+        tracker = CostTracker(max_cost_usd=5.0, initial_cost_usd=5.0)
+        assert tracker.budget_exceeded

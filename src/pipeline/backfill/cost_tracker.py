@@ -15,8 +15,11 @@ _WARNING_THRESHOLD = 0.80  # warn at 80% of budget
 class CostTracker:
     """Tracks cumulative LLM token usage and estimated cost."""
 
-    def __init__(self, max_cost_usd: float = 10.0) -> None:
+    def __init__(
+        self, max_cost_usd: float = 10.0, initial_cost_usd: float = 0.0
+    ) -> None:
         self.max_cost_usd = max_cost_usd
+        self._initial_cost_usd = initial_cost_usd
         self.total_input_tokens: int = 0
         self.total_output_tokens: int = 0
         self._warning_emitted: bool = False
@@ -36,7 +39,8 @@ class CostTracker:
     @property
     def estimated_cost_usd(self) -> float:
         return (
-            self.total_input_tokens * _INPUT_PRICE_PER_M / 1_000_000
+            self._initial_cost_usd
+            + self.total_input_tokens * _INPUT_PRICE_PER_M / 1_000_000
             + self.total_output_tokens * _OUTPUT_PRICE_PER_M / 1_000_000
         )
 

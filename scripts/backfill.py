@@ -44,9 +44,11 @@ logger = get_logger(__name__)
 CHECKPOINT_PATH = Path("data/backfill-checkpoint.json")
 _STORE_BATCH_SIZE = 500  # commit every N items in _store_raw_items
 
-# Estimated tokens per item for LLM classification cost tracking
-EST_INPUT_TOKENS_PER_ITEM = 95
-EST_OUTPUT_TOKENS_PER_ITEM = 55
+# Estimated tokens per item for LLM classification cost tracking.
+# Prompt is ~900 tokens fixed overhead + ~80 tokens per item in a batch of 10.
+# Output is ~45 tokens per item (JSON entry + Spanish summary for accepted items).
+EST_INPUT_TOKENS_PER_ITEM = 170
+EST_OUTPUT_TOKENS_PER_ITEM = 45
 
 
 # -- Phase 1: Extract raw -----------------------------------------------------
@@ -409,16 +411,22 @@ def _print_dry_run_summary(
     filtered: list[ExtractedItem],
 ) -> None:
     """Print dry-run summary with cost estimate."""
-    est_cost = len(filtered) * 0.00015  # ~$0.15 per 1000 items
+    from src.pipeline.backfill.cost_tracker import _INPUT_PRICE_PER_M, _OUTPUT_PRICE_PER_M
+
+    est_llm_cost = len(filtered) * (
+        EST_INPUT_TOKENS_PER_ITEM * _INPUT_PRICE_PER_M / 1_000_000
+        + EST_OUTPUT_TOKENS_PER_ITEM * _OUTPUT_PRICE_PER_M / 1_000_000
+    )
+    est_embed_cost = len(filtered) * 0.000001
     print("\n" + "=" * 60)
     print("DRY RUN SUMMARY")
     print("=" * 60)
     print(f"  Raw extractions:       {len(raw_items):>8,}")
     print(f"  After DB dedup:        {len(extracted):>8,}")
     print(f"  After keyword filter:  {len(filtered):>8,}")
-    print(f"  Estimated LLM cost:     ${est_cost:>7.2f}")
-    print(f"  Estimated embed cost:   ${len(filtered) * 0.000001:>7.4f}")
-    print(f"  Total estimated cost:   ${est_cost:>7.2f}")
+    print(f"  Estimated LLM cost:     ${est_llm_cost:>7.2f}")
+    print(f"  Estimated embed cost:   ${est_embed_cost:>7.4f}")
+    print(f"  Total estimated cost:   ${est_llm_cost + est_embed_cost:>7.2f}")
     print("=" * 60)
     print("Run without --dry-run to proceed.\n")
 
@@ -493,7 +501,9 @@ async def main() -> None:
         if args.resume
         else BackfillCheckpoint(CHECKPOINT_PATH)
     )
-    cost_tracker = CostTracker(max_cost_usd=args.max_cost)
+    # Resume accumulated cost from previous runs so budget protection works across restarts
+    initial_cost = checkpoint.cost_usd if args.resume else 0.0
+    cost_tracker = CostTracker(max_cost_usd=args.max_cost, initial_cost_usd=initial_cost)
 
     print(f"Backfill: {args.sources} | {args.from_month} -> {args.to_month}")
     print(f"Budget: ${args.max_cost} | Max items: {args.max_items}")
