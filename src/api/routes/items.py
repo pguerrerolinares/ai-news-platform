@@ -1,7 +1,5 @@
 """API routes for news items."""
 
-from __future__ import annotations
-
 from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, Query, Request

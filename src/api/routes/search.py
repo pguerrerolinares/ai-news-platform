@@ -1,7 +1,5 @@
 """API routes for full-text search."""
 
-from __future__ import annotations
-
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request
