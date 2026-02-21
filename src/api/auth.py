@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends
+from src.api.errors import APIError
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
@@ -41,7 +42,7 @@ async def require_auth(
         )
         sub: str | None = payload.get("sub")
         if sub is None:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+            raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
         return sub
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token") from None
+        raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None

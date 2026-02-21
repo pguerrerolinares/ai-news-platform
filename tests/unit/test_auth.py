@@ -125,11 +125,12 @@ class TestTokenEndpointFailure:
         resp = await api_client.post("/api/auth/token", json={"password": "wrong-password"})
         assert resp.status_code == 401
 
-    async def test_wrong_password_has_detail(self, api_client: AsyncClient):
-        """401 response should include a detail message."""
+    async def test_wrong_password_has_error_object(self, api_client: AsyncClient):
+        """401 response should include a standardized error object."""
         resp = await api_client.post("/api/auth/token", json={"password": "wrong-password"})
         data = resp.json()
-        assert "detail" in data
+        assert "error" in data
+        assert "code" in data["error"]
 
     async def test_missing_password_returns_422(self, api_client: AsyncClient):
         """POST with no password field should return HTTP 422."""

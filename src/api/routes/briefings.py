@@ -2,7 +2,8 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
+from src.api.errors import APIError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
@@ -34,7 +35,7 @@ async def get_briefing(
     briefing = result.scalar_one_or_none()
 
     if not briefing:
-        raise HTTPException(status_code=404, detail=f"No briefing for {briefing_date}")
+        raise APIError(404, "BRIEFING_NOT_FOUND", f"No briefing found for {briefing_date}")
 
     # Count total items for this date
     items_count = (

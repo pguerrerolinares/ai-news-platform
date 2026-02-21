@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import ClassVar
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest
@@ -15,6 +15,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from src.api.errors import APIError, api_error_handler, http_exception_handler
 from src.api.routes.auth import router as auth_router
 from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
@@ -87,7 +88,7 @@ class BodySizeLimitMiddleware:
         if content_length and int(content_length) > _MAX_BODY_SIZE:
             response = JSONResponse(
                 status_code=413,
-                content={"detail": "Request body too large"},
+                content={"error": {"code": "BODY_TOO_LARGE", "message": "Request body too large"}},
             )
             await response(scope, receive, send)
             return
@@ -142,6 +143,8 @@ app.add_middleware(
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(APIError, api_error_handler)  # type: ignore[arg-type]
+app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
 
 # Register route modules
 app.include_router(auth_router)

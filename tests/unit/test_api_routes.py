@@ -220,11 +220,12 @@ class TestGetBriefingByDate:
         resp = await api_client.get("/api/briefings/2026-02-17")
         assert resp.status_code == 404
 
-    async def test_404_response_has_detail(self, api_client: AsyncClient):
-        """404 response should include a 'detail' field."""
+    async def test_404_response_has_error_object(self, api_client: AsyncClient):
+        """404 response should include a standardized error object."""
         resp = await api_client.get("/api/briefings/2026-02-17")
         data = resp.json()
-        assert "detail" in data
+        assert "error" in data
+        assert "code" in data["error"]
 
     async def test_invalid_date_returns_422(self, api_client: AsyncClient):
         """An invalid date string should result in 422 validation error."""
