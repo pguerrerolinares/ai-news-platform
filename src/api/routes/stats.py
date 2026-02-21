@@ -1,13 +1,11 @@
 """API routes for aggregate statistics."""
 
-from __future__ import annotations
-
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
@@ -26,37 +24,33 @@ async def stats_summary(
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
 ) -> StatsSummaryResponse:
-    """Get summary statistics for the platform."""
-    today = datetime.now(tz=UTC).date()
+    """Get summary statistics for the platform in a single query."""
+    today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
+    today_end = today_start + timedelta(days=1)
 
-    total = (await session.execute(select(func.count(NewsItem.id)))).scalar_one()
-    items_today = (
-        await session.execute(
-            select(func.count(NewsItem.id)).where(func.date(NewsItem.created_at) == today)
+    is_today = (NewsItem.created_at >= today_start) & (NewsItem.created_at < today_end)
+
+    result = await session.execute(
+        select(
+            func.count(NewsItem.id).label("total"),
+            func.count(case((is_today, NewsItem.id))).label("items_today"),
+            func.count(func.distinct(NewsItem.source)).label("sources"),
+            func.count(
+                func.distinct(case((NewsItem.topic.isnot(None), NewsItem.topic)))
+            ).label("topics"),
+            func.count(
+                case((NewsItem.trending.is_(True) & is_today, NewsItem.id))
+            ).label("trending"),
         )
-    ).scalar_one()
-    sources = (
-        await session.execute(select(func.count(func.distinct(NewsItem.source))))
-    ).scalar_one()
-    topics = (
-        await session.execute(
-            select(func.count(func.distinct(NewsItem.topic))).where(NewsItem.topic.isnot(None))
-        )
-    ).scalar_one()
-    trending = (
-        await session.execute(
-            select(func.count(NewsItem.id)).where(
-                NewsItem.trending.is_(True), func.date(NewsItem.created_at) == today
-            )
-        )
-    ).scalar_one()
+    )
+    row = result.one()
 
     return StatsSummaryResponse(
-        total_items=total,
-        items_today=items_today,
-        sources_count=sources,
-        topics_count=topics,
-        trending_today=trending,
+        total_items=row.total,
+        items_today=row.items_today,
+        sources_count=row.sources,
+        topics_count=row.topics,
+        trending_today=row.trending,
     )
 
 
@@ -102,14 +96,16 @@ async def stats_by_date(
     _user: str = Depends(require_auth),
 ) -> list[StatsDateResponse]:
     """Get item count grouped by date for the last N days."""
-    since = datetime.now(tz=UTC).date() - timedelta(days=days)
+    since_date = datetime.now(tz=UTC).date() - timedelta(days=days)
+    since_dt = datetime.combine(since_date, time.min, tzinfo=UTC)
+    created_date = func.date(NewsItem.created_at)
     result = await session.execute(
         select(
-            func.date(NewsItem.created_at).label("date"),
+            created_date.label("date"),
             func.count(NewsItem.id).label("count"),
         )
-        .where(func.date(NewsItem.created_at) >= since)
-        .group_by(func.date(NewsItem.created_at))
-        .order_by(func.date(NewsItem.created_at).desc())
+        .where(NewsItem.created_at >= since_dt)
+        .group_by(created_date)
+        .order_by(created_date.desc())
     )
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]

@@ -26,6 +26,7 @@ from src.core.metrics import (
     items_classified_total,
     items_stored_total,
     items_validated_total,
+    items_validation_failed_total,
     notification_duration_seconds,
     notification_errors_total,
     pipeline_duration_seconds,
@@ -43,6 +44,7 @@ from src.extractors.rss import RSSExtractor
 from src.notifiers.alerts import AlertService
 from src.notifiers.telegram import TelegramNotifier
 from src.pipeline.dedup import deduplicate_items
+from src.pipeline.validation import validate_extracted_item
 from src.rag.embeddings import EmbeddingService
 from src.validators.credibility import CredibilityValidator
 
@@ -299,6 +301,33 @@ async def run_pipeline(session: AsyncSession) -> bool:
         logger.info("pipeline_dedup", input_count=items_extracted)
         unique_items = deduplicate_items(all_items)
         items_after_dedup = len(unique_items)
+
+        # 2b. Pre-storage validation (reject items without title/URL)
+        valid_items: list[ExtractedItem] = []
+        for item in unique_items:
+            item_dict = {
+                "title": item.title,
+                "url": item.url,
+            }
+            errors = validate_extracted_item(item_dict)
+            if errors:
+                for reason in errors:
+                    items_validation_failed_total.labels(reason=reason).inc()
+                logger.warning(
+                    "item_validation_failed",
+                    errors=errors,
+                    title=item.title[:80] if item.title else None,
+                )
+            else:
+                valid_items.append(item)
+
+        if valid_items != unique_items:
+            logger.info(
+                "pipeline_validation",
+                valid=len(valid_items),
+                rejected=len(unique_items) - len(valid_items),
+            )
+        unique_items = valid_items
 
         # 3. Classify
         with classification_duration_seconds.time():

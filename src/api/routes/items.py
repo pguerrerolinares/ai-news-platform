@@ -1,6 +1,6 @@
 """API routes for news items."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
@@ -101,8 +101,11 @@ async def list_today_items(
     _user: str = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """List today's news items, sorted by score descending."""
-    today = datetime.now(tz=UTC).date()
-    query = select(NewsItem).where(func.date(NewsItem.created_at) == today)
+    today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
+    today_end = today_start + timedelta(days=1)
+    query = select(NewsItem).where(
+        (NewsItem.created_at >= today_start) & (NewsItem.created_at < today_end)
+    )
     if topic:
         query = query.where(NewsItem.topic == topic)
 

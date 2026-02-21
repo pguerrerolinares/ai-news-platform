@@ -1,6 +1,6 @@
 """API routes for daily briefings."""
 
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
@@ -37,10 +37,15 @@ async def get_briefing(
     if not briefing:
         raise APIError(404, "BRIEFING_NOT_FOUND", f"No briefing found for {briefing_date}")
 
+    # Use timestamp range for index-friendly queries
+    day_start = datetime.combine(briefing_date, time.min, tzinfo=UTC)
+    day_end = day_start + timedelta(days=1)
+    date_filter = (NewsItem.created_at >= day_start) & (NewsItem.created_at < day_end)
+
     # Count total items for this date
     items_count = (
         await session.execute(
-            select(func.count(NewsItem.id)).where(func.date(NewsItem.created_at) == briefing_date)
+            select(func.count(NewsItem.id)).where(date_filter)
         )
     ).scalar_one()
     set_total_count_header(response, items_count)
@@ -48,7 +53,7 @@ async def get_briefing(
     # Fetch paginated items
     items_result = await session.execute(
         select(NewsItem)
-        .where(func.date(NewsItem.created_at) == briefing_date)
+        .where(date_filter)
         .order_by(NewsItem.score.desc().nulls_last())
         .offset(offset)
         .limit(limit)
@@ -73,12 +78,16 @@ async def get_briefing(
 @limiter.limit("30/minute")
 async def list_briefings(
     request: Request,
+    response: Response,
     limit: int = Query(30, ge=1, le=90, description="Max briefings to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
 ) -> list[BriefingResponse]:
     """List recent daily briefings (without items)."""
+    total = (await session.execute(select(func.count(DailyBriefing.date)))).scalar_one()
+    set_total_count_header(response, total)
+
     result = await session.execute(
         select(DailyBriefing).order_by(DailyBriefing.date.desc()).offset(offset).limit(limit)
     )

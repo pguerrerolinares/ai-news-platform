@@ -7,14 +7,14 @@ from slowapi.util import get_remote_address
 
 from src.api.auth import create_access_token, create_refresh_token, validate_refresh_token
 from src.api.errors import APIError
-from src.api.schemas import RefreshRequest, TokenRequest, TokenResponseV2
+from src.api.schemas import ErrorWrapper, RefreshRequest, TokenRequest, TokenResponseV2
 from src.core.config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.post("/token", response_model=TokenResponseV2)
+@router.post("/token", response_model=TokenResponseV2, responses={401: {"model": ErrorWrapper}})
 @limiter.limit("5/minute")
 async def login(request: Request, body: TokenRequest) -> TokenResponseV2:
     """Authenticate and receive access + refresh tokens."""
@@ -32,7 +32,7 @@ async def login(request: Request, body: TokenRequest) -> TokenResponseV2:
     )
 
 
-@router.post("/refresh", response_model=TokenResponseV2)
+@router.post("/refresh", response_model=TokenResponseV2, responses={401: {"model": ErrorWrapper}})
 @limiter.limit("10/minute")
 async def refresh(request: Request, body: RefreshRequest) -> TokenResponseV2:
     """Exchange a refresh token for new access + refresh tokens."""

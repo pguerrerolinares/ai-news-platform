@@ -1,8 +1,10 @@
 """Pre-storage validation for extracted items."""
 from __future__ import annotations
 
+from typing import Any
 
-def validate_extracted_item(item: dict) -> list[str]:
+
+def validate_extracted_item(item: dict[str, Any]) -> list[str]:
     """Validate an extracted item before classification/storage.
 
     Returns a list of error strings. Empty list means valid.
