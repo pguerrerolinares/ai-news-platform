@@ -136,6 +136,49 @@ async def list_items_by_date(
 
 
 @router.get(
+    "/trending",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def list_trending_items(
+    request: Request,
+    response: Response,
+    topic: str | None = Query(None, description="Filter by topic"),
+    source: str | None = Query(None, description="Filter by source"),
+    days: int = Query(7, ge=1, le=90, description="Look back N days"),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[NewsItemResponse]:
+    """List trending items from the last N days, sorted by score."""
+    since = datetime.combine(
+        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    )
+    query = select(NewsItem).where(
+        NewsItem.trending.is_(True) & (NewsItem.created_at >= since)
+    )
+    if topic:
+        query = query.where(NewsItem.topic == topic)
+    if source:
+        query = query.where(NewsItem.source == source)
+
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
+    total = (await session.execute(count_query)).scalar_one()
+    set_total_count_header(response, total)
+
+    query = (
+        query.order_by(NewsItem.score.desc().nulls_last(), NewsItem.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await session.execute(query)
+    items = result.scalars().all()
+    return [NewsItemResponse.model_validate(item) for item in items]
+
+
+@router.get(
     "/today",
     response_model=list[NewsItemResponse],
     responses={401: {"model": ErrorWrapper}},

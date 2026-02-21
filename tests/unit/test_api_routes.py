@@ -358,3 +358,36 @@ class TestResilientBriefing:
         """When no DailyBriefing and no items, return 404."""
         resp = await api_client.get("/api/briefings/2026-02-22")
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /api/items/trending
+# ---------------------------------------------------------------------------
+class TestTrendingItems:
+    async def test_trending_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/trending")
+        assert resp.status_code == 200
+
+    async def test_trending_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/trending")
+        assert isinstance(resp.json(), list)
+
+    async def test_trending_has_total_count(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/trending")
+        assert "X-Total-Count" in resp.headers
+
+    async def test_trending_accepts_filters(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/items/trending",
+            params={"topic": "modelos", "source": "hackernews", "days": 14, "limit": 5},
+        )
+        assert resp.status_code == 200
+
+    async def test_trending_rejects_excessive_days(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/trending", params={"days": 999})
+        assert resp.status_code == 422
+
+    async def test_trending_requires_auth(self, api_client: AsyncClient):
+        app.dependency_overrides.pop(require_auth, None)
+        resp = await api_client.get("/api/items/trending")
+        assert resp.status_code == 403
