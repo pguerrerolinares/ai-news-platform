@@ -1,5 +1,6 @@
 """API routes for news items."""
 
+import uuid as uuid_mod
 from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -9,10 +10,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
+from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
 from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
-from src.core.models import NewsItem
+from src.core.models import ItemEmbedding, NewsItem
 
 router = APIRouter(prefix="/api/items", tags=["items"])
 limiter = Limiter(key_func=get_remote_address)
@@ -210,4 +212,43 @@ async def list_today_items(
     query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
+    return [NewsItemResponse.model_validate(item) for item in items]
+
+
+@router.get(
+    "/{item_id}/similar",
+    response_model=list[NewsItemResponse],
+    responses={
+        401: {"model": ErrorWrapper},
+        404: {"model": ErrorWrapper},
+    },
+)
+@limiter.limit("20/minute")
+async def get_similar_items(
+    request: Request,
+    item_id: uuid_mod.UUID,
+    limit: int = Query(5, ge=1, le=20, description="Number of similar items"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[NewsItemResponse]:
+    """Find similar items using pgvector cosine distance."""
+    # Get embedding for the source item
+    result = await session.execute(
+        select(ItemEmbedding).where(ItemEmbedding.item_id == item_id).limit(1)
+    )
+    embedding_row = result.scalar_one_or_none()
+
+    if not embedding_row:
+        raise APIError(404, "EMBEDDING_NOT_FOUND", f"No embedding found for item {item_id}")
+
+    # Find nearest neighbors (exclude the source item)
+    similar_query = (
+        select(NewsItem)
+        .join(ItemEmbedding, NewsItem.id == ItemEmbedding.item_id)
+        .where(ItemEmbedding.item_id != item_id)
+        .order_by(ItemEmbedding.embedding.cosine_distance(embedding_row.embedding))
+        .limit(limit)
+    )
+    similar_result = await session.execute(similar_query)
+    items = similar_result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]

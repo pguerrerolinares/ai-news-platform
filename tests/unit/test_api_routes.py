@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -391,3 +392,35 @@ class TestTrendingItems:
         app.dependency_overrides.pop(require_auth, None)
         resp = await api_client.get("/api/items/trending")
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /api/items/{item_id}/similar
+# ---------------------------------------------------------------------------
+class TestSimilarItems:
+    async def test_similar_returns_404_when_no_embedding(self, api_client: AsyncClient):
+        """Default mock returns None for scalar_one_or_none — no embedding."""
+        item_id = str(uuid.uuid4())
+        resp = await api_client.get(f"/api/items/{item_id}/similar")
+        assert resp.status_code == 404
+
+    async def test_similar_accepts_limit_param(self, api_client: AsyncClient):
+        item_id = str(uuid.uuid4())
+        resp = await api_client.get(f"/api/items/{item_id}/similar", params={"limit": 3})
+        # 404 because no embedding, but param is accepted (not 422)
+        assert resp.status_code == 404
+
+    async def test_similar_rejects_excessive_limit(self, api_client: AsyncClient):
+        item_id = str(uuid.uuid4())
+        resp = await api_client.get(f"/api/items/{item_id}/similar", params={"limit": 999})
+        assert resp.status_code == 422
+
+    async def test_similar_requires_auth(self, api_client: AsyncClient):
+        app.dependency_overrides.pop(require_auth, None)
+        item_id = str(uuid.uuid4())
+        resp = await api_client.get(f"/api/items/{item_id}/similar")
+        assert resp.status_code == 403
+
+    async def test_similar_invalid_uuid_returns_422(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/not-a-uuid/similar")
+        assert resp.status_code == 422
