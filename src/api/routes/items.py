@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
 from src.api.pagination import set_total_count_header
-from src.api.schemas import NewsItemResponse
+from src.api.schemas import CountResponse, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
 
@@ -60,7 +60,7 @@ async def list_items(
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
-@router.get("/count")
+@router.get("/count", response_model=CountResponse)
 @limiter.limit("30/minute")
 async def count_items(
     request: Request,
@@ -70,7 +70,7 @@ async def count_items(
     date_to: date | None = Query(None),
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
-) -> dict[str, int]:
+) -> CountResponse:
     """Count items matching filters."""
     query = select(func.count(NewsItem.id))
 
@@ -86,7 +86,7 @@ async def count_items(
     result = await session.execute(query)
     count = result.scalar_one()
 
-    return {"count": count}
+    return CountResponse(count=count)
 
 
 @router.get("/today", response_model=list[NewsItemResponse])

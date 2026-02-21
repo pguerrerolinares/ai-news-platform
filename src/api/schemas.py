@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -52,9 +52,8 @@ class TokenRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+class CountResponse(BaseModel):
+    count: int
 
 
 class StatsSummaryResponse(BaseModel):
@@ -93,3 +92,9 @@ class TokenResponseV2(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(..., min_length=3, max_length=500)
+    topic: str | None = Field(None, description="Filter context by topic")
+    limit: int = Field(5, ge=1, le=20, description="Number of context items")
