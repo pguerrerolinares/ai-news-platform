@@ -9,7 +9,12 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
-from src.api.schemas import StatsDateResponse, StatsGroupResponse, StatsSummaryResponse
+from src.api.schemas import (
+    ErrorWrapper,
+    StatsDateResponse,
+    StatsGroupResponse,
+    StatsSummaryResponse,
+)
 from src.core.database import get_session
 from src.core.models import NewsItem
 
@@ -17,7 +22,11 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.get("/summary", response_model=StatsSummaryResponse)
+@router.get(
+    "/summary",
+    response_model=StatsSummaryResponse,
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def stats_summary(
     request: Request,
@@ -54,7 +63,11 @@ async def stats_summary(
     )
 
 
-@router.get("/by-source", response_model=list[StatsGroupResponse])
+@router.get(
+    "/by-source",
+    response_model=list[StatsGroupResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def stats_by_source(
     request: Request,
@@ -70,7 +83,11 @@ async def stats_by_source(
     return [StatsGroupResponse(name=row.source, count=row.count) for row in result.all()]
 
 
-@router.get("/by-topic", response_model=list[StatsGroupResponse])
+@router.get(
+    "/by-topic",
+    response_model=list[StatsGroupResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def stats_by_topic(
     request: Request,
@@ -87,7 +104,11 @@ async def stats_by_topic(
     return [StatsGroupResponse(name=row.topic, count=row.count) for row in result.all()]
 
 
-@router.get("/by-date", response_model=list[StatsDateResponse])
+@router.get(
+    "/by-date",
+    response_model=list[StatsDateResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def stats_by_date(
     request: Request,

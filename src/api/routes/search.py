@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
 from src.api.pagination import set_total_count_header
-from src.api.schemas import NewsItemResponse
+from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
 
@@ -18,7 +18,11 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.get("", response_model=list[NewsItemResponse])
+@router.get(
+    "",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("20/minute")
 async def search_items(
     request: Request,

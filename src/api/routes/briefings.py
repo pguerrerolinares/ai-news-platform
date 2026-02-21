@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.auth import require_auth
 from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
-from src.api.schemas import BriefingResponse, NewsItemResponse
+from src.api.schemas import BriefingResponse, ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import DailyBriefing, NewsItem
 
@@ -19,7 +19,14 @@ router = APIRouter(prefix="/api/briefings", tags=["briefings"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.get("/{briefing_date}", response_model=BriefingResponse)
+@router.get(
+    "/{briefing_date}",
+    response_model=BriefingResponse,
+    responses={
+        401: {"model": ErrorWrapper},
+        404: {"model": ErrorWrapper},
+    },
+)
 @limiter.limit("30/minute")
 async def get_briefing(
     request: Request,
@@ -74,7 +81,11 @@ async def get_briefing(
     )
 
 
-@router.get("", response_model=list[BriefingResponse])
+@router.get(
+    "",
+    response_model=list[BriefingResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def list_briefings(
     request: Request,

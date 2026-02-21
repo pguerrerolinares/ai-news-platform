@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
 from src.api.pagination import set_total_count_header
-from src.api.schemas import CountResponse, NewsItemResponse
+from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
 
@@ -18,7 +18,11 @@ router = APIRouter(prefix="/api/items", tags=["items"])
 limiter = Limiter(key_func=get_remote_address)
 
 
-@router.get("", response_model=list[NewsItemResponse])
+@router.get(
+    "",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def list_items(
     request: Request,
@@ -60,7 +64,11 @@ async def list_items(
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
-@router.get("/count", response_model=CountResponse)
+@router.get(
+    "/count",
+    response_model=CountResponse,
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def count_items(
     request: Request,
@@ -89,7 +97,11 @@ async def count_items(
     return CountResponse(count=count)
 
 
-@router.get("/today", response_model=list[NewsItemResponse])
+@router.get(
+    "/today",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
 @limiter.limit("30/minute")
 async def list_today_items(
     request: Request,

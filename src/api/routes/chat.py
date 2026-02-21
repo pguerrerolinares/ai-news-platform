@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import require_auth
-from src.api.schemas import ChatRequest
+from src.api.schemas import ChatRequest, ErrorWrapper
 from src.core.database import get_session
 from src.rag.chat import ChatService
 
@@ -23,7 +23,7 @@ def _get_chat_service() -> ChatService:
     return ChatService()
 
 
-@router.post("")
+@router.post("", responses={401: {"model": ErrorWrapper}})
 @limiter.limit("10/minute")
 async def chat(
     request: Request,
