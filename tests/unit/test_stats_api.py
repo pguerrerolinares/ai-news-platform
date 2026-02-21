@@ -148,3 +148,20 @@ class TestTrendingTimeline:
     async def test_accepts_days_param(self, api_client: AsyncClient):
         resp = await api_client.get("/api/stats/trending-timeline", params={"days": 60})
         assert resp.status_code == 200
+
+
+class TestScoreDistribution:
+    async def test_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/score-distribution")
+        assert resp.status_code == 200
+
+    async def test_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/stats/score-distribution")
+        assert isinstance(resp.json(), list)
+
+    async def test_accepts_filters(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/stats/score-distribution",
+            params={"days": 7, "source": "hackernews", "topic": "modelos"},
+        )
+        assert resp.status_code == 200

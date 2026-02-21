@@ -216,6 +216,39 @@ async def list_today_items(
 
 
 @router.get(
+    "/top",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def list_top_items(
+    request: Request,
+    days: int = Query(7, ge=1, le=90, description="Look back N days"),
+    limit: int = Query(10, ge=1, le=50, description="Max items to return"),
+    topic: str | None = Query(None, description="Filter by topic"),
+    source: str | None = Query(None, description="Filter by source"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[NewsItemResponse]:
+    """Top items by score in the last N days."""
+    since = datetime.combine(
+        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    )
+    query = select(NewsItem).where(
+        (NewsItem.created_at >= since) & NewsItem.score.isnot(None)
+    )
+    if topic:
+        query = query.where(NewsItem.topic == topic)
+    if source:
+        query = query.where(NewsItem.source == source)
+
+    query = query.order_by(NewsItem.score.desc().nulls_last()).limit(limit)
+    result = await session.execute(query)
+    items = result.scalars().all()
+    return [NewsItemResponse.model_validate(item) for item in items]
+
+
+@router.get(
     "/{item_id}/similar",
     response_model=list[NewsItemResponse],
     responses={

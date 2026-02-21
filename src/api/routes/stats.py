@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.auth import require_auth
 from src.api.schemas import (
     ErrorWrapper,
+    ScoreDistributionResponse,
     StatsDateResponse,
     StatsGroupDateResponse,
     StatsGroupResponse,
@@ -226,3 +227,58 @@ async def stats_trending_timeline(
         .order_by(created_date.asc())
     )
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
+
+
+_SCORE_BUCKETS = [
+    ("0-10", 0, 10),
+    ("11-50", 11, 50),
+    ("51-100", 51, 100),
+    ("101-250", 101, 250),
+    ("251-500", 251, 500),
+    ("501+", 501, None),
+]
+
+
+@router.get(
+    "/score-distribution",
+    response_model=list[ScoreDistributionResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def stats_score_distribution(
+    request: Request,
+    days: int = Query(30, ge=1, le=365, description="Number of days to include"),
+    source: str | None = Query(None, description="Filter by source"),
+    topic: str | None = Query(None, description="Filter by topic"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[ScoreDistributionResponse]:
+    """Get score distribution as histogram buckets."""
+    since_dt = datetime.combine(
+        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    )
+    results: list[ScoreDistributionResponse] = []
+
+    for label, min_score, max_score in _SCORE_BUCKETS:
+        query = select(func.count(NewsItem.id)).where(
+            (NewsItem.created_at >= since_dt) & NewsItem.score.isnot(None)
+        )
+        query = query.where(NewsItem.score >= min_score)
+        if max_score is not None:
+            query = query.where(NewsItem.score <= max_score)
+        if source:
+            query = query.where(NewsItem.source == source)
+        if topic:
+            query = query.where(NewsItem.topic == topic)
+
+        count = (await session.execute(query)).scalar_one()
+        results.append(
+            ScoreDistributionResponse(
+                range=label,
+                min_score=min_score,
+                max_score=max_score or 999999,
+                count=count,
+            )
+        )
+
+    return results

@@ -424,3 +424,32 @@ class TestSimilarItems:
     async def test_similar_invalid_uuid_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/items/not-a-uuid/similar")
         assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /api/items/top
+# ---------------------------------------------------------------------------
+class TestTopItems:
+    async def test_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/top")
+        assert resp.status_code == 200
+
+    async def test_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/top")
+        assert isinstance(resp.json(), list)
+
+    async def test_accepts_filters(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/items/top",
+            params={"days": 14, "limit": 5, "topic": "papers", "source": "arxiv"},
+        )
+        assert resp.status_code == 200
+
+    async def test_rejects_excessive_days(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/top", params={"days": 999})
+        assert resp.status_code == 422
+
+    async def test_requires_auth(self, api_client: AsyncClient):
+        app.dependency_overrides.pop(require_auth, None)
+        resp = await api_client.get("/api/items/top")
+        assert resp.status_code == 403
