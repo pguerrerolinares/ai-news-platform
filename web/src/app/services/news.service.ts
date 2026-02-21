@@ -21,8 +21,8 @@ export class NewsService {
     topic?: string;
   }): Observable<PaginatedResponse<NewsItem>> {
     let httpParams = new HttpParams();
-    if (params?.limit) httpParams = httpParams.set('limit', params.limit);
-    if (params?.offset) httpParams = httpParams.set('offset', params.offset);
+    if (params?.limit !== undefined) httpParams = httpParams.set('limit', params.limit);
+    if (params?.offset !== undefined) httpParams = httpParams.set('offset', params.offset);
     if (params?.topic) httpParams = httpParams.set('topic', params.topic);
     return this.http
       .get<NewsItem[]>(`${this.baseUrl}/items/today`, {
@@ -75,8 +75,8 @@ export class NewsService {
     offset?: number;
   }): Observable<PaginatedResponse<Briefing>> {
     let httpParams = new HttpParams();
-    if (params?.limit) httpParams = httpParams.set('limit', params.limit);
-    if (params?.offset) httpParams = httpParams.set('offset', params.offset);
+    if (params?.limit !== undefined) httpParams = httpParams.set('limit', params.limit);
+    if (params?.offset !== undefined) httpParams = httpParams.set('offset', params.offset);
     return this.http
       .get<Briefing[]>(`${this.baseUrl}/briefings`, {
         params: httpParams,
@@ -110,8 +110,8 @@ export class NewsService {
     if (params.date_from) httpParams = httpParams.set('date_from', params.date_from);
     if (params.date_to) httpParams = httpParams.set('date_to', params.date_to);
     if (params.sort_by) httpParams = httpParams.set('sort_by', params.sort_by);
-    if (params.limit) httpParams = httpParams.set('limit', params.limit.toString());
-    if (params.offset) httpParams = httpParams.set('offset', params.offset.toString());
+    if (params.limit !== undefined) httpParams = httpParams.set('limit', params.limit.toString());
+    if (params.offset !== undefined) httpParams = httpParams.set('offset', params.offset.toString());
     return this.http
       .get<NewsItem[]>(`${this.baseUrl}/search`, {
         params: httpParams,

@@ -51,7 +51,7 @@ class ChatService:
         return f"msg_{uuid.uuid4().hex[:12]}"
 
     @staticmethod
-    def _sse_event(event_type: str, data: dict) -> str:
+    def _sse_event(event_type: str, data: dict[str, object]) -> str:
         """Format a single SSE frame with event type and JSON data."""
         return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
@@ -83,7 +83,7 @@ class ChatService:
         return "\n\n".join(lines)
 
     @staticmethod
-    def _build_sources(items: list[NewsItem]) -> list[dict]:
+    def _build_sources(items: list[NewsItem]) -> list[dict[str, str | None]]:
         """Build source list for the final SSE event."""
         return [
             {

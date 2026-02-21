@@ -30,7 +30,7 @@ async def chat(
     body: ChatRequest,
     session: AsyncSession = Depends(get_session),
     _user: str = Depends(require_auth),
-):
+) -> StreamingResponse:
     """Chat with AI about news. Returns SSE stream."""
     service = _get_chat_service()
 

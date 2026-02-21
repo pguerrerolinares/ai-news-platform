@@ -22,7 +22,19 @@ export class AuthService {
       .pipe(tap((res) => this.storeTokens(res)));
   }
 
+  private refreshInProgress: Promise<boolean> | null = null;
+
   async refreshToken(): Promise<boolean> {
+    if (this.refreshInProgress) return this.refreshInProgress;
+    this.refreshInProgress = this.doRefresh();
+    try {
+      return await this.refreshInProgress;
+    } finally {
+      this.refreshInProgress = null;
+    }
+  }
+
+  private async doRefresh(): Promise<boolean> {
     const refreshToken = localStorage.getItem(this.refreshKey);
     if (!refreshToken) return false;
 
@@ -35,7 +47,8 @@ export class AuthService {
       this.storeTokens(res);
       return true;
     } catch (err) {
-      console.error('[AuthService] Token refresh failed:', err);
+      const msg = err instanceof Error ? err.message : 'unknown';
+      console.error('[AuthService] Token refresh failed:', msg);
       this.logout();
       return false;
     }
@@ -62,7 +75,8 @@ export class AuthService {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload.exp * 1000 > Date.now();
     } catch (err) {
-      console.warn('[AuthService] JWT decode failed:', err);
+      const msg = err instanceof Error ? err.message : 'unknown';
+      console.warn('[AuthService] JWT decode failed:', msg);
       return false;
     }
   }

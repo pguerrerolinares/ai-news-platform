@@ -447,7 +447,7 @@ export class ChatPage implements OnInit, AfterViewChecked {
     this.onSend();
   }
 
-  async onSend(): Promise<void> {
+  async onSend(retryCount = 0): Promise<void> {
     const q = this.question.trim();
     if (!q || this.streaming()) return;
 
@@ -474,13 +474,13 @@ export class ChatPage implements OnInit, AfterViewChecked {
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (response.status === 401 && retryCount === 0) {
           const refreshed = await this.auth.refreshToken();
           if (refreshed) {
             this.question = q;
             this.messages.update(msgs => msgs.slice(0, -1));
             this.streaming.set(false);
-            return this.onSend();
+            return this.onSend(1);
           }
         }
         throw new Error(`HTTP ${response.status}`);
