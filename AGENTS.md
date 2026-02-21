@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-19 | **Current milestone**: 8 (Design Overhaul — Minimal Luxury) | **Status**: Complete
+> **Last updated**: 2026-02-21 | **Current milestone**: 14 (DB + Backend API Polish) | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 672 (637 unit + 35 E2E), 92% coverage
+- **Tests**: 784 (749 unit + 35 E2E), 92% coverage
 
 ## Architecture
 
@@ -100,7 +100,10 @@ ai-news-platform/
 │   ├── env.py                     # Async-compatible Alembic environment
 │   ├── script.py.mako             # Migration template
 │   └── versions/
-│       └── 001_initial_schema.py  # news_items, daily_briefings, item_embeddings
+│       ├── 001_initial_schema.py  # news_items, daily_briefings, item_embeddings
+│       ├── 002_add_vector_column.py # pgvector embedding column
+│       ├── 003_raw_extractions.py # raw_extractions staging table
+│       └── 004_add_performance_indexes.py # score, source+date, topic+date, created_at
 ├── src/                           # (every package has __init__.py)
 │   ├── main.py                    # CLI entry point for pipeline
 │   ├── core/
@@ -130,17 +133,21 @@ ai-news-platform/
 │   │   ├── alerts.py              # AlertService (Telegram alerts for ops)
 │   │   └── telegram.py            # TelegramNotifier (daily briefing, topic blocks, HTML)
 │   ├── api/
-│   │   ├── app.py                 # FastAPI app, /health (200/503), /metrics, middleware
-│   │   ├── auth.py                # JWT creation/verification, require_auth dependency
-│   │   ├── schemas.py             # Pydantic response models
+│   │   ├── app.py                 # FastAPI app, /health (200/503), /metrics, middleware, error handlers
+│   │   ├── auth.py                # JWT access+refresh tokens, require_auth, token rotation
+│   │   ├── errors.py              # APIError class, standardized error handlers
+│   │   ├── pagination.py          # set_total_count_header() helper
+│   │   ├── schemas.py             # Pydantic response models (incl. stats, auth v2, errors)
 │   │   └── routes/
-│   │       ├── auth.py            # POST /api/auth/token (shared password -> JWT)
-│   │       ├── items.py           # GET /api/items, /api/items/count, /api/items/today (JWT)
-│   │       ├── briefings.py       # GET /api/briefings/{date}, /api/briefings (JWT)
-│   │       ├── search.py          # GET /api/search (PostgreSQL FTS, JWT)
+│   │       ├── auth.py            # POST /api/auth/token + POST /api/auth/refresh
+│   │       ├── items.py           # GET /api/items, /count, /today (paginated, X-Total-Count)
+│   │       ├── briefings.py       # GET /api/briefings/{date}, /briefings (paginated, X-Total-Count)
+│   │       ├── search.py          # GET /api/search (FTS, sort_by, offset, X-Total-Count)
+│   │       ├── stats.py           # GET /api/stats/* (summary, by-source, by-topic, by-date)
 │   │       └── chat.py            # POST /api/chat (SSE streaming, RAG, rate-limited, JWT)
 │   ├── pipeline/
 │   │   ├── dedup.py               # 2-pass dedup (content_hash + url_hash)
+│   │   ├── validation.py          # Pre-storage validation (title, URL required)
 │   │   └── pipeline.py            # Full flow: extract→dedup→classify→validate→embed→store→notify
 │   ├── rag/
 │   │   ├── embeddings.py          # EmbeddingService (OpenAI-compatible, batch embed, text prep)
@@ -190,7 +197,7 @@ ai-news-platform/
 ├── tests/                         # (every package has __init__.py)
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
 │   ├── factories.py               # Test data factories
-│   ├── unit/                      # 633 tests
+│   ├── unit/                      # 749 tests
 │   │   ├── test_config.py         # Settings defaults + env overrides (27 tests)
 │   │   ├── test_config_embedding.py # Embedding config settings (5 tests)
 │   │   ├── test_models.py         # ORM model structure (20 tests)
@@ -212,9 +219,13 @@ ai-news-platform/
 │   │   ├── test_pipeline.py       # Pipeline orchestration (32 tests)
 │   │   ├── test_pipeline_embedding.py # Pipeline embedding step (5 tests)
 │   │   ├── test_api.py            # /health (200+503) + /metrics endpoints (11 tests)
-│   │   ├── test_api_routes.py     # Items + briefings API routes (22 tests)
-│   │   ├── test_auth.py           # JWT auth + token endpoint (15 tests)
-│   │   ├── test_search_api.py     # Search API with FTS (16 tests)
+│   │   ├── test_api_routes.py     # Items + briefings API routes + pagination (30 tests)
+│   │   ├── test_auth.py           # JWT auth + access/refresh tokens (20 tests)
+│   │   ├── test_search_api.py     # Search API with FTS + pagination + sort (20 tests)
+│   │   ├── test_stats_api.py      # Stats endpoints: summary, by-source/topic/date (11 tests)
+│   │   ├── test_error_responses.py # Standardized error format (2 tests)
+│   │   ├── test_pagination.py     # Pagination helper (2 tests)
+│   │   ├── test_pipeline_validation.py # Pre-storage item validation (6 tests)
 │   │   ├── test_chat_route.py     # POST /api/chat SSE streaming (10 tests)
 │   │   ├── test_chat_service.py   # ChatService unit tests (12 tests)
 │   │   ├── test_embeddings.py     # EmbeddingService unit tests (15 tests)
@@ -251,7 +262,9 @@ ai-news-platform/
 │   │   ├── milestone-3-new-sources.md
 │   │   ├── milestone-4-rag.md
 │   │   ├── 2026-02-18-milestone-5-design.md
-│   │   └── 2026-02-18-milestone-5-plan.md
+│   │   ├── 2026-02-18-milestone-5-plan.md
+│   │   ├── 2026-02-21-milestone-14-design.md
+│   │   └── 2026-02-21-milestone-14-plan.md
 │   └── runbooks/
 │       ├── deployment.md
 │       ├── add-new-extractor.md
@@ -289,7 +302,19 @@ ai-news-platform/
 | score | INTEGER | Engagement (upvotes, stars) |
 | metadata | JSONB | Source-specific extra data |
 
-**Indexes**: published_at DESC, topic, source, content_hash, url_hash, FTS (title + summary + full_text)
+**Indexes**: published_at DESC, topic, source, content_hash, url_hash, FTS (title + summary + full_text), score DESC NULLS LAST, (source, published_at DESC), (topic, published_at DESC), created_at DESC
+
+### raw_extractions (staging)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | SERIAL | PK |
+| title | TEXT | NOT NULL |
+| url | TEXT | |
+| source | VARCHAR(50) | |
+| extracted_at | TIMESTAMPTZ | Default NOW() |
+| data | JSONB | Raw extraction payload |
+
+**Note**: Staging table for pipeline. Kept as-is per design decision (no cleanup needed).
 
 ### daily_briefings
 | Column | Type | Notes |
@@ -318,14 +343,25 @@ ai-news-platform/
 |--------|------|------|-------------|-----------|--------|
 | GET | /health | No | Health check + DB connectivity (200/503) | 0 | Done |
 | GET | /metrics | No | Prometheus metrics (localhost only via Nginx) | 0 | Done |
-| POST | /api/auth/token | No | Login with shared password -> JWT | 2 | Done |
-| GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) | 1 | Done |
+| POST | /api/auth/token | No | Login with shared password -> access+refresh JWT | 2,14 | Done |
+| POST | /api/auth/refresh | No | Refresh access token (rotation, rate-limited 10/min) | 14 | Done |
+| GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) + X-Total-Count | 1,14 | Done |
 | GET | /api/items/count | JWT | Count items matching filters | 1 | Done |
-| GET | /api/items/today | JWT | Today's items sorted by score | 1 | Done |
-| GET | /api/briefings/{date} | JWT | Daily briefing with all items | 1 | Done |
-| GET | /api/briefings | JWT | List recent briefings | 1 | Done |
-| GET | /api/search | JWT | Full-text search (PostgreSQL FTS, ts_rank) | 2 | Done |
-| POST | /api/chat | JWT | RAG Q&A (SSE streaming, rate-limited 10/min) | 4 | Done |
+| GET | /api/items/today | JWT | Today's items sorted by score (offset) + X-Total-Count | 1,14 | Done |
+| GET | /api/briefings/{date} | JWT | Daily briefing (limit, offset) + X-Total-Count | 1,14 | Done |
+| GET | /api/briefings | JWT | List recent briefings (offset) | 1,14 | Done |
+| GET | /api/search | JWT | Full-text search (FTS, sort_by, offset) + X-Total-Count | 2,14 | Done |
+| GET | /api/stats/summary | JWT | Aggregate stats: total items, today, sources, topics, trending | 14 | Done |
+| GET | /api/stats/by-source | JWT | Item count per source (GROUP BY) | 14 | Done |
+| GET | /api/stats/by-topic | JWT | Item count per topic (GROUP BY) | 14 | Done |
+| GET | /api/stats/by-date | JWT | Items per day (days param, max 365) | 14 | Done |
+| POST | /api/chat | JWT | RAG Q&A (SSE streaming, rate-limited 10/min, 30s timeout) | 4,14 | Done |
+
+**Pagination convention**: All paginated endpoints return `X-Total-Count` header with total matching results.
+
+**Error format**: All endpoints return `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}` on error.
+
+**Auth tokens**: Access token (30min) + refresh token (7d with rotation). Access token in `Authorization: Bearer`. Refresh via `POST /api/auth/refresh`.
 
 ## Configuration
 
@@ -369,7 +405,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92%
+**Current coverage**: 92% (749 unit + 35 E2E = 784 total)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
@@ -540,11 +576,34 @@ pytest tests/ -x --timeout=30 -q
 - Stats bar animation: Staggered `fade-in` with SCSS `@for` loop delays
 - View Transitions: `::view-transition-old/new(root)` for route fade+slide
 
+**Milestone 14 — DB + Backend API Polish**: Complete
+- [x] Alembic migration: 4 performance indexes (score, source+date, topic+date, created_at)
+- [x] Pagination helper (`set_total_count_header`) + new schemas (stats, auth v2, errors)
+- [x] Search pagination: `offset`, `sort_by` (relevance|date|score), `X-Total-Count`
+- [x] Items pagination: `offset` on `/today`, `X-Total-Count` on all item endpoints
+- [x] Briefings pagination: `limit`+`offset` on `/{date}`, `offset` on list, `X-Total-Count`
+- [x] Aggregate stats endpoints: `/api/stats/summary`, `by-source`, `by-topic`, `by-date`
+- [x] Error standardization: `APIError` class, `{"error": {"code", "message"}}` format
+- [x] Refresh tokens: access (30min) + refresh (7d) with rotation, `POST /api/auth/refresh`
+- [x] Pipeline pre-storage validation: reject items without title or URL
+- [x] Pipeline robustness: embedding error metrics, chat SSE 30s timeout
+- [x] Full lint + test pass: 749 unit tests green, ruff clean
+- [x] AGENTS.md updated
+
+**Key design decisions (M14)**:
+- `X-Total-Count` header convention for all paginated endpoints (lightweight, frontend-friendly)
+- `model_validate()` with `from_attributes=True` replaces manual ORM→schema conversion
+- `from __future__ import annotations` removed from route files (breaks FastAPI runtime type resolution)
+- Refresh token rotation with `jti` (UUID4) for uniqueness, in-memory hash set for revocation
+- `APIError(HTTPException)` with status-to-code mapping for consistent error format
+- Pre-storage validation before classification (fail fast, not silently dropped)
+
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
 2. Monitor pipeline-cron in production
-3. Consider: user preferences, content enrichment, historical import
+3. Frontend redesign (M15) — connect to new pagination, stats, auth endpoints
+4. Consider: semantic search endpoint (pgvector), user preferences
 
 ## Development History
 
@@ -559,3 +618,4 @@ pytest tests/ -x --timeout=30 -q
 | 2026-02-18 | 6 | Frontend polish: NewsItemCard component, topic filters, markdown chat, dark editorial design. 35 E2E. |
 | 2026-02-18 | 7 | Angular Material M3 migration: MatToolbar, MatCard, MatChipListbox, MatProgressBar, MatFormField, SCSS theming. 35 E2E green. |
 | 2026-02-19 | 8 | Design overhaul: SCSS design system (5 partials), Plus Jakarta Sans, Electric Indigo accent, View Transitions, glass navbar, gradient login, accent chat bubbles, indigo charts. 35 E2E green. |
+| 2026-02-21 | 14 | DB + Backend API Polish: 4 performance indexes, pagination on all endpoints (X-Total-Count), 4 aggregate stats endpoints, search sort_by, standardized errors (APIError), refresh tokens (30min/7d), pipeline validation, chat 30s timeout. 749 unit tests. |
