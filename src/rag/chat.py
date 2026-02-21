@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from collections.abc import AsyncGenerator
 
 import openai
@@ -44,10 +45,23 @@ class ChatService:
             )
         self._model = settings.openai_model
 
+    @staticmethod
+    def _generate_msg_id() -> str:
+        """Generate a unique message ID: msg_<12 hex chars>."""
+        return f"msg_{uuid.uuid4().hex[:12]}"
+
+    @staticmethod
+    def _sse_event(event_type: str, data: dict) -> str:
+        """Format a single SSE frame with event type and JSON data."""
+        return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
     def _build_context(self, items: list[NewsItem]) -> str:
         """Format retrieved items as context for the LLM prompt."""
         if not items:
-            return "No se encontraron noticias relevantes en la base de datos."
+            return (
+                "No se encontraron noticias relevantes en la "
+                "base de datos."
+            )
 
         lines: list[str] = []
         for i, item in enumerate(items, 1):
@@ -61,7 +75,9 @@ class ChatService:
             if item.topic:
                 parts.append(f"   Tema: {item.topic}")
             if item.published_at:
-                parts.append(f"   Fecha: {item.published_at.strftime('%Y-%m-%d')}")
+                parts.append(
+                    f"   Fecha: {item.published_at.strftime('%Y-%m-%d')}"
+                )
             lines.append("\n".join(parts))
 
         return "\n\n".join(lines)
@@ -87,12 +103,16 @@ class ChatService:
         topic: str | None = None,
         limit: int = 5,
     ) -> AsyncGenerator[str, None]:
-        """Stream SSE events: token chunks, then sources, then [DONE]."""
+        """Stream OpenAI-style SSE events: tokens, sources, done."""
+        msg_id = self._generate_msg_id()
+
         if not question.strip():
             msg = "La pregunta no puede estar vacia"
-            err = {"error": {"code": "INVALID_INPUT", "message": msg}}
-            yield f"data: {json.dumps(err)}\n\n"
-            yield "data: [DONE]\n\n"
+            yield self._sse_event("error", {
+                "id": msg_id,
+                "error": {"code": "INVALID_INPUT", "message": msg},
+            })
+            yield self._sse_event("done", {"id": msg_id})
             return
 
         # 1. Retrieve relevant context
@@ -106,7 +126,8 @@ class ChatService:
 
         # 2. Build user message with context
         user_message = (
-            f"Contexto (noticias recientes):\n\n{context}\n\n" f"Pregunta del usuario: {question}"
+            f"Contexto (noticias recientes):\n\n{context}\n\n"
+            f"Pregunta del usuario: {question}"
         )
 
         # 3. Stream LLM response
@@ -125,21 +146,41 @@ class ChatService:
                 async for chunk in stream:
                     content = chunk.choices[0].delta.content
                     if content:
-                        yield f"data: {json.dumps({'token': content})}\n\n"
+                        yield self._sse_event("message", {
+                            "id": msg_id,
+                            "type": "token",
+                            "content": content,
+                        })
 
         except TimeoutError:
-            logger.error("chat_stream_timeout", question=question[:100])
-            err = {"error": {"code": "LLM_TIMEOUT", "message": "AI response timed out"}}
-            yield f"data: {json.dumps(err)}\n\n"
+            logger.error(
+                "chat_stream_timeout", question=question[:100]
+            )
+            yield self._sse_event("error", {
+                "id": msg_id,
+                "error": {
+                    "code": "LLM_TIMEOUT",
+                    "message": "AI response timed out",
+                },
+            })
 
         except Exception as exc:
             logger.error("chat_stream_error", error=str(exc))
-            err = {"error": {"code": "CHAT_ERROR", "message": "Error al generar la respuesta"}}
-            yield f"data: {json.dumps(err)}\n\n"
+            yield self._sse_event("error", {
+                "id": msg_id,
+                "error": {
+                    "code": "CHAT_ERROR",
+                    "message": "Error al generar la respuesta",
+                },
+            })
 
         # 4. Send sources
         sources = self._build_sources(items)
-        yield f"data: {json.dumps({'sources': sources})}\n\n"
+        yield self._sse_event("message", {
+            "id": msg_id,
+            "type": "sources",
+            "content": sources,
+        })
 
         # 5. Done
-        yield "data: [DONE]\n\n"
+        yield self._sse_event("done", {"id": msg_id})
