@@ -280,3 +280,36 @@ class TestBriefingsPagination:
         """GET /api/briefings should accept offset."""
         resp = await api_client.get("/api/briefings", params={"offset": 5})
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# GET /api/items/by-date/{date}
+# ---------------------------------------------------------------------------
+class TestItemsByDate:
+    async def test_by_date_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/by-date/2026-02-22")
+        assert resp.status_code == 200
+
+    async def test_by_date_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/by-date/2026-02-22")
+        assert isinstance(resp.json(), list)
+
+    async def test_by_date_has_total_count_header(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/by-date/2026-02-22")
+        assert "X-Total-Count" in resp.headers
+
+    async def test_by_date_accepts_filters(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/items/by-date/2026-02-22",
+            params={"topic": "modelos", "source": "hackernews", "limit": 10, "offset": 5},
+        )
+        assert resp.status_code == 200
+
+    async def test_by_date_invalid_date_returns_422(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/by-date/not-a-date")
+        assert resp.status_code == 422
+
+    async def test_by_date_requires_auth(self, api_client: AsyncClient):
+        app.dependency_overrides.pop(require_auth, None)
+        resp = await api_client.get("/api/items/by-date/2026-02-22")
+        assert resp.status_code == 403

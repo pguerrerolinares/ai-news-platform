@@ -98,6 +98,44 @@ async def count_items(
 
 
 @router.get(
+    "/by-date/{item_date}",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("30/minute")
+async def list_items_by_date(
+    request: Request,
+    response: Response,
+    item_date: date,
+    topic: str | None = Query(None, description="Filter by topic"),
+    source: str | None = Query(None, description="Filter by source"),
+    limit: int = Query(50, ge=1, le=200, description="Max items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    session: AsyncSession = Depends(get_session),
+    _user: str = Depends(require_auth),
+) -> list[NewsItemResponse]:
+    """List news items for a specific date, sorted by score."""
+    day_start = datetime.combine(item_date, time.min, tzinfo=UTC)
+    day_end = day_start + timedelta(days=1)
+    query = select(NewsItem).where(
+        (NewsItem.created_at >= day_start) & (NewsItem.created_at < day_end)
+    )
+    if topic:
+        query = query.where(NewsItem.topic == topic)
+    if source:
+        query = query.where(NewsItem.source == source)
+
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
+    total = (await session.execute(count_query)).scalar_one()
+    set_total_count_header(response, total)
+
+    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
+    result = await session.execute(query)
+    items = result.scalars().all()
+    return [NewsItemResponse.model_validate(item) for item in items]
+
+
+@router.get(
     "/today",
     response_model=list[NewsItemResponse],
     responses={401: {"model": ErrorWrapper}},
