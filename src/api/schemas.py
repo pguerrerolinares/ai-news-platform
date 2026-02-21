@@ -55,3 +55,41 @@ class TokenRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class StatsSummaryResponse(BaseModel):
+    total_items: int
+    items_today: int
+    sources_count: int
+    topics_count: int
+    trending_today: int
+
+
+class StatsGroupResponse(BaseModel):
+    name: str
+    count: int
+
+
+class StatsDateResponse(BaseModel):
+    date: date
+    count: int
+
+
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+
+
+class ErrorWrapper(BaseModel):
+    error: ErrorResponse
+
+
+class TokenResponseV2(BaseModel):
+    access_token: str
+    refresh_token: str
+    expires_in: int
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
