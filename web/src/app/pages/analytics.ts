@@ -5,7 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { HighchartsChartComponent } from 'highcharts-angular';
 import * as Highcharts from 'highcharts';
-import { switchMap, of } from 'rxjs';
+import { switchMap, of, map } from 'rxjs';
 import { NewsService } from '../services/news.service';
 import { Briefing, NewsItem } from '../models/news-item';
 
@@ -280,15 +280,17 @@ export class AnalyticsPage implements OnInit, OnDestroy {
 
     this.newsService.getBriefings().pipe(
       takeUntilDestroyed(this.destroyRef),
-      switchMap((briefings) => {
-        this.briefings.set(briefings.slice(0, 14));
+      switchMap((res) => {
+        this.briefings.set(res.items.slice(0, 14));
         const today = new Date().toISOString().slice(0, 10);
-        const todayBriefing = briefings.find(b => b.date === today);
+        const todayBriefing = res.items.find(b => b.date === today);
         if (todayBriefing?.items) {
           this.todayItems.set(todayBriefing.items);
           return of(null);
         }
-        return this.newsService.getTodayItems();
+        return this.newsService.getTodayItems().pipe(
+          map(todayRes => todayRes.items)
+        );
       }),
     ).subscribe({
       next: (items) => {

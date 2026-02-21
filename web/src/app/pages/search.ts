@@ -298,8 +298,8 @@ export class SearchPage implements OnInit {
         limit: 50,
       })
       .subscribe({
-        next: (items) => {
-          this.results.set(items);
+        next: (res) => {
+          this.results.set(res.items);
           this.loading.set(false);
         },
         error: (err) => {

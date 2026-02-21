@@ -270,8 +270,8 @@ export class DashboardPage implements OnInit {
       error: () => {
         // Fallback to today items if briefing not available
         this.newsService.getTodayItems().subscribe({
-          next: (items) => {
-            this.items.set(items);
+          next: (res) => {
+            this.items.set(res.items);
             this.loading.set(false);
           },
           error: (err) => {

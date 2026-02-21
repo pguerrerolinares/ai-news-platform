@@ -28,3 +28,26 @@ export interface Briefing {
   generated_at: string;
   items: NewsItem[];
 }
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  totalCount: number;
+}
+
+export interface StatsSummary {
+  total_items: number;
+  items_today: number;
+  sources_count: number;
+  topics_count: number;
+  trending_today: number;
+}
+
+export interface StatsGroup {
+  name: string;
+  count: number;
+}
+
+export interface StatsDate {
+  date: string;
+  count: number;
+}
