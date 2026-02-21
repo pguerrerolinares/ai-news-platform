@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-21 | **Current milestone**: 14 (DB + Backend API Polish) | **Status**: Complete
+> **Last updated**: 2026-02-21 | **Current milestone**: 15 (API Contract Polish) | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 784 (749 unit + 35 E2E), 92% coverage
+- **Tests**: 791 (756 unit + 35 E2E), 92% coverage
 
 ## Architecture
 
@@ -176,14 +176,14 @@ ai-news-platform/
 │   │       ├── app.config.ts      # provideRouter + withViewTransitions, provideHttpClient, provideAnimationsAsync
 │   │       ├── app.routes.ts      # Route definitions (login, dashboard, archive, search, chat, analytics)
 │   │       ├── models/
-│   │       │   └── news-item.ts   # NewsItem + Briefing interfaces
+│   │       │   └── news-item.ts   # NewsItem, Briefing, PaginatedResponse, Stats interfaces
 │   │       ├── services/
-│   │       │   ├── news.service.ts # HTTP service (items, briefings, search)
-│   │       │   └── auth.service.ts # JWT auth (login, logout, token management)
+│   │       │   ├── news.service.ts # HTTP service (items, briefings, search, stats, pagination)
+│   │       │   └── auth.service.ts # JWT auth (login, logout, refresh tokens, expiry tracking)
 │   │       ├── guards/
 │   │       │   └── auth.guard.ts  # Route guard (redirects to login if unauthenticated)
 │   │       ├── interceptors/
-│   │       │   └── auth.interceptor.ts # Adds JWT to requests, handles 401/403
+│   │       │   └── auth.interceptor.ts # Adds JWT to requests, auto-refresh on 401, logout on 403
 │   │       ├── components/
 │   │       │   └── news-item-card.ts # Reusable card (MatCard, source badges, MatChip topic)
 │   │       └── pages/
@@ -197,7 +197,7 @@ ai-news-platform/
 ├── tests/                         # (every package has __init__.py)
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
 │   ├── factories.py               # Test data factories
-│   ├── unit/                      # 749 tests
+│   ├── unit/                      # 756 tests
 │   │   ├── test_config.py         # Settings defaults + env overrides (27 tests)
 │   │   ├── test_config_embedding.py # Embedding config settings (5 tests)
 │   │   ├── test_models.py         # ORM model structure (20 tests)
@@ -227,7 +227,7 @@ ai-news-platform/
 │   │   ├── test_pagination.py     # Pagination helper (2 tests)
 │   │   ├── test_pipeline_validation.py # Pre-storage item validation (6 tests)
 │   │   ├── test_chat_route.py     # POST /api/chat SSE streaming (10 tests)
-│   │   ├── test_chat_service.py   # ChatService unit tests (12 tests)
+│   │   ├── test_chat_service.py   # ChatService unit tests (15 tests)
 │   │   ├── test_embeddings.py     # EmbeddingService unit tests (15 tests)
 │   │   ├── test_retriever.py      # Retriever pgvector tests (10 tests)
 │   │   ├── test_mcp_server.py     # MCP server tools (18 tests)
@@ -264,7 +264,9 @@ ai-news-platform/
 │   │   ├── 2026-02-18-milestone-5-design.md
 │   │   ├── 2026-02-18-milestone-5-plan.md
 │   │   ├── 2026-02-21-milestone-14-design.md
-│   │   └── 2026-02-21-milestone-14-plan.md
+│   │   ├── 2026-02-21-milestone-14-plan.md
+│   │   ├── 2026-02-21-milestone-15-design.md
+│   │   └── 2026-02-21-milestone-15-plan.md
 │   └── runbooks/
 │       ├── deployment.md
 │       ├── add-new-extractor.md
@@ -355,13 +357,21 @@ ai-news-platform/
 | GET | /api/stats/by-source | JWT | Item count per source (GROUP BY) | 14 | Done |
 | GET | /api/stats/by-topic | JWT | Item count per topic (GROUP BY) | 14 | Done |
 | GET | /api/stats/by-date | JWT | Items per day (days param, max 365) | 14 | Done |
-| POST | /api/chat | JWT | RAG Q&A (SSE streaming, rate-limited 10/min, 30s timeout) | 4,14 | Done |
+| POST | /api/chat | JWT | RAG Q&A (SSE streaming, OpenAI-style events, rate-limited 10/min) | 4,14,15 | Done |
 
 **Pagination convention**: All paginated endpoints return `X-Total-Count` header with total matching results.
 
-**Error format**: All endpoints return `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}` on error.
+**Error format**: All endpoints return `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}` on error. All protected endpoints document 401 errors in OpenAPI spec.
 
 **Auth tokens**: Access token (30min) + refresh token (7d with rotation). Access token in `Authorization: Bearer`. Refresh via `POST /api/auth/refresh`.
+
+**Chat SSE contract** (OpenAI-style events):
+```
+event: message\ndata: {"id":"msg_<hex12>","type":"token","content":"..."}\n\n
+event: message\ndata: {"id":"msg_<hex12>","type":"sources","content":[...]}\n\n
+event: error\ndata: {"id":"msg_<hex12>","error":{"code":"...","message":"..."}}\n\n
+event: done\ndata: {"id":"msg_<hex12>"}
+```
 
 ## Configuration
 
@@ -405,7 +415,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (749 unit + 35 E2E = 784 total)
+**Current coverage**: 92% (756 unit + 35 E2E = 791 total)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
@@ -598,11 +608,35 @@ pytest tests/ -x --timeout=30 -q
 - `APIError(HTTPException)` with status-to-code mapping for consistent error format
 - Pre-storage validation before classification (fail fast, not silently dropped)
 
+**Milestone 15 — API Contract Polish**: Complete
+- [x] Chat SSE: OpenAI-style events (`event: message/error/done`) with message ID correlation
+- [x] Chat SSE: structured JSON payloads (`type: token/sources`, `error: {code, message}`)
+- [x] Frontend auth: `TokenResponseV2` support (refresh_token, expires_in, expiry tracking)
+- [x] Frontend auth: `refreshToken()` method with `firstValueFrom`, `storeTokens()`, `isAuthenticated()` expiry check
+- [x] Auth interceptor: auto-refresh on 401, retry original request, skip for `/api/auth/*`
+- [x] Chat page: 401 retry with token refresh (raw fetch bypass)
+- [x] Chat frontend: OpenAI-style SSE parser (`event:` + `data:` pairs)
+- [x] News service: `PaginatedResponse<T>` pattern, `observe: 'response'`, `X-Total-Count` header
+- [x] News service: `offset`, `sort_by` params, 4 stats methods
+- [x] Models: `PaginatedResponse<T>`, `StatsSummary`, `StatsGroup`, `StatsDate` interfaces
+- [x] Pages updated: dashboard, search, analytics use `PaginatedResponse`
+- [x] Schema cleanup: deleted dead `TokenResponse`, added `CountResponse`, moved `ChatRequest` to schemas.py
+- [x] OpenAPI: `responses={401: ErrorWrapper}` on all protected endpoints, 404 on briefings `/{date}`
+- [x] Full verification: 756 unit tests, ruff clean, Angular build green
+
+**Key design decisions (M15)**:
+- Chat SSE follows OpenAI convention: `event: <type>` + `data: <json>` (not raw `data:` lines)
+- Message ID (`msg_<uuid4.hex[:12]>`) shared across all events in a stream for correlation
+- Frontend `PaginatedResponse<T>` reads `X-Total-Count` via `observe: 'response'` + `res.headers.get()`
+- Auth interceptor wraps `refreshToken()` Promise in `from()` for RxJS compatibility
+- Chat uses raw `fetch()` for SSE (Angular HttpClient doesn't support streaming), so 401 retry is manual
+- `ChatRequest` moved to `schemas.py` for consistency (all Pydantic models in one file)
+
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
 2. Monitor pipeline-cron in production
-3. Frontend redesign (M15) — connect to new pagination, stats, auth endpoints
+3. Frontend visual redesign (M16) — briefings rework, analytics charts, pagination UI
 4. Consider: semantic search endpoint (pgvector), user preferences
 
 ## Development History
@@ -619,3 +653,4 @@ pytest tests/ -x --timeout=30 -q
 | 2026-02-18 | 7 | Angular Material M3 migration: MatToolbar, MatCard, MatChipListbox, MatProgressBar, MatFormField, SCSS theming. 35 E2E green. |
 | 2026-02-19 | 8 | Design overhaul: SCSS design system (5 partials), Plus Jakarta Sans, Electric Indigo accent, View Transitions, glass navbar, gradient login, accent chat bubbles, indigo charts. 35 E2E green. |
 | 2026-02-21 | 14 | DB + Backend API Polish: 4 performance indexes, pagination on all endpoints (X-Total-Count), 4 aggregate stats endpoints, search sort_by, standardized errors (APIError), refresh tokens (30min/7d), pipeline validation, chat 30s timeout. 749 unit tests. |
+| 2026-02-21 | 15 | API Contract Polish: Chat SSE OpenAI-style events (event types + message ID), frontend auth refresh tokens + interceptor auto-refresh, news service pagination + stats, schema cleanup, OpenAPI error docs. 756 unit tests. |
