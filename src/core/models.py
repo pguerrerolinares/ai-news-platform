@@ -86,6 +86,11 @@ class NewsItem(Base):
         Index("idx_news_items_source", "source"),
         Index("idx_news_items_content_hash", "content_hash"),
         Index("idx_news_items_url_hash", "url_hash"),
+        # M14: Performance indexes
+        Index("idx_news_items_score", "score"),
+        Index("idx_news_items_source_date", "source", "published_at"),
+        Index("idx_news_items_topic_date", "topic", "published_at"),
+        Index("idx_news_items_created_at", "created_at"),
     )
 
 
