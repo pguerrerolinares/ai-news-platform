@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-21 | **Current milestone**: 15 (API Contract Polish) | **Status**: Complete
+> **Last updated**: 2026-02-22 | **Current milestone**: 16 (API Endpoint Expansion) | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 791 (756 unit + 35 E2E), 92% coverage
+- **Tests**: 802 (767 unit + 35 E2E), 92% coverage
 
 ## Architecture
 
@@ -144,7 +144,8 @@ ai-news-platform/
 │   │       ├── briefings.py       # GET /api/briefings/{date}, /briefings (paginated, X-Total-Count)
 │   │       ├── search.py          # GET /api/search (FTS, sort_by, offset, X-Total-Count)
 │   │       ├── stats.py           # GET /api/stats/* (summary, by-source, by-topic, by-date)
-│   │       └── chat.py            # POST /api/chat (SSE streaming, RAG, rate-limited, JWT)
+│   │       ├── chat.py            # POST /api/chat (SSE streaming, RAG, rate-limited, JWT)
+│   │       └── sources.py         # GET /api/sources — active sources list with item counts
 │   ├── pipeline/
 │   │   ├── dedup.py               # 2-pass dedup (content_hash + url_hash)
 │   │   ├── validation.py          # Pre-storage validation (title, URL required)
@@ -197,7 +198,7 @@ ai-news-platform/
 ├── tests/                         # (every package has __init__.py)
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
 │   ├── factories.py               # Test data factories
-│   ├── unit/                      # 756 tests
+│   ├── unit/                      # 767 tests
 │   │   ├── test_config.py         # Settings defaults + env overrides (27 tests)
 │   │   ├── test_config_embedding.py # Embedding config settings (5 tests)
 │   │   ├── test_models.py         # ORM model structure (20 tests)
@@ -231,7 +232,9 @@ ai-news-platform/
 │   │   ├── test_embeddings.py     # EmbeddingService unit tests (15 tests)
 │   │   ├── test_retriever.py      # Retriever pgvector tests (10 tests)
 │   │   ├── test_mcp_server.py     # MCP server tools (18 tests)
-│   │   └── test_mcp_client.py     # MCP client (14 tests)
+│   │   ├── test_mcp_client.py     # MCP client (14 tests)
+│   │   ├── test_schemas.py        # Unit tests for M16 Pydantic schemas
+│   │   └── test_sources_api.py    # Unit tests for GET /api/sources endpoint
 │   ├── e2e/                       # 35 Playwright tests
 │   │   ├── conftest.py            # Static server, API mocks, auth fixtures
 │   │   ├── test_login.py          # Login flow (correct, incorrect, redirect)
@@ -266,7 +269,8 @@ ai-news-platform/
 │   │   ├── 2026-02-21-milestone-14-design.md
 │   │   ├── 2026-02-21-milestone-14-plan.md
 │   │   ├── 2026-02-21-milestone-15-design.md
-│   │   └── 2026-02-21-milestone-15-plan.md
+│   │   ├── 2026-02-21-milestone-15-plan.md
+│   │   └── ideas-backlog.md               # Future feature ideas and backlog
 │   └── runbooks/
 │       ├── deployment.md
 │       ├── add-new-extractor.md
@@ -358,6 +362,16 @@ ai-news-platform/
 | GET | /api/stats/by-topic | JWT | Item count per topic (GROUP BY) | 14 | Done |
 | GET | /api/stats/by-date | JWT | Items per day (days param, max 365) | 14 | Done |
 | POST | /api/chat | JWT | RAG Q&A (SSE streaming, OpenAI-style events, rate-limited 10/min) | 4,14,15 | Done |
+| GET | /api/items/by-date/{date} | JWT | Items for a specific date (no briefing dependency) | 16 | Done |
+| GET | /api/items/trending | JWT | Dedicated trending items endpoint | 16 | Done |
+| GET | /api/items/top | JWT | Top items by score | 16 | Done |
+| GET | /api/items/{id}/similar | JWT | Similar items via pgvector cosine distance | 16 | Done |
+| GET | /api/sources | JWT | Active sources list with item counts | 16 | Done |
+| GET | /api/stats/by-topic-date | JWT | Item count grouped by topic and date | 16 | Done |
+| GET | /api/stats/by-source-date | JWT | Item count grouped by source and date | 16 | Done |
+| GET | /api/stats/trending-timeline | JWT | Trending item count by date | 16 | Done |
+| GET | /api/stats/score-distribution | JWT | Score distribution histogram | 16 | Done |
+| GET | /api/briefings/{date} | JWT | (modified) Resilient — synthesizes response when no DailyBriefing exists | 1,14,16 | Done |
 
 **Pagination convention**: All paginated endpoints return `X-Total-Count` header with total matching results.
 
@@ -415,7 +429,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (756 unit + 35 E2E = 791 total)
+**Current coverage**: 92% (767 unit + 35 E2E = 802 total)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
@@ -632,12 +646,36 @@ pytest tests/ -x --timeout=30 -q
 - Chat uses raw `fetch()` for SSE (Angular HttpClient doesn't support streaming), so 401 retry is manual
 - `ChatRequest` moved to `schemas.py` for consistency (all Pydantic models in one file)
 
+**Milestone 16 — API Endpoint Expansion**: Complete
+- [x] New Pydantic schemas for M16 endpoints (SourceCount, ItemsByDate, SimilarItem, StatsTopicDate, StatsSourceDate, StatsTrendingTimeline, ScoreDistribution)
+- [x] GET /api/items/by-date/{date} — items for a specific date without briefing dependency
+- [x] GET /api/items/trending — dedicated trending items endpoint
+- [x] GET /api/items/top — top items by score
+- [x] GET /api/items/{id}/similar — similar items via pgvector cosine distance
+- [x] GET /api/sources — active sources list with item counts
+- [x] GET /api/stats/by-topic-date — item count grouped by topic and date
+- [x] GET /api/stats/by-source-date — item count grouped by source and date
+- [x] GET /api/stats/trending-timeline — trending item count by date
+- [x] GET /api/stats/score-distribution — score distribution histogram
+- [x] GET /api/briefings/{date} (modified) — resilient, synthesizes response when no DailyBriefing exists
+- [x] Unit tests: test_schemas.py + test_sources_api.py
+- [x] Full verification: 767 unit tests green, ruff clean, pyright clean
+- [x] AGENTS.md updated
+
+**Key design decisions (M16)**:
+- `/api/items/by-date/{date}` queries news_items directly (no briefing dependency) — more resilient
+- `/api/items/{id}/similar` uses pgvector cosine distance (`<=>`) on item_embeddings; returns 404 if item has no embedding
+- `/api/briefings/{date}` now synthesizes a response from news_items when no DailyBriefing row exists
+- Score distribution uses fixed buckets (0.0-0.2, 0.2-0.4, ..., 0.8-1.0) for chart-ready output
+- All new endpoints require JWT auth, follow existing pagination + error conventions
+- `sources.py` added as a separate route module (SRP) rather than extending items.py
+
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
 2. Monitor pipeline-cron in production
-3. Frontend visual redesign (M16) — briefings rework, analytics charts, pagination UI
-4. Consider: semantic search endpoint (pgvector), user preferences
+3. Frontend: wire new M16 endpoints — trending, top, by-date, similar, sources, chart-ready stats
+4. Consider: user preferences, saved searches, email digest
 
 ## Development History
 
@@ -654,3 +692,4 @@ pytest tests/ -x --timeout=30 -q
 | 2026-02-19 | 8 | Design overhaul: SCSS design system (5 partials), Plus Jakarta Sans, Electric Indigo accent, View Transitions, glass navbar, gradient login, accent chat bubbles, indigo charts. 35 E2E green. |
 | 2026-02-21 | 14 | DB + Backend API Polish: 4 performance indexes, pagination on all endpoints (X-Total-Count), 4 aggregate stats endpoints, search sort_by, standardized errors (APIError), refresh tokens (30min/7d), pipeline validation, chat 30s timeout. 749 unit tests. |
 | 2026-02-21 | 15 | API Contract Polish: Chat SSE OpenAI-style events (event types + message ID), frontend auth refresh tokens + interceptor auto-refresh, news service pagination + stats, schema cleanup, OpenAPI error docs. 756 unit tests. |
+| 2026-02-22 | 16 | API Endpoint Expansion: 9 new endpoints + 1 modified, resilient briefings, chart-ready stats (by-topic-date, by-source-date, trending-timeline, score-distribution), pgvector similarity search, sources list. 767 unit tests. |
