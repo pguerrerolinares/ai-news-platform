@@ -96,8 +96,6 @@ class TestSaveBriefing:
 
     async def test_briefing_created(self, db_session):
         """A new DailyBriefing row is created with correct stats."""
-        from datetime import UTC, datetime
-
         await _save_briefing(
             db_session,
             items_extracted=20,
@@ -108,8 +106,8 @@ class TestSaveBriefing:
             trending_count=2,
         )
 
-        today = datetime.now(tz=UTC).date()
-        result = await db_session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
+        # Savepoint isolation guarantees only our test's data exists
+        result = await db_session.execute(select(DailyBriefing))
         briefing = result.scalar_one()
 
         assert briefing.items_extracted == 20
@@ -140,10 +138,7 @@ class TestSaveBriefing:
             trending_count=0,
         )
 
-        from datetime import UTC, datetime
-
-        today = datetime.now(tz=UTC).date()
-        result = await db_session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
+        result = await db_session.execute(select(DailyBriefing))
         briefing = result.scalar_one()
 
         assert briefing.items_extracted == 16  # 10 + 6
@@ -153,8 +148,6 @@ class TestSaveBriefing:
 
     async def test_empty_pipeline(self, db_session):
         """Briefing with 0 items stored is valid."""
-        from datetime import UTC, datetime
-
         await _save_briefing(
             db_session,
             items_extracted=0,
@@ -164,8 +157,7 @@ class TestSaveBriefing:
             duration_seconds=0.1,
         )
 
-        today = datetime.now(tz=UTC).date()
-        result = await db_session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
+        result = await db_session.execute(select(DailyBriefing))
         briefing = result.scalar_one()
         assert briefing.total_items == 0
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -127,7 +128,7 @@ def auth_headers() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 # Seed helpers
 # ---------------------------------------------------------------------------
-async def seed_news_item(session: AsyncSession, **overrides) -> NewsItem:
+async def seed_news_item(session: AsyncSession, **overrides: Any) -> NewsItem:
     """Insert a single NewsItem and flush. Returns the ORM instance."""
     defaults: dict = {
         "title": "Test AI Breakthrough",
@@ -150,7 +151,7 @@ async def seed_news_item(session: AsyncSession, **overrides) -> NewsItem:
     return item
 
 
-async def seed_briefing(session: AsyncSession, **overrides) -> DailyBriefing:
+async def seed_briefing(session: AsyncSession, **overrides: Any) -> DailyBriefing:
     """Insert a DailyBriefing and flush."""
     defaults: dict = {
         "date": datetime.now(tz=UTC).date(),
