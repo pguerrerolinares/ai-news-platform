@@ -19,6 +19,8 @@ from src.core.models import ItemEmbedding, NewsItem
 router = APIRouter(prefix="/api/items", tags=["items"])
 limiter = Limiter(key_func=get_remote_address)
 
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+
 
 @router.get(
     "",
@@ -131,7 +133,9 @@ async def list_items_by_date(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
+    query = query.order_by(
+        NewsItem.score.desc().nulls_last(), NewsItem.created_at.desc()
+    ).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
@@ -223,8 +227,10 @@ async def list_today_items(
 @limiter.limit("30/minute")
 async def list_top_items(
     request: Request,
+    response: Response,
     days: int = Query(7, ge=1, le=90, description="Look back N days"),
     limit: int = Query(10, ge=1, le=50, description="Max items to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
     session: AsyncSession = Depends(get_session),
@@ -242,12 +248,17 @@ async def list_top_items(
     if source:
         query = query.where(NewsItem.source == source)
 
-    query = query.order_by(NewsItem.score.desc().nulls_last()).limit(limit)
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
+    total = (await session.execute(count_query)).scalar_one()
+    set_total_count_header(response, total)
+
+    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
+# IMPORTANT: This route MUST be last — {item_id} is a catch-all path parameter.
 @router.get(
     "/{item_id}/similar",
     response_model=list[NewsItemResponse],
@@ -267,7 +278,10 @@ async def get_similar_items(
     """Find similar items using pgvector cosine distance."""
     # Get embedding for the source item
     result = await session.execute(
-        select(ItemEmbedding).where(ItemEmbedding.item_id == item_id).limit(1)
+        select(ItemEmbedding)
+        .where(ItemEmbedding.item_id == item_id)
+        .where(ItemEmbedding.model == _DEFAULT_EMBEDDING_MODEL)
+        .limit(1)
     )
     embedding_row = result.scalar_one_or_none()
 
@@ -279,6 +293,7 @@ async def get_similar_items(
         select(NewsItem)
         .join(ItemEmbedding, NewsItem.id == ItemEmbedding.item_id)
         .where(ItemEmbedding.item_id != item_id)
+        .where(ItemEmbedding.model == _DEFAULT_EMBEDDING_MODEL)
         .order_by(ItemEmbedding.embedding.cosine_distance(embedding_row.embedding))
         .limit(limit)
     )
