@@ -42,12 +42,12 @@ become documented findings for a future milestone.
 
 ## Success Criteria
 
-- [ ] All ~31 security tests pass (`pytest tests/security/ -m security --timeout=30`)
-- [ ] No unit test regressions (702 still pass)
-- [ ] No integration test regressions (28 still pass)
-- [ ] `ruff check .` clean
-- [ ] CI pipeline runs security tests after integration tests
-- [ ] Every attack vector produces the expected defensive response (not a 500)
+- [x] All 37 security tests pass (`pytest tests/security/ -m security --timeout=30`)
+- [x] No unit test regressions (702 still pass)
+- [x] No integration test regressions (28 still pass)
+- [x] `ruff check .` clean
+- [x] CI pipeline runs security tests after integration tests
+- [x] Every attack vector produces the expected defensive response (not a 500)
 
 ---
 
