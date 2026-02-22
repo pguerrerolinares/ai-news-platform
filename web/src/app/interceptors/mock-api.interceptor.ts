@@ -1,6 +1,14 @@
-import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
+import { HttpHeaders, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { of } from 'rxjs';
 import { NewsItem, Briefing } from '../models/news-item';
+
+function paginatedResponse<T>(items: T[]): HttpResponse<T[]> {
+  return new HttpResponse({
+    status: 200,
+    body: items,
+    headers: new HttpHeaders({ 'X-Total-Count': items.length.toString() }),
+  });
+}
 
 // JWT con exp=9999999999 (año ~2286) — pasa el check de AuthService.isAuthenticated()
 export const MOCK_JWT =
@@ -8,7 +16,7 @@ export const MOCK_JWT =
   '.eyJzdWIiOiIxIiwiZXhwIjo5OTk5OTk5OTk5fQ' +
   '.mockSignature';
 
-const TODAY = '2026-02-19';
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const MOCK_ITEMS: NewsItem[] = [
   {
@@ -399,7 +407,7 @@ function makeBriefing(date: string, withItems: boolean): Briefing {
 
 // Generate 14 days of briefings ending today
 const MOCK_BRIEFINGS: Briefing[] = Array.from({ length: 14 }, (_, i) => {
-  const d = new Date('2026-02-19');
+  const d = new Date();
   d.setDate(d.getDate() - (13 - i));
   const dateStr = d.toISOString().slice(0, 10);
   return makeBriefing(dateStr, dateStr === TODAY);
@@ -410,12 +418,12 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   // POST /api/auth/token
   if (req.method === 'POST' && url === '/api/auth/token') {
-    return of(new HttpResponse({ status: 200, body: { access_token: MOCK_JWT } }));
+    return of(new HttpResponse({ status: 200, body: { access_token: MOCK_JWT, token_type: 'bearer' } }));
   }
 
   // GET /api/briefings (all) — must check before /api/briefings/:date
   if (req.method === 'GET' && url === '/api/briefings') {
-    return of(new HttpResponse({ status: 200, body: MOCK_BRIEFINGS }));
+    return of(paginatedResponse(MOCK_BRIEFINGS));
   }
 
   // GET /api/briefings/:date
@@ -430,12 +438,12 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   // GET /api/items/today — must check before /api/items
   if (req.method === 'GET' && url === '/api/items/today') {
-    return of(new HttpResponse({ status: 200, body: MOCK_ITEMS }));
+    return of(paginatedResponse(MOCK_ITEMS));
   }
 
   // GET /api/items (archive / generic)
   if (req.method === 'GET' && url === '/api/items') {
-    return of(new HttpResponse({ status: 200, body: MOCK_ITEMS }));
+    return of(paginatedResponse(MOCK_ITEMS));
   }
 
   // GET /api/topics
@@ -451,7 +459,8 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       (item) => item.title.toLowerCase().includes(q) || (item.summary ?? '').toLowerCase().includes(q),
     );
     if (topic) results = results.filter((item) => item.topic === topic);
-    return of(new HttpResponse({ status: 200, body: results.slice(0, 20) }));
+    const sliced = results.slice(0, 20);
+    return of(paginatedResponse(sliced));
   }
 
   return next(req);
