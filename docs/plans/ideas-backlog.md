@@ -29,6 +29,20 @@
   - Frontend: Chart renderer component inside chat messages
   - LLM prompt engineering to produce chart-ready data
 
+## Frontend — Editorial Redesign (Backlog)
+
+- [ ] **Admin/Reader view toggle**: Dashboard switches between Reader (news-first) and
+  Admin (pipeline stats) views. Requires user types/roles (not yet implemented).
+
+- [ ] **Mobile bottom nav redesign**: Current Material nav is generic. Redesign with
+  editorial aesthetic matching the Stitch dark mode design (DASH, LOGS, bolt, STATS, API).
+
+- [ ] **Theme simplification**: Only dark/light toggle (remove "system" preference option).
+  Keep it simple — 2 modes only.
+
+- [ ] **Auto-hide nav on scroll**: Bottom navigation bar should hide when scrolling down
+  and reappear when scrolling up. Saves mobile viewport space.
+
 ## Frontend — UX Improvements
 
 - [ ] **Pagination UI controls**: Now that all list endpoints support `offset`/`limit`
