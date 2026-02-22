@@ -1,103 +1,141 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule, MatChipListboxChange } from '@angular/material/chips';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
+import { DatePipe, UpperCasePipe } from '@angular/common';
 import { NewsService } from '../services/news.service';
-import { NewsItem } from '../models/news-item';
-import { Briefing } from '../models/news-item';
+import { NewsItem, Briefing } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, NewsItemCard, MatCardModule, MatChipsModule, MatProgressBarModule, MatButtonModule, MatIconModule],
+  imports: [DatePipe, UpperCasePipe, NewsItemCard],
   template: `
-    <div class="dashboard">
-      @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
-      }
+    <div class="editorial">
+      <!-- Header -->
+      <header class="ed-header">
+        <div class="ed-header-top">
+          <span class="mono text-muted vol-label">Vol. I &bull; {{ todayFormatted() }}</span>
+        </div>
+        <h1 class="ed-title">AI News<br/>Aggregator</h1>
+        <div class="ed-header-meta">
+          <span class="mono text-muted"><span class="status-dot"></span> Online</span>
+          <span class="mono text-muted">{{ items().length }} noticias</span>
+        </div>
+      </header>
 
-      @if (error()) {
-        <div class="error">{{ error() }}</div>
-      }
-
-      @if (!loading() && !error()) {
-        <!-- Stats bar -->
-        @if (briefing()) {
-          <div class="stats-bar">
-            <div class="stat">
-              <mat-icon class="stat-icon">cloud_download</mat-icon>
-              <span class="stat-value">{{ briefing()!.total_items ?? '-' }}</span>
+      <!-- Stats Module -->
+      @if (briefing(); as b) {
+        <section class="ed-stats">
+          <div class="stat-module">
+            <div class="stat-item">
+              <span class="stat-value accent">{{ b.total_items ?? '-' }}</span>
               <span class="stat-label">Extraídas</span>
+              <div class="stat-bar"><div class="stat-bar-fill accent-bg" [style.width.%]="100"></div></div>
             </div>
-            <div class="stat">
-              <mat-icon class="stat-icon">filter_list</mat-icon>
-              <span class="stat-value">{{ briefing()!.items_after_dedup ?? '-' }}</span>
+            <div class="stat-item">
+              <span class="stat-value">{{ b.items_after_dedup ?? '-' }}</span>
               <span class="stat-label">Dedup</span>
+              <div class="stat-bar"><div class="stat-bar-fill" [style.width.%]="barPercent(b.items_after_dedup, b.total_items)"></div></div>
             </div>
-            <div class="stat">
-              <mat-icon class="stat-icon">done_all</mat-icon>
-              <span class="stat-value">{{ briefing()!.items_filtered ?? '-' }}</span>
+            <div class="stat-item">
+              <span class="stat-value">{{ b.items_filtered ?? '-' }}</span>
               <span class="stat-label">Filtradas</span>
+              <div class="stat-bar"><div class="stat-bar-fill" [style.width.%]="barPercent(b.items_filtered, b.total_items)"></div></div>
             </div>
-            <div class="stat">
-              <mat-icon class="stat-icon">trending_up</mat-icon>
-              <span class="stat-value">{{ briefing()!.trending_count ?? '-' }}</span>
+            <div class="stat-item">
+              <span class="stat-value forest">{{ b.trending_count ?? '-' }}</span>
               <span class="stat-label">Trending</span>
+              <div class="stat-bar"><div class="stat-bar-fill forest-bg" [style.width.%]="barPercent(b.trending_count, b.items_filtered)"></div></div>
             </div>
-            @if (briefing()!.duration_seconds) {
-              <div class="stat">
-                <mat-icon class="stat-icon">timer</mat-icon>
-                <span class="stat-value">{{ briefing()!.duration_seconds }}s</span>
-                <span class="stat-label">Duración</span>
+            @if (b.duration_seconds) {
+              <div class="stat-item span-2">
+                <span class="stat-value">{{ b.duration_seconds }}s</span>
+                <span class="stat-label">Duración del ciclo</span>
+                <div class="stat-bar"><div class="stat-bar-fill" [style.width.%]="90"></div></div>
               </div>
             }
           </div>
-        }
+        </section>
+      }
 
-        <!-- Topic distribution -->
-        @if (topicCounts().length > 0) {
-          <div class="topic-summary">
-            <h3>Distribución por tema</h3>
-            <div class="topic-chips-row">
-              <mat-chip-listbox
-                [value]="selectedTopic()"
-                (change)="onChipChange($event)"
-                class="topic-chips"
-              >
-                @for (tc of topicCounts(); track tc.topic) {
-                  <mat-chip-option class="topic-chip" [value]="tc.topic" [attr.data-topic]="tc.topic">
-                    {{ tc.topic }} <strong>{{ tc.count }}</strong>
-                  </mat-chip-option>
+      <!-- Topic Filters -->
+      @if (topicCounts().length > 0) {
+        <div class="ed-filters">
+          <span class="mono filter-label">Filters:</span>
+          @for (tc of topicCounts(); track tc.topic) {
+            <button
+              class="filter-chip"
+              [class.active]="selectedTopic() === tc.topic"
+              (click)="toggleTopic(tc.topic)"
+            >{{ tc.topic }}/{{ tc.count }}</button>
+          }
+          @if (selectedTopic()) {
+            <button class="filter-clear" (click)="selectedTopic.set(null)">limpiar</button>
+          }
+        </div>
+      }
+
+      <!-- Hero / Featured Analysis -->
+      @if (heroItem(); as hero) {
+        <section class="ed-section">
+          <article class="ed-card hero-card">
+            <div class="card-header" [attr.data-source]="hero.source">
+              <span class="heading-xs">Featured Analysis</span>
+              <span class="mono">SRC: {{ hero.source | uppercase }}</span>
+            </div>
+            <div class="card-body">
+              <h2 class="hero-title">
+                @if (hero.url) {
+                  <a [href]="hero.url" target="_blank" rel="noopener">{{ hero.title }}</a>
+                } @else {
+                  {{ hero.title }}
                 }
-              </mat-chip-listbox>
-              @if (selectedTopic()) {
-                <button mat-button class="clear-filter" (click)="clearFilter()">limpiar filtro</button>
+              </h2>
+              @if (hero.summary) {
+                <p class="hero-summary">{{ hero.summary }}</p>
               }
             </div>
+            <div class="card-meta-grid">
+              <div class="meta-cell border-right">
+                <span class="mono text-muted meta-label">Score</span>
+                <span class="mono meta-value">{{ hero.score ?? '-' }} pts</span>
+              </div>
+              <div class="meta-cell">
+                <span class="mono text-muted meta-label">Byline</span>
+                <span class="mono meta-value truncate">{{ hero.author ?? 'unknown' }}</span>
+              </div>
+            </div>
+          </article>
+        </section>
+      }
+
+      <!-- The Dispatch — News Grid -->
+      @if (regularItems().length > 0) {
+        <section class="ed-section">
+          <div class="section-header">
+            <h3 class="section-title">The Dispatch</h3>
+            <div class="section-line"></div>
           </div>
-        }
+          <div class="news-grid">
+            @for (item of regularItems(); track item.id; let i = $index) {
+              <app-news-item-card [item]="item" [class.span-2]="i % 5 === 4" />
+            }
+          </div>
+        </section>
+      }
 
-        @if (items().length === 0) {
-          <div class="empty">No hay noticias disponibles hoy. Ejecuta el pipeline primero.</div>
-        }
-
-        @if (filteredItems().length > 0) {
-          <div class="count-label">{{ filteredItems().length }} noticias hoy</div>
-        }
-
-        <!-- Hero card -->
-        @if (heroItem(); as hero) {
-          <app-news-item-card [item]="hero" [hero]="true" class="fade-in hero-entry" />
-        }
-
-        <!-- News list -->
-        <div class="news-list">
-          @for (item of regularItems(); track item.id; let i = $index) {
-            <app-news-item-card [item]="item" class="fade-in" [style.animation-delay]="i * 50 + 'ms'" />
-          }
+      <!-- Loading / Error / Empty -->
+      @if (loading()) {
+        <div class="ed-loading">
+          <span class="mono">Cargando noticias...</span>
+        </div>
+      }
+      @if (error()) {
+        <div class="ed-error">
+          <span class="mono">{{ error() }}</span>
+        </div>
+      }
+      @if (!loading() && !error() && items().length === 0) {
+        <div class="ed-empty">
+          <span class="mono">No hay noticias disponibles hoy. Ejecuta el pipeline primero.</span>
         </div>
       }
     </div>
@@ -105,107 +143,261 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
 
-    .loading-bar { margin-bottom: 24px; }
-
-    .error, .empty {
-      padding: 32px;
-      text-align: center;
-      border-radius: 14px;
-      margin: 24px 0;
-      font-size: var(--text-base);
-    }
-    .error {
-      background: var(--error-subtle);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.15);
-    }
-    .empty {
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-    }
-
-    .topic-summary { margin-bottom: 24px; }
-    .topic-summary h3 {
-      margin: 0 0 12px;
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      font-weight: 600;
+    /* === Typography helpers === */
+    .heading-xs {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: var(--tracking-wider);
+      letter-spacing: 0.12em;
+    }
+    .mono {
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+    .text-muted { opacity: 0.6; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .accent { color: var(--ed-terracotta); }
+    .accent-bg { background: var(--ed-terracotta); }
+    .forest { color: var(--ed-forest); }
+    .forest-bg { background: var(--ed-forest); }
+
+    /* === Layout === */
+    .editorial {
+      max-width: 900px;
+      margin: 0 auto;
+      padding-bottom: 48px;
     }
 
-    .topic-chips-row {
+    /* === Header === */
+    .ed-header {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .ed-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .vol-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; }
+    .ed-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+      margin: 0;
+      color: var(--text-primary);
+    }
+    .ed-header-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ed-status-color);
+      margin-right: 4px;
+      vertical-align: middle;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    /* === Stats Module === */
+    .ed-stats { padding: 16px 0; }
+    .stat-module {
+      background: var(--text-primary);
+      color: var(--bg-base);
+      padding: 20px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px 16px;
+      border-radius: 2px;
+      box-shadow: var(--ed-stat-shadow);
+    }
+    .stat-item { display: flex; flex-direction: column; }
+    .stat-item.span-2 { grid-column: span 2; }
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+    .stat-label {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+    .stat-bar {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      margin-top: 6px;
+    }
+    .stat-bar-fill {
+      height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      transition: width 0.6s ease;
+    }
+
+    /* === Filters === */
+    .ed-filters {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
+      padding: 12px 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .ed-filters::-webkit-scrollbar { display: none; }
+    .filter-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .filter-chip {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 4px 12px;
+      border: 1px solid var(--text-primary);
+      background: transparent;
+      color: var(--text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .filter-chip:hover, .filter-chip.active {
+      background: var(--text-primary);
+      color: var(--bg-base);
+    }
+    .filter-clear {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ed-terracotta);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      white-space: nowrap;
     }
 
-    .topic-chips {
+    /* === Sections === */
+    .ed-section { margin-bottom: 32px; }
+    .section-header {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .topic-chip {
-      --mdc-chip-elevated-container-color: var(--bg-elevated);
-      --mdc-chip-label-text-color: var(--text-secondary);
-      --mdc-chip-outline-color: var(--border);
-      --mdc-chip-label-text-font: var(--font-body);
-      --mdc-chip-label-text-size: var(--text-sm);
-      border: 1px solid var(--border);
-      border-radius: 980px;
-      transition: border-color 0.15s ease, background 0.15s ease;
-    }
-
-    .topic-chip.mat-mdc-chip-selected {
-      --mdc-chip-elevated-selected-container-color: var(--accent);
-      --mdc-chip-selected-label-text-color: #fff;
-      border-color: transparent;
-    }
-
-    :host-context(html:not(.dark)) .topic-chip.mat-mdc-chip-selected {
-      --mdc-chip-elevated-selected-container-color: var(--accent);
-      --mdc-chip-selected-label-text-color: #fff;
-    }
-
-    .topic-chip strong {
-      margin-left: 4px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-    .topic-chip.mat-mdc-chip-selected strong { color: inherit; opacity: 0.7; }
-
-    /* Topic color tints */
-    .topic-chip[data-topic="modelos"] { border-color: color-mix(in srgb, var(--topic-modelos) 30%, transparent); color: var(--topic-modelos); }
-    .topic-chip[data-topic="herramientas"] { border-color: color-mix(in srgb, var(--topic-herramientas) 30%, transparent); color: var(--topic-herramientas); }
-    .topic-chip[data-topic="papers"] { border-color: color-mix(in srgb, var(--topic-papers) 30%, transparent); color: var(--topic-papers); }
-    .topic-chip[data-topic="open_source"] { border-color: color-mix(in srgb, var(--topic-open_source) 30%, transparent); color: var(--topic-open_source); }
-    .topic-chip[data-topic="productos"] { border-color: color-mix(in srgb, var(--topic-productos) 30%, transparent); color: var(--topic-productos); }
-    .topic-chip[data-topic="agentes"] { border-color: color-mix(in srgb, var(--topic-agentes) 30%, transparent); color: var(--topic-agentes); }
-    .topic-chip[data-topic="regulacion"] { border-color: color-mix(in srgb, var(--topic-regulacion) 30%, transparent); color: var(--topic-regulacion); }
-
-    .clear-filter {
-      color: var(--accent);
-      font-size: var(--text-sm);
-      font-weight: 500;
-      --mdc-text-button-label-text-color: var(--accent);
-    }
-
-    .count-label {
-      color: var(--text-muted);
+      align-items: center;
+      gap: 12px;
       margin-bottom: 16px;
-      font-size: 0.875rem;
-      font-weight: 500;
+    }
+    .section-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.125rem;
+      text-transform: uppercase;
+      margin: 0;
+      white-space: nowrap;
+      color: var(--text-primary);
+    }
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--text-primary);
+      opacity: 0.2;
     }
 
-    .hero-entry { margin-bottom: 14px; }
+    /* === Hero Card (inline, not using news-item-card) === */
+    .ed-card {
+      border: 1px solid var(--text-primary);
+      background: var(--bg-surface);
+      transition: transform 0.15s ease;
+    }
+    .ed-card:active { transform: scale(0.99); }
 
-    .news-list {
+    .card-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
       display: flex;
-      flex-direction: column;
-      gap: 14px;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      background: var(--bg-elevated);
+    }
+    .card-header[data-source="hackernews"] { background: var(--source-hackernews); color: white; }
+    .card-header[data-source="arxiv"] { background: var(--source-arxiv); color: white; }
+    .card-header[data-source="github"] { background: var(--source-github); color: white; }
+    .card-header[data-source="reddit"] { background: var(--source-reddit); color: white; }
+    .card-header[data-source="rss"] { background: var(--source-rss); color: #1A1A1A; }
+    .card-header[data-source="huggingface"] { background: var(--source-huggingface); color: #1A1A1A; }
+
+    .card-body { padding: 16px; }
+
+    .card-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--border);
+    }
+    .meta-cell { padding: 10px 12px; display: flex; flex-direction: column; }
+    .meta-cell.border-right { border-right: 1px solid var(--border); }
+    .meta-label { font-size: 9px; text-transform: uppercase; }
+    .meta-value { font-size: 0.9rem; }
+
+    .hero-card { margin-bottom: 24px; }
+    .hero-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: clamp(1.25rem, 3vw, 1.75rem);
+      line-height: 1.15;
+      margin: 0 0 12px;
+      color: var(--text-primary);
+    }
+    .hero-title a {
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .hero-title a:hover { text-decoration: underline; }
+    .hero-summary {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* === News Grid === */
+    .news-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .span-2 { grid-column: span 2; }
+
+    /* === Loading / Error / Empty === */
+    .ed-loading, .ed-error, .ed-empty {
+      padding: 48px;
+      text-align: center;
+      font-size: var(--text-base);
+      border: 1px solid var(--border);
+    }
+    .ed-error { color: var(--error); }
+    .ed-empty { color: var(--text-muted); }
+
+    /* === Mobile === */
+    @media (max-width: 640px) {
+      .news-grid { grid-template-columns: 1fr; }
+      .span-2 { grid-column: span 1; }
+      .stat-module { grid-template-columns: repeat(2, 1fr); }
+      .stat-item.span-2 { grid-column: span 2; }
+      .ed-title { font-size: 2rem; }
     }
   `],
 })
@@ -217,6 +409,11 @@ export class DashboardPage implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   selectedTopic = signal<string | null>(null);
+
+  todayFormatted = computed(() => {
+    const d = new Date();
+    return d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase();
+  });
 
   topicCounts = computed(() => {
     const counts = new Map<string, number>();
@@ -239,7 +436,7 @@ export class DashboardPage implements OnInit {
     const items = this.filteredItems();
     if (items.length === 0) return null;
     const trending = items.filter(i => i.trending);
-    if (trending.length === 0) return null;
+    if (trending.length === 0) return items[0];
     return trending.reduce((best, item) =>
       (item.score ?? 0) > (best.score ?? 0) ? item : best, trending[0]);
   });
@@ -250,12 +447,26 @@ export class DashboardPage implements OnInit {
     return this.filteredItems().filter(i => i.id !== hero.id);
   });
 
-  onChipChange(event: MatChipListboxChange) {
-    this.selectedTopic.set(event.value || null);
+  barPercent(value: number | null | undefined, total: number | null | undefined): number {
+    if (!value || !total || total === 0) return 0;
+    return Math.min(100, Math.round((value / total) * 100));
   }
 
-  clearFilter() {
-    this.selectedTopic.set(null);
+  toggleTopic(topic: string) {
+    this.selectedTopic.set(this.selectedTopic() === topic ? null : topic);
+  }
+
+  private loadTodayItems() {
+    this.newsService.getTodayItems().subscribe({
+      next: (res) => {
+        this.items.set(res.items);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set('Error al cargar noticias. Verifica que el API esté disponible.');
+        this.loading.set(false);
+      },
+    });
   }
 
   ngOnInit() {
@@ -264,23 +475,14 @@ export class DashboardPage implements OnInit {
     this.newsService.getBriefing(today).subscribe({
       next: (briefing) => {
         this.briefing.set(briefing);
-        this.items.set(briefing.items || []);
-        this.loading.set(false);
+        if (briefing.items && briefing.items.length > 0) {
+          this.items.set(briefing.items);
+          this.loading.set(false);
+        } else {
+          this.loadTodayItems();
+        }
       },
-      error: () => {
-        // Fallback to today items if briefing not available
-        this.newsService.getTodayItems().subscribe({
-          next: (res) => {
-            this.items.set(res.items);
-            this.loading.set(false);
-          },
-          error: (err) => {
-            this.error.set('Error al cargar noticias. Verifica que el API este disponible.');
-            this.loading.set(false);
-            console.error('Failed to load news:', err);
-          },
-        });
-      },
+      error: () => this.loadTodayItems(),
     });
   }
 }

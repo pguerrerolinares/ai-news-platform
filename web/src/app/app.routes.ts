@@ -6,7 +6,6 @@ import { ArchivePage } from './pages/archive';
 import { SearchPage } from './pages/search';
 import { AnalyticsPage } from './pages/analytics';
 import { ChatPage } from './pages/chat';
-
 export const routes: Routes = [
   { path: 'login', component: LoginPage },
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard] },
