@@ -8,23 +8,23 @@ test.describe('Archive', () => {
   });
 
   test('auto-carga el briefing de hoy al entrar', async ({ page }) => {
-    await expect(page.locator('.stats-bar')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.stat-module')).toBeVisible({ timeout: 8000 });
     await expect(page.locator('app-news-item-card').first()).toBeVisible({ timeout: 8000 });
   });
 
   test('stats bar labels tienen acentos correctos', async ({ page }) => {
-    await page.waitForSelector('.stats-bar');
+    await page.waitForSelector('.stat-module');
     await expect(page.locator('.stat-label').filter({ hasText: 'Extraídas' })).toBeVisible();
     await expect(page.locator('.stat-label').filter({ hasText: 'Duración' })).toBeVisible();
   });
 
-  test('título de distribución por tema tiene tilde', async ({ page }) => {
-    await page.waitForSelector('.topic-summary');
-    await expect(page.locator('.topic-summary h3')).toContainText('Distribución por tema');
+  test('topic chips se muestran correctamente', async ({ page }) => {
+    await page.waitForSelector('.topic-row', { timeout: 8000 });
+    await expect(page.locator('.topic-chip').first()).toBeVisible();
   });
 
   test('el toggle del datepicker abre el calendario', async ({ page }) => {
-    await page.waitForSelector('.stats-bar');
+    await page.waitForSelector('.stat-module');
     const toggle = page.locator('mat-datepicker-toggle button').first();
     await expect(toggle).toBeVisible();
     await toggle.click();

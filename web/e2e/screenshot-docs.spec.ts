@@ -70,7 +70,7 @@ async function shotElement(
 async function capturePages(page: Page, subfolder: string) {
   // Dashboard
   await page.goto('/dashboard');
-  await page.waitForSelector('.stats-bar');
+  await page.waitForSelector('.stat-module');
   await page.waitForSelector('app-news-item-card');
   await freezeAnimations(page);
   await ensureFullRender(page);
@@ -78,7 +78,7 @@ async function capturePages(page: Page, subfolder: string) {
 
   // Archive
   await page.goto('/archive');
-  await page.waitForSelector('.stats-bar', { timeout: 8000 });
+  await page.waitForSelector('.stat-module', { timeout: 8000 });
   await page.waitForSelector('app-news-item-card');
   await freezeAnimations(page);
   await ensureFullRender(page);
@@ -122,8 +122,8 @@ async function captureComponents(page: Page, subfolder: string) {
   await shotElement(page, '.navbar', subfolder, 'navbar');
 
   // Stats bar
-  await page.waitForSelector('.stats-bar');
-  await shotElement(page, '.stats-bar', subfolder, 'stats-bar');
+  await page.waitForSelector('.stat-module');
+  await shotElement(page, '.stat-module', subfolder, 'stat-module');
 
   // News card
   await page.waitForSelector('app-news-item-card');
@@ -142,7 +142,7 @@ async function captureComponents(page: Page, subfolder: string) {
 
   // mat-datepicker abierto
   await page.goto('/archive');
-  await page.waitForSelector('.stats-bar', { timeout: 8000 });
+  await page.waitForSelector('.stat-module', { timeout: 8000 });
   await freezeAnimations(page);
   await page.locator('mat-datepicker-toggle button').first().click();
   await page.waitForSelector('.mat-datepicker-content', { timeout: 3000 });

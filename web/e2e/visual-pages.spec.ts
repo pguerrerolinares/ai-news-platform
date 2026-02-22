@@ -16,7 +16,7 @@ test.describe('Visual — Páginas completas', () => {
   test('Dashboard', async ({ page }, testInfo) => {
     const theme = getTheme(testInfo.project.name);
     await page.goto('/dashboard');
-    await page.waitForSelector('.stats-bar');
+    await page.waitForSelector('.stat-module');
     await page.waitForSelector('app-news-item-card');
     await freezeAnimations(page);
     await expect(page).toHaveScreenshot(`dashboard-${theme}.png`, { fullPage: true });
@@ -25,7 +25,7 @@ test.describe('Visual — Páginas completas', () => {
   test('Archive', async ({ page }, testInfo) => {
     const theme = getTheme(testInfo.project.name);
     await page.goto('/archive');
-    await page.waitForSelector('.stats-bar', { timeout: 8000 });
+    await page.waitForSelector('.stat-module', { timeout: 8000 });
     await page.waitForSelector('app-news-item-card');
     await freezeAnimations(page);
     await expect(page).toHaveScreenshot(`archive-${theme}.png`, { fullPage: true });

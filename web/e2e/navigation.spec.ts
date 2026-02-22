@@ -6,7 +6,7 @@ test.describe('Login', () => {
     // En mock mode, APP_INITIALIZER auto-autentica siempre.
     // Probamos que la página login es accesible y muestra el formulario.
     await page.goto('/login');
-    await expect(page.locator('h1')).toContainText('AI News Platform');
+    await expect(page.locator('h1')).toContainText('AI NEWS');
     await expect(page.locator('#password')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Ingresar' })).toBeVisible();
   });
@@ -16,7 +16,7 @@ test.describe('Login', () => {
     await page.locator('#password').fill('cualquier-password');
     await page.getByRole('button', { name: 'Ingresar' }).click();
     await expect(page).toHaveURL(/dashboard/);
-    await expect(page.locator('.stats-bar')).toBeVisible();
+    await expect(page.locator('.stat-module')).toBeVisible();
   });
 });
 

@@ -23,9 +23,9 @@ test.describe('Visual — Componentes críticos', () => {
   test('Stats bar', async ({ page }, testInfo) => {
     const theme = getTheme(testInfo.project.name);
     await page.goto('/dashboard');
-    await page.waitForSelector('.stats-bar');
+    await page.waitForSelector('.stat-module');
     await freezeAnimations(page);
-    await expect(page.locator('.stats-bar')).toHaveScreenshot(`stats-bar-${theme}.png`);
+    await expect(page.locator('.stat-module')).toHaveScreenshot(`stat-module-${theme}.png`);
   });
 
   test('News card', async ({ page }, testInfo) => {
@@ -51,7 +51,7 @@ test.describe('Visual — Componentes críticos', () => {
   test('mat-datepicker abierto', async ({ page }, testInfo) => {
     const theme = getTheme(testInfo.project.name);
     await page.goto('/archive');
-    await page.waitForSelector('.stats-bar', { timeout: 8000 });
+    await page.waitForSelector('.stat-module', { timeout: 8000 });
     await freezeAnimations(page);
     await page.locator('mat-datepicker-toggle button').first().click();
     await page.waitForSelector('.mat-datepicker-content', { timeout: 3000 });
