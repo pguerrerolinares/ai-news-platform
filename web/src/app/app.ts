@@ -1,38 +1,33 @@
 import { Component, HostListener, inject, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatToolbarModule, MatButtonModule, MatIconModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     @if (showNav()) {
-      <mat-toolbar class="navbar">
-        <div class="nav-brand">AI News Platform</div>
-        <button mat-icon-button class="hamburger" (click)="toggleMenu()">
-          <mat-icon>menu</mat-icon>
+      <nav class="navbar">
+        <div class="nav-brand">
+          <span class="status-dot"></span>
+          AI NEWS AGGREGATOR
+        </div>
+        <button class="hamburger" (click)="toggleMenu()" aria-label="Menu">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
         </button>
         <div class="nav-links" [class.open]="menuOpen()">
-          <a mat-button routerLink="/dashboard" routerLinkActive="active" (click)="onNavClick()">Dashboard</a>
-          <a mat-button routerLink="/archive" routerLinkActive="active" (click)="onNavClick()">Archivo</a>
-          <a mat-button routerLink="/search" routerLinkActive="active" (click)="onNavClick()">Buscar</a>
-          <a mat-button routerLink="/analytics" routerLinkActive="active" (click)="onNavClick()">Analytics</a>
-          <a mat-button routerLink="/chat" routerLinkActive="active" (click)="onNavClick()">Chat</a>
-          <button mat-icon-button class="theme-toggle" (click)="cycleTheme()" [title]="'Tema: ' + currentTheme()">
-            @if (currentTheme() === 'dark') {
-              <mat-icon>dark_mode</mat-icon>
-            } @else if (currentTheme() === 'light') {
-              <mat-icon>light_mode</mat-icon>
-            } @else {
-              <mat-icon>monitor</mat-icon>
-            }
+          <a routerLink="/dashboard" routerLinkActive="active" (click)="onNavClick()">DASH</a>
+          <a routerLink="/archive" routerLinkActive="active" (click)="onNavClick()">ARCHIVO</a>
+          <a routerLink="/search" routerLinkActive="active" (click)="onNavClick()">BUSCAR</a>
+          <a routerLink="/analytics" routerLinkActive="active" (click)="onNavClick()">STATS</a>
+          <a routerLink="/chat" routerLinkActive="active" (click)="onNavClick()">CHAT</a>
+          <button class="theme-toggle" (click)="cycleTheme()" [title]="'Tema: ' + currentTheme()">
+            {{ currentTheme() === 'dark' ? 'LIGHT' : 'DARK' }}
           </button>
-          <button mat-button class="logout-btn" (click)="onLogout()">Salir</button>
+          <button class="logout-btn" (click)="onLogout()">SALIR</button>
         </div>
-      </mat-toolbar>
+      </nav>
     }
 
     <main [class.with-nav]="showNav()">
@@ -44,8 +39,6 @@ import { AuthService } from './services/auth.service';
       display: block;
       font-family: var(--font-body);
       color: var(--text-secondary);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
     .navbar {
       display: flex;
@@ -53,90 +46,118 @@ import { AuthService } from './services/auth.service';
       justify-content: space-between;
       padding: 0 28px;
       height: 52px;
-      background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--text-primary);
       position: sticky;
       top: 0;
       z-index: 100;
     }
     .nav-brand {
       font-family: var(--font-heading);
-      font-weight: 800;
-      font-size: var(--text-base);
-      letter-spacing: var(--tracking-tight);
+      font-weight: 700;
+      font-size: var(--text-sm);
+      letter-spacing: -0.03em;
       color: var(--text-primary);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ed-status-color);
+      animation: pulse-dot 2s ease-in-out infinite;
     }
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 2px;
+      gap: 0;
     }
-    .nav-links a.mat-mdc-button {
-      color: var(--text-muted);
-      font-size: var(--text-sm);
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 10px;
       font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      text-decoration: none;
       padding: 6px 14px;
-      min-width: auto;
-      letter-spacing: var(--tracking-normal);
       position: relative;
-      --mdc-text-button-label-text-color: var(--text-muted);
-      --mdc-text-button-hover-label-text-color: var(--text-primary);
-      transition: color 0.2s ease;
+      transition: color 0.15s ease;
     }
-    .nav-links a.mat-mdc-button::after {
+    .nav-links a::after {
       content: '';
       position: absolute;
-      bottom: 4px;
+      bottom: -2px;
       left: 50%;
       transform: translateX(-50%);
       width: 0;
       height: 2px;
-      border-radius: 1px;
       background: var(--accent);
-      transition: width 0.2s ease;
+      transition: width 0.15s ease;
     }
-    .nav-links a.mat-mdc-button:hover {
+    .nav-links a:hover {
       color: var(--text-primary);
     }
-    .nav-links a.mat-mdc-button:hover::after {
-      width: 16px;
+    .nav-links a:hover::after {
+      width: 100%;
     }
-    .nav-links a.mat-mdc-button.active {
+    .nav-links a.active {
       color: var(--text-primary);
       font-weight: 600;
-      --mdc-text-button-label-text-color: var(--text-primary);
     }
-    .nav-links a.mat-mdc-button.active::after {
-      width: 20px;
+    .nav-links a.active::after {
+      width: 100%;
     }
     .theme-toggle {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
       color: var(--text-muted);
-      margin-left: 4px;
-      --mdc-icon-button-icon-color: var(--text-muted);
-      transition: color 0.15s ease, transform 0.3s ease;
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      cursor: pointer;
+      margin-left: 8px;
+      transition: color 0.15s ease, border-color 0.15s ease;
     }
     .theme-toggle:hover {
       color: var(--text-primary);
-      --mdc-icon-button-icon-color: var(--text-primary);
-      transform: rotate(15deg);
+      border-color: var(--text-primary);
     }
     .logout-btn {
-      color: var(--text-muted);
-      font-size: var(--text-sm);
+      font-family: var(--font-mono);
+      font-size: 10px;
       font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      padding: 6px 10px;
+      cursor: pointer;
       margin-left: 4px;
-      --mdc-text-button-label-text-color: var(--text-muted);
-      --mdc-text-button-hover-label-text-color: var(--text-primary);
+      transition: color 0.15s ease;
     }
     .logout-btn:hover {
-      color: var(--text-primary);
+      color: var(--accent);
     }
     .hamburger {
       display: none;
-      color: var(--text-primary);
-      --mdc-icon-button-icon-color: var(--text-primary);
+      flex-direction: column;
+      gap: 4px;
+      background: none;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+    }
+    .hamburger-line {
+      display: block;
+      width: 18px;
+      height: 1.5px;
+      background: var(--text-primary);
     }
     main.with-nav {
       max-width: 1120px;
@@ -148,8 +169,8 @@ import { AuthService } from './services/auth.service';
         padding: 0 16px;
         height: 48px;
       }
-      .nav-brand { font-size: 0.875rem; }
-      .hamburger { display: inline-flex; }
+      .nav-brand { font-size: 11px; }
+      .hamburger { display: flex; }
       .nav-links {
         display: flex;
         flex-direction: column;
@@ -158,11 +179,10 @@ import { AuthService } from './services/auth.service';
         left: 0;
         right: 0;
         background: var(--bg-surface);
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--text-primary);
         padding: 8px 16px 12px;
         gap: 2px;
         z-index: 99;
-        backdrop-filter: blur(12px);
         opacity: 0;
         visibility: hidden;
         transform: translateY(-6px);
@@ -175,15 +195,13 @@ import { AuthService } from './services/auth.service';
         transform: translateY(0);
         pointer-events: auto;
       }
-      .nav-links a.mat-mdc-button {
-        font-size: var(--text-sm);
+      .nav-links a {
+        font-size: 11px;
         padding: 10px 16px;
         width: 100%;
-        justify-content: flex-start;
       }
-      .nav-links a.mat-mdc-button::after { display: none; }
-      .nav-links a.mat-mdc-button.active::after { display: none; }
-      .logout-btn { font-size: var(--text-sm); padding: 10px 16px; text-align: left; }
+      .nav-links a::after { display: none; }
+      .logout-btn { font-size: 11px; padding: 10px 16px; text-align: left; }
       .theme-toggle { margin: 4px 16px; }
       main.with-nav { padding: 24px 16px; }
     }
@@ -194,36 +212,27 @@ export class App {
   private router = inject(Router);
 
   menuOpen = signal(false);
-  currentTheme = signal<'dark' | 'light' | 'system'>(this.getInitialTheme());
+  currentTheme = signal<'dark' | 'light'>(this.getInitialTheme());
 
-  private getInitialTheme(): 'dark' | 'light' | 'system' {
+  private getInitialTheme(): 'dark' | 'light' {
     const stored = localStorage.getItem('theme');
-    if (stored === 'dark' || stored === 'light') return stored;
-    return 'system';
+    if (stored === 'light') return 'light';
+    return 'dark';
   }
 
   cycleTheme() {
-    const order: ('dark' | 'light' | 'system')[] = ['dark', 'light', 'system'];
-    const idx = order.indexOf(this.currentTheme());
-    const next = order[(idx + 1) % order.length];
+    const next = this.currentTheme() === 'dark' ? 'light' : 'dark';
     this.currentTheme.set(next);
     this.applyTheme(next);
   }
 
-  private applyTheme(theme: 'dark' | 'light' | 'system') {
+  private applyTheme(theme: 'dark' | 'light') {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
-    } else if (theme === 'light') {
+    } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
-    } else {
-      localStorage.removeItem('theme');
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
     }
   }
 
