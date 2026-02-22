@@ -1,25 +1,26 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatIconModule } from '@angular/material/icon';
 import { NewsService } from '../services/news.service';
-import { NewsItem } from '../models/news-item';
-import { Briefing } from '../models/news-item';
+import { NewsItem, Briefing } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-archive',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatChipsModule, MatProgressBarModule, MatIconModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule],
   template: `
     <div class="archive">
+      <!-- Section header -->
+      <div class="section-header">
+        <h1 class="section-title">ARCHIVO</h1>
+        <div class="section-line"></div>
+      </div>
+
       <div class="controls">
         <mat-form-field appearance="outline" class="control-field">
           <mat-label>Fecha</mat-label>
@@ -45,67 +46,53 @@ import { NewsItemCard } from '../components/news-item-card';
       </div>
 
       @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+        <div class="ed-loading"><span class="mono">Cargando archivo...</span></div>
       }
 
       @if (error()) {
-        <div class="error">{{ error() }}</div>
+        <div class="ed-error"><span class="mono">{{ error() }}</span></div>
       }
 
       @if (!loading() && !error()) {
-        <!-- Stats bar -->
-        @if (briefing()) {
-          <div class="stats-bar">
-            <div class="stat">
-              <mat-icon class="stat-icon">cloud_download</mat-icon>
-              <span class="stat-value">{{ briefing()!.total_items ?? '-' }}</span>
+        <!-- Stats Module -->
+        @if (briefing(); as b) {
+          <div class="stat-module">
+            <div class="stat-item">
+              <span class="stat-value accent">{{ b.total_items ?? '-' }}</span>
               <span class="stat-label">Extraídas</span>
             </div>
-            <div class="stat">
-              <mat-icon class="stat-icon">filter_list</mat-icon>
-              <span class="stat-value">{{ briefing()!.items_after_dedup ?? '-' }}</span>
+            <div class="stat-item">
+              <span class="stat-value">{{ b.items_after_dedup ?? '-' }}</span>
               <span class="stat-label">Dedup</span>
             </div>
-            <div class="stat">
-              <mat-icon class="stat-icon">done_all</mat-icon>
-              <span class="stat-value">{{ briefing()!.items_filtered ?? '-' }}</span>
+            <div class="stat-item">
+              <span class="stat-value">{{ b.items_filtered ?? '-' }}</span>
               <span class="stat-label">Filtradas</span>
             </div>
-            <div class="stat">
-              <mat-icon class="stat-icon">trending_up</mat-icon>
-              <span class="stat-value">{{ briefing()!.trending_count ?? '-' }}</span>
+            <div class="stat-item">
+              <span class="stat-value forest">{{ b.trending_count ?? '-' }}</span>
               <span class="stat-label">Trending</span>
             </div>
-            @if (briefing()!.duration_seconds) {
-              <div class="stat">
-                <mat-icon class="stat-icon">timer</mat-icon>
-                <span class="stat-value">{{ briefing()!.duration_seconds }}s</span>
-                <span class="stat-label">Duración</span>
-              </div>
+          </div>
+        }
+
+        <!-- Topic chips -->
+        @if (topicCounts().length > 0) {
+          <div class="topic-row">
+            @for (tc of topicCounts(); track tc.topic) {
+              <span class="topic-chip" [attr.data-topic]="tc.topic">
+                {{ tc.topic }}/{{ tc.count }}
+              </span>
             }
           </div>
         }
 
-        <!-- Topic distribution -->
-        @if (topicCounts().length > 0) {
-          <div class="topic-summary">
-            <h3>Distribución por tema</h3>
-            <div class="topic-chips">
-              @for (tc of topicCounts(); track tc.topic) {
-                <span class="topic-chip" [attr.data-topic]="tc.topic">
-                  {{ tc.topic }} <strong>{{ tc.count }}</strong>
-                </span>
-              }
-            </div>
-          </div>
-        }
-
-        @if (!loading() && items().length === 0 && !error()) {
-          <div class="empty">No hay noticias para esta fecha.</div>
+        @if (items().length === 0) {
+          <div class="ed-empty"><span class="mono">No hay noticias para esta fecha.</span></div>
         }
 
         @if (filteredItems().length > 0) {
-          <div class="count-label">{{ filteredItems().length }} noticias del {{ selectedDate | date:'yyyy-MM-dd' }}</div>
+          <div class="count-label mono">{{ filteredItems().length }} NOTICIAS DEL {{ selectedDate | date:'yyyy-MM-dd' }}</div>
         }
 
         <div class="news-list">
@@ -119,6 +106,29 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
 
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+      margin: 0;
+      white-space: nowrap;
+      color: var(--text-primary);
+    }
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--text-primary);
+      opacity: 0.2;
+    }
+
     .controls {
       display: flex;
       align-items: flex-start;
@@ -127,67 +137,72 @@ import { NewsItemCard } from '../components/news-item-card';
     }
     .control-field { min-width: 180px; }
 
-    .loading-bar { margin-bottom: 24px; }
-
-    .error, .empty {
-      padding: 32px;
-      text-align: center;
-      border-radius: 14px;
-      margin: 24px 0;
-      font-size: var(--text-base);
+    .stat-module {
+      background: var(--text-primary);
+      color: var(--bg-base);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      border-radius: 2px;
+      box-shadow: var(--ed-stat-shadow);
+      margin-bottom: 16px;
     }
-    .error {
-      background: var(--error-subtle);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.15);
+    .stat-item { display: flex; flex-direction: column; align-items: center; }
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 500;
     }
-    .empty {
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-    }
-
-    .topic-summary { margin-bottom: 24px; }
-    .topic-summary h3 {
-      margin: 0 0 12px;
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      font-weight: 600;
+    .stat-label {
+      font-size: 8px;
       text-transform: uppercase;
-      letter-spacing: var(--tracking-wider);
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      opacity: 0.7;
+      font-family: var(--font-mono);
     }
+    .accent { color: var(--ed-terracotta); }
+    .forest { color: var(--ed-forest); }
 
-    .topic-chips {
+    .topic-row {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+      margin-bottom: 16px;
     }
-
     .topic-chip {
-      font-size: var(--text-sm);
-      padding: 5px 14px;
-      border-radius: 980px;
-      background: var(--bg-elevated);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
       border: 1px solid var(--border);
       color: var(--text-secondary);
+      font-weight: 500;
     }
-    .topic-chip strong { margin-left: 4px; color: var(--text-muted); }
-
-    /* Topic color tints */
-    .topic-chip[data-topic="modelos"] { border-color: color-mix(in srgb, var(--topic-modelos) 30%, transparent); color: var(--topic-modelos); }
-    .topic-chip[data-topic="herramientas"] { border-color: color-mix(in srgb, var(--topic-herramientas) 30%, transparent); color: var(--topic-herramientas); }
-    .topic-chip[data-topic="papers"] { border-color: color-mix(in srgb, var(--topic-papers) 30%, transparent); color: var(--topic-papers); }
-    .topic-chip[data-topic="open_source"] { border-color: color-mix(in srgb, var(--topic-open_source) 30%, transparent); color: var(--topic-open_source); }
-    .topic-chip[data-topic="productos"] { border-color: color-mix(in srgb, var(--topic-productos) 30%, transparent); color: var(--topic-productos); }
-    .topic-chip[data-topic="agentes"] { border-color: color-mix(in srgb, var(--topic-agentes) 30%, transparent); color: var(--topic-agentes); }
-    .topic-chip[data-topic="regulacion"] { border-color: color-mix(in srgb, var(--topic-regulacion) 30%, transparent); color: var(--topic-regulacion); }
+    .topic-chip[data-topic="modelos"] { border-color: var(--topic-modelos); color: var(--topic-modelos); }
+    .topic-chip[data-topic="herramientas"] { border-color: var(--topic-herramientas); color: var(--topic-herramientas); }
+    .topic-chip[data-topic="papers"] { border-color: var(--topic-papers); color: var(--topic-papers); }
+    .topic-chip[data-topic="open_source"] { border-color: var(--topic-open_source); color: var(--topic-open_source); }
+    .topic-chip[data-topic="productos"] { border-color: var(--topic-productos); color: var(--topic-productos); }
+    .topic-chip[data-topic="agentes"] { border-color: var(--topic-agentes); color: var(--topic-agentes); }
+    .topic-chip[data-topic="regulacion"] { border-color: var(--topic-regulacion); color: var(--topic-regulacion); }
 
     .count-label {
       color: var(--text-muted);
       margin-bottom: 16px;
-      font-size: 0.875rem;
-      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 0.06em;
     }
+    .mono { font-family: var(--font-mono); }
+
+    .ed-loading, .ed-error, .ed-empty {
+      padding: 48px;
+      text-align: center;
+      border: 1px solid var(--border);
+      font-size: var(--text-base);
+    }
+    .ed-error { color: var(--error); }
+    .ed-empty { color: var(--text-muted); }
 
     .news-list {
       display: flex;
@@ -198,6 +213,7 @@ import { NewsItemCard } from '../components/news-item-card';
     @media (max-width: 640px) {
       .controls { flex-wrap: wrap; }
       .control-field { width: 100%; min-width: 0; }
+      .stat-module { grid-template-columns: repeat(2, 1fr); }
     }
   `],
 })
@@ -259,7 +275,6 @@ export class ArchivePage implements OnInit {
           this.error.set('Error al cargar el archivo. Intenta de nuevo.');
         }
         this.loading.set(false);
-        console.error('Failed to load archive:', err);
       },
     });
   }

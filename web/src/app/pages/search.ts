@@ -7,22 +7,25 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatIconModule } from '@angular/material/icon';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatProgressBarModule, MatIconModule],
+  imports: [CommonModule, FormsModule, NewsItemCard, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule],
   template: `
     <div class="search-page">
+      <!-- Section header -->
+      <div class="section-header">
+        <h1 class="section-title">BUSCAR</h1>
+        <div class="section-line"></div>
+      </div>
+
       <form class="search-form" (ngSubmit)="onSearch()">
         <div class="search-row">
           <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
             <mat-label>Buscar noticias</mat-label>
-            <mat-icon matPrefix class="search-icon">search</mat-icon>
             <input
               matInput
               type="text"
@@ -38,8 +41,7 @@ import { NewsItemCard } from '../components/news-item-card';
             class="search-btn submit-btn"
             [disabled]="loading() || !query.trim()"
           >
-            <mat-icon>search</mat-icon>
-            Buscar
+            BUSCAR
           </button>
         </div>
 
@@ -70,8 +72,8 @@ import { NewsItemCard } from '../components/news-item-card';
 
       @if (!searched() && !loading()) {
         <div class="search-empty-state">
-          <mat-icon class="search-empty-icon">manage_search</mat-icon>
-          <p class="search-empty-title">Busca entre las noticias archivadas</p>
+          <div class="empty-icon mono">?</div>
+          <p class="empty-title mono">BUSCA ENTRE LAS NOTICIAS ARCHIVADAS</p>
           <div class="search-suggestions">
             @for (term of quickTerms; track term) {
               <button type="button" class="quick-chip" (click)="quickSearch(term)">{{ term }}</button>
@@ -81,19 +83,19 @@ import { NewsItemCard } from '../components/news-item-card';
       }
 
       @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+        <div class="ed-loading"><span class="mono">Buscando...</span></div>
       }
 
       @if (error()) {
-        <div class="error">{{ error() }}</div>
+        <div class="ed-error"><span class="mono">{{ error() }}</span></div>
       }
 
       @if (searched() && !loading() && !error() && results().length === 0) {
-        <div class="empty">No se encontraron resultados para "{{ lastQuery() }}"</div>
+        <div class="ed-empty"><span class="mono">No se encontraron resultados para "{{ lastQuery() }}"</span></div>
       }
 
       @if (results().length > 0) {
-        <div class="count-label">{{ results().length }} resultados para "{{ lastQuery() }}"</div>
+        <div class="count-label mono">{{ results().length }} RESULTADOS PARA "{{ lastQuery() | uppercase }}"</div>
       }
 
       <div class="news-list">
@@ -106,6 +108,29 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
 
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+      margin: 0;
+      white-space: nowrap;
+      color: var(--text-primary);
+    }
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--text-primary);
+      opacity: 0.2;
+    }
+
     .search-form { margin-bottom: 8px; }
 
     .search-row {
@@ -113,25 +138,14 @@ import { NewsItemCard } from '../components/news-item-card';
       gap: 10px;
       align-items: center;
     }
-
     .search-field { flex: 1; }
-
     .search-btn {
       height: 56px;
       padding: 0 28px;
-      font-size: var(--text-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
       font-weight: 600;
-      letter-spacing: var(--tracking-normal);
-      font-family: var(--font-body);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .search-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      letter-spacing: 0.08em;
     }
 
     .filters {
@@ -141,43 +155,7 @@ import { NewsItemCard } from '../components/news-item-card';
     }
     .filter-field { min-width: 140px; }
 
-    .loading-bar { margin-bottom: 24px; }
-
-    .error, .empty {
-      padding: 32px;
-      text-align: center;
-      border-radius: 14px;
-      margin: 24px 0;
-      font-size: var(--text-base);
-    }
-    .error {
-      background: var(--error-subtle);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.15);
-    }
-    .empty {
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-    }
-
-    .count-label {
-      color: var(--text-muted);
-      margin-bottom: 16px;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .news-list {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .search-icon {
-      color: var(--text-muted);
-      margin-right: 4px;
-    }
+    .mono { font-family: var(--font-mono); }
 
     .search-empty-state {
       display: flex;
@@ -187,27 +165,18 @@ import { NewsItemCard } from '../components/news-item-card';
       text-align: center;
       animation: fade-in 0.4s ease-out both;
     }
-
-    .search-empty-icon {
+    .empty-icon {
       font-size: 48px;
-      width: 48px;
-      height: 48px;
       color: var(--accent);
-      opacity: 0.5;
+      opacity: 0.4;
       margin-bottom: 16px;
-      animation: float 3s ease-in-out infinite;
+      font-weight: 700;
     }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-4px); }
-    }
-
-    .search-empty-title {
+    .empty-title {
       margin: 0 0 20px;
-      font-size: var(--text-base);
-      font-weight: 500;
-      color: var(--text-secondary);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
     }
 
     .search-suggestions {
@@ -216,24 +185,42 @@ import { NewsItemCard } from '../components/news-item-card';
       gap: 8px;
       justify-content: center;
     }
-
     .quick-chip {
       cursor: pointer;
-      background: var(--bg-elevated);
+      background: transparent;
       color: var(--text-secondary);
-      border: 1px solid var(--border);
-      border-radius: 980px;
+      border: 1px solid var(--text-primary);
       padding: 6px 16px;
-      font-family: var(--font-body);
-      font-size: var(--text-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
       font-weight: 500;
-      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .quick-chip:hover {
+      background: var(--text-primary);
+      color: var(--bg-base);
     }
 
-    .quick-chip:hover {
-      border-color: var(--accent);
-      background: var(--accent-glow);
-      color: var(--accent);
+    .ed-loading, .ed-error, .ed-empty {
+      padding: 48px;
+      text-align: center;
+      border: 1px solid var(--border);
+      font-size: var(--text-base);
+    }
+    .ed-error { color: var(--error); }
+    .ed-empty { color: var(--text-muted); }
+
+    .count-label {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+    }
+
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
 
     @media (max-width: 640px) {
@@ -303,7 +290,7 @@ export class SearchPage implements OnInit {
           this.loading.set(false);
         },
         error: (err) => {
-          this.error.set('Error en la busqueda. Intenta de nuevo.');
+          this.error.set('Error en la búsqueda. Intenta de nuevo.');
           this.loading.set(false);
           console.error('Search failed:', err);
         },

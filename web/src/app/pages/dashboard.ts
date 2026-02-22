@@ -1,12 +1,12 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DatePipe, UpperCasePipe } from '@angular/common';
+import { UpperCasePipe } from '@angular/common';
 import { NewsService } from '../services/news.service';
 import { NewsItem, Briefing } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [DatePipe, UpperCasePipe, NewsItemCard],
+  imports: [UpperCasePipe, NewsItemCard],
   template: `
     <div class="editorial">
       <!-- Header -->

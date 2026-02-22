@@ -5,7 +5,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { AuthService } from '../services/auth.service';
@@ -27,20 +26,18 @@ interface ChatSource {
 
 @Component({
   selector: 'app-chat',
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
   template: `
     <div class="chat-page">
       <div class="chat-messages" #messagesContainer>
         @if (messages().length === 0) {
           <div class="empty-state">
-            <div class="welcome-glow"></div>
-            <mat-icon class="welcome-icon">auto_awesome</mat-icon>
-            <h2 class="gradient-title">Chat con IA</h2>
-            <p>Pregunta sobre noticias de IA y tecnologia</p>
+            <h2 class="welcome-title">CHAT CON IA</h2>
+            <p class="welcome-sub mono">Pregunta sobre noticias de IA y tecnología</p>
             <div class="suggestions">
               @for (s of suggestions; track s.text) {
                 <button type="button" class="suggestion-chip" (click)="askQuestion(s.text)">
-                  <mat-icon class="chip-icon">{{ s.icon }}</mat-icon>
+                  <span class="chip-label mono">{{ s.label }}</span>
                   <span>{{ s.text }}</span>
                 </button>
               }
@@ -57,12 +54,12 @@ interface ChatSource {
             }
             @if (msg.sources && msg.sources.length > 0) {
               <div class="sources">
-                <span class="sources-label">Fuentes:</span>
+                <span class="sources-label mono">FUENTES:</span>
                 @for (src of msg.sources; track src.id) {
                   @if (src.url) {
-                    <a [href]="src.url" target="_blank" rel="noopener" class="source-link">{{ src.title }}</a>
+                    <a [href]="src.url" target="_blank" rel="noopener" class="source-link mono">{{ src.title }}</a>
                   } @else {
-                    <span class="source-link no-url">{{ src.title }}</span>
+                    <span class="source-link no-url mono">{{ src.title }}</span>
                   }
                 }
               </div>
@@ -106,8 +103,7 @@ interface ChatSource {
             class="send-btn submit-btn"
             [disabled]="streaming() || !question.trim()"
           >
-            <mat-icon>send</mat-icon>
-            Enviar
+            ENVIAR
           </button>
         </div>
       </form>
@@ -137,53 +133,25 @@ interface ChatSource {
       text-align: center;
       padding: 80px 24px;
       animation: fade-in 0.5s ease-out both;
-      position: relative;
     }
 
-    .welcome-glow {
-      position: absolute;
-      top: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 300px;
-      height: 200px;
-      background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .welcome-icon {
-      font-size: 40px;
-      width: 40px;
-      height: 40px;
-      color: var(--accent);
-      margin-bottom: 16px;
-      position: relative;
-      z-index: 1;
-      opacity: 0.8;
-    }
-
-    .gradient-title {
+    .welcome-title {
       font-family: var(--font-heading);
       font-size: var(--text-xl);
       margin: 0 0 8px;
-      font-weight: 800;
-      letter-spacing: var(--tracking-tight);
-      background: linear-gradient(135deg, var(--accent), #A78BFA);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      position: relative;
-      z-index: 1;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
     }
 
-    .empty-state p {
+    .welcome-sub {
       margin: 0 0 36px;
-      font-size: var(--text-base);
+      font-size: 11px;
       color: var(--text-muted);
-      position: relative;
-      z-index: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
+    .mono { font-family: var(--font-mono); }
 
     .suggestions {
       display: grid;
@@ -191,76 +159,63 @@ interface ChatSource {
       gap: 10px;
       max-width: 500px;
       margin: 0 auto;
-      position: relative;
-      z-index: 1;
     }
 
     .suggestion-chip {
       cursor: pointer;
-      background: var(--bg-elevated);
+      background: var(--bg-surface);
       color: var(--text-secondary);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      border: 1px solid var(--text-primary);
       padding: 14px 16px;
       font-family: var(--font-body);
       font-size: var(--text-sm);
-      font-weight: 400;
       text-align: left;
       width: 100%;
       line-height: var(--leading-relaxed);
-      transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-      white-space: normal;
-      word-break: break-word;
+      transition: background 0.15s ease, color 0.15s ease;
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
+      flex-direction: column;
+      gap: 4px;
     }
-
-    .chip-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+    .chip-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
       color: var(--accent);
-      opacity: 0.6;
-      flex-shrink: 0;
-      margin-top: 2px;
+      font-weight: 600;
     }
-
     .suggestion-chip:hover {
-      border-color: var(--accent);
-      background: var(--accent-glow);
-      color: var(--text-primary);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+      background: var(--text-primary);
+      color: var(--bg-base);
     }
-
-    .suggestion-chip:hover .chip-icon {
-      opacity: 1;
+    .suggestion-chip:hover .chip-label {
+      color: var(--bg-base);
+      opacity: 0.7;
     }
 
     .message {
       padding: 14px 18px;
-      border-radius: 18px;
       max-width: 82%;
       line-height: var(--leading-relaxed);
       font-size: var(--text-base);
       animation: fade-in 0.3s ease-out both;
+      border: 1px solid var(--border);
     }
 
     .message.user {
       align-self: flex-end;
       background: var(--accent);
       color: #fff;
-      border-bottom-right-radius: 6px;
-      white-space: pre-wrap;
+      border-color: var(--accent);
+    }
+    :host-context(.dark) .message.user {
+      color: #000;
     }
 
     .message.assistant {
       align-self: flex-start;
       background: var(--bg-elevated);
-      border: 1px solid var(--border);
       color: var(--text-secondary);
-      border-bottom-left-radius: 6px;
     }
 
     .message-content { word-break: break-word; }
@@ -278,17 +233,15 @@ interface ChatSource {
       background: var(--bg-base);
       border: 1px solid var(--border);
       padding: 2px 6px;
-      border-radius: 5px;
       font-family: var(--font-mono);
       font-size: 0.85em;
     }
 
     .message.assistant .message-content pre {
       background: var(--bg-base);
-      border: 1px solid var(--border);
+      border: 1px solid var(--text-primary);
       color: var(--text-primary);
       padding: 16px 18px;
-      border-radius: 12px;
       overflow-x: auto;
       margin: 0.5em 0;
     }
@@ -309,7 +262,6 @@ interface ChatSource {
       color: var(--accent);
       text-decoration: none;
     }
-
     .message.assistant .message-content a:hover {
       text-decoration: underline;
     }
@@ -329,38 +281,28 @@ interface ChatSource {
       gap: 6px;
       align-items: center;
     }
-
     .sources-label {
-      font-size: var(--text-xs);
+      font-size: 9px;
       font-weight: 600;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: var(--tracking-wide);
+      letter-spacing: 0.08em;
     }
-
     .source-link {
-      font-size: var(--text-sm);
+      font-size: 10px;
       padding: 3px 10px;
       background: var(--bg-hover);
       color: var(--text-secondary);
       border: 1px solid var(--border);
-      border-radius: 6px;
       text-decoration: none;
       transition: border-color 0.15s ease;
     }
-
-    .source-link:hover {
-      border-color: var(--accent);
-    }
-
+    .source-link:hover { border-color: var(--accent); }
     .source-link.no-url { color: var(--text-muted); }
 
     .chat-input-form {
       padding: 16px 0;
-      border-top: 1px solid var(--border);
-      background: color-mix(in srgb, var(--bg-base) 85%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid var(--text-primary);
+      background: var(--bg-base);
       position: sticky;
       bottom: 0;
     }
@@ -370,31 +312,21 @@ interface ChatSource {
       gap: 8px;
       align-items: flex-start;
     }
-
     .topic-field { min-width: 140px; }
     .chat-field { flex: 1; }
 
     .send-btn {
       height: 56px;
       padding: 0 24px;
-      font-size: var(--text-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
       font-weight: 600;
-      font-family: var(--font-body);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .send-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      letter-spacing: 0.08em;
     }
 
     @media (max-width: 640px) {
       :host { height: calc(100vh - 80px); }
       .suggestions { grid-template-columns: 1fr; }
-      .welcome-glow { width: 200px; height: 150px; }
       .input-row { flex-wrap: wrap; }
       .topic-field { min-width: 100%; }
       .chat-field { min-width: 0; flex: 1; }
@@ -425,10 +357,10 @@ export class ChatPage implements OnInit, AfterViewChecked {
   }
 
   suggestions = [
-    { text: 'Que modelos de IA se lanzaron esta semana?', icon: 'auto_awesome' },
-    { text: 'Cuales son las herramientas open source mas populares?', icon: 'code' },
-    { text: 'Que papers de LLMs se publicaron recientemente?', icon: 'description' },
-    { text: 'Que noticias hay sobre agentes de IA?', icon: 'smart_toy' },
+    { text: 'Que modelos de IA se lanzaron esta semana?', label: 'MODELOS' },
+    { text: 'Cuales son las herramientas open source mas populares?', label: 'TOOLS' },
+    { text: 'Que papers de LLMs se publicaron recientemente?', label: 'PAPERS' },
+    { text: 'Que noticias hay sobre agentes de IA?', label: 'AGENTES' },
   ];
 
   renderMarkdown(text: string): string {
@@ -499,7 +431,7 @@ export class ChatPage implements OnInit, AfterViewChecked {
 
         buffer += decoder.decode(value, { stream: true });
         const parts = buffer.split('\n');
-        buffer = parts.pop()!; // keep incomplete last line
+        buffer = parts.pop()!;
 
         let currentEvent = '';
 
@@ -526,7 +458,6 @@ export class ChatPage implements OnInit, AfterViewChecked {
               fullText += errMsg;
               this.streamBuffer.set(fullText);
             }
-            // 'done' event — no action needed, stream ends naturally
           } catch {
             // ignore parse errors on partial chunks
           }

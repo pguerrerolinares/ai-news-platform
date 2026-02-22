@@ -1,7 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,27 +8,28 @@ import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <div class="login-container">
-      <mat-card class="login-card">
-        <h1>AI News Platform</h1>
-        <p class="subtitle">Ingresa para acceder al panel</p>
+      <div class="login-card">
+        <div class="brand-line"></div>
+        <h1>AI NEWS<br/>AGGREGATOR</h1>
+        <p class="subtitle mono">INGRESA PARA ACCEDER AL PANEL</p>
 
         @if (errorMsg()) {
-          <div class="error">{{ errorMsg() }}</div>
+          <div class="error mono">{{ errorMsg() }}</div>
         }
 
         <form (ngSubmit)="onLogin()">
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Contrasena</mat-label>
+            <mat-label>Contraseña</mat-label>
             <input
               matInput
               id="password"
               type="password"
               [(ngModel)]="password"
               name="password"
-              placeholder="Ingresa la contrasena"
+              placeholder="Ingresa la contraseña"
               [disabled]="loading()"
               autocomplete="current-password"
             />
@@ -41,13 +41,13 @@ import { AuthService } from '../services/auth.service';
             [disabled]="loading() || !password"
           >
             @if (loading()) {
-              Ingresando...
+              INGRESANDO...
             } @else {
-              Ingresar
+              INGRESAR
             }
           </button>
         </form>
-      </mat-card>
+      </div>
     </div>
   `,
   styles: [`
@@ -57,87 +57,70 @@ import { AuthService } from '../services/auth.service';
       align-items: center;
       min-height: 100vh;
       background: var(--bg-base);
-      position: relative;
-      overflow: hidden;
     }
-    :host::before {
-      content: '';
-      position: absolute;
-      top: -40%;
-      right: -20%;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    :host::after {
-      content: '';
-      position: absolute;
-      bottom: -30%;
-      left: -10%;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-      pointer-events: none;
-    }
+
     .login-container {
       width: 100%;
       max-width: 400px;
       padding: 24px;
-      position: relative;
-      z-index: 1;
     }
+
     .login-card {
       padding: 52px 44px;
-      border-radius: 16px !important;
-      border: 1px solid var(--border-hover) !important;
+      border: 1px solid var(--text-primary);
+      background: var(--bg-surface);
       animation: scale-in 0.5s ease-out both;
     }
+
+    .brand-line {
+      width: 40px;
+      height: 3px;
+      background: var(--accent);
+      margin-bottom: 24px;
+    }
+
     h1 {
       margin: 0 0 8px;
       font-family: var(--font-heading);
       font-size: var(--text-2xl);
-      font-weight: 800;
-      text-align: center;
-      letter-spacing: var(--tracking-tight);
+      font-weight: 700;
+      letter-spacing: -0.03em;
       color: var(--text-primary);
-      line-height: var(--leading-tight);
+      line-height: 0.95;
+      text-transform: uppercase;
     }
+
     .subtitle {
       margin: 0 0 36px;
       color: var(--text-muted);
-      font-size: var(--text-base);
-      text-align: center;
-      font-weight: 400;
+      font-size: 10px;
+      letter-spacing: 0.1em;
     }
+    .mono { font-family: var(--font-mono); }
+
     .error {
       background: var(--error-subtle);
-      color: #f87171;
+      color: var(--error);
       padding: 12px 16px;
-      border-radius: 10px;
       border: 1px solid rgba(239, 68, 68, 0.15);
-      font-size: 0.875rem;
+      font-size: 11px;
       margin-bottom: 20px;
-      font-weight: 500;
+      letter-spacing: 0.04em;
     }
-    .full-width {
-      width: 100%;
-    }
-    mat-form-field.full-width {
-      margin-bottom: 8px;
-    }
+
+    .full-width { width: 100%; }
+
+    mat-form-field.full-width { margin-bottom: 8px; }
+
     button.submit-btn {
       height: 52px;
-      font-size: var(--text-base);
-      font-weight: 600;
-      letter-spacing: var(--tracking-normal);
-      font-family: var(--font-body);
-      border-radius: 10px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
     }
+
     @media (max-width: 640px) {
       .login-container { padding: 16px; }
       .login-card { padding: 40px 28px; }
-      :host::before, :host::after { display: none; }
     }
   `],
 })
@@ -162,9 +145,9 @@ export class LoginPage {
       error: (err) => {
         this.loading.set(false);
         if (err.status === 401 || err.status === 403) {
-          this.errorMsg.set('Contrasena incorrecta');
+          this.errorMsg.set('Contraseña incorrecta');
         } else {
-          this.errorMsg.set('Error de conexion. Intenta de nuevo.');
+          this.errorMsg.set('Error de conexión. Intenta de nuevo.');
         }
       },
     });
