@@ -1,8 +1,9 @@
-import { Component, OnInit, inject, signal, computed, ElementRef } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal, computed, ElementRef } from '@angular/core';
 import { UpperCasePipe } from '@angular/common';
 import { NewsService } from '../services/news.service';
 import { NewsItem, Briefing } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
+import { animateCardStagger, animateElement, animateStatCounters, killTweens, GsapTween } from '../utils/gsap-animations';
 
 @Component({
   selector: 'app-dashboard',
@@ -49,7 +50,7 @@ import { NewsItemCard } from '../components/news-item-card';
               <div class="stat-item span-2">
                 <span class="stat-value">{{ b.duration_seconds }}s</span>
                 <span class="stat-label">Duración del ciclo</span>
-                <div class="stat-bar"><div class="stat-bar-fill" [style.width.%]="90"></div></div>
+                <div class="stat-bar"><div class="stat-bar-fill" [style.width.%]="durationBarPercent(b.duration_seconds)"></div></div>
               </div>
             }
           </div>
@@ -143,7 +144,6 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
 
-    /* === Typography helpers === */
     .heading-xs {
       font-family: var(--font-heading);
       font-weight: 700;
@@ -151,25 +151,13 @@ import { NewsItemCard } from '../components/news-item-card';
       text-transform: uppercase;
       letter-spacing: 0.12em;
     }
-    .mono {
-      font-family: var(--font-mono);
-      font-weight: 500;
-    }
-    .text-muted { opacity: 0.6; }
-    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .accent { color: var(--ed-terracotta); }
-    .accent-bg { background: var(--ed-terracotta); }
-    .forest { color: var(--ed-forest); }
-    .forest-bg { background: var(--ed-forest); }
 
-    /* === Layout === */
     .editorial {
       max-width: 900px;
       margin: 0 auto;
       padding-bottom: 48px;
     }
 
-    /* === Header === */
     .ed-header {
       padding: 20px 0;
       border-bottom: 1px solid var(--text-primary);
@@ -200,18 +188,6 @@ import { NewsItemCard } from '../components/news-item-card';
       text-transform: uppercase;
     }
 
-    .status-dot {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--ed-status-color);
-      margin-right: 4px;
-      vertical-align: middle;
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-
-    /* === Stats Module === */
     .ed-stats { padding: 16px 0; }
     .stat-module {
       background: var(--text-primary);
@@ -249,7 +225,6 @@ import { NewsItemCard } from '../components/news-item-card';
       transition: width 0.6s ease;
     }
 
-    /* === Filters === */
     .ed-filters {
       display: flex;
       align-items: center;
@@ -292,31 +267,9 @@ import { NewsItemCard } from '../components/news-item-card';
       white-space: nowrap;
     }
 
-    /* === Sections === */
     .ed-section { margin-bottom: 32px; }
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .section-title {
-      font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: 1.125rem;
-      text-transform: uppercase;
-      margin: 0;
-      white-space: nowrap;
-      color: var(--text-primary);
-    }
-    .section-line {
-      flex: 1;
-      height: 1px;
-      background: var(--text-primary);
-      opacity: 0.2;
-    }
+    .section-title { font-size: 1.125rem; }
 
-    /* === Hero Card (inline, not using news-item-card) === */
     .ed-card {
       border: 1px solid var(--text-primary);
       background: var(--bg-surface);
@@ -373,7 +326,6 @@ import { NewsItemCard } from '../components/news-item-card';
       margin: 0;
     }
 
-    /* === News Grid === */
     .news-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -381,17 +333,7 @@ import { NewsItemCard } from '../components/news-item-card';
     }
     .span-2 { grid-column: span 2; }
 
-    /* === Loading / Error / Empty === */
-    .ed-loading, .ed-error, .ed-empty {
-      padding: 48px;
-      text-align: center;
-      font-size: var(--text-base);
-      border: 1px solid var(--border);
-    }
-    .ed-error { color: var(--error); }
-    .ed-empty { color: var(--text-muted); }
-
-    /* === Mobile === */
+    /* Mobile */
     @media (max-width: 640px) {
       .news-grid { grid-template-columns: 1fr; }
       .span-2 { grid-column: span 1; }
@@ -404,6 +346,8 @@ import { NewsItemCard } from '../components/news-item-card';
 export class DashboardPage implements OnInit {
   private newsService = inject(NewsService);
   private el = inject(ElementRef);
+  private destroyRef = inject(DestroyRef);
+  private activeTweens: GsapTween[] = [];
 
   items = signal<NewsItem[]>([]);
   briefing = signal<Briefing | null>(null);
@@ -453,6 +397,12 @@ export class DashboardPage implements OnInit {
     return Math.min(100, Math.round((value / total) * 100));
   }
 
+  /** Duration bar as % of a 120s reference ceiling. */
+  durationBarPercent(seconds: number | null | undefined): number {
+    if (!seconds) return 0;
+    return Math.min(100, Math.round((seconds / 120) * 100));
+  }
+
   toggleTopic(topic: string) {
     this.selectedTopic.set(this.selectedTopic() === topic ? null : topic);
   }
@@ -491,41 +441,13 @@ export class DashboardPage implements OnInit {
 
   private animateEntrance() {
     requestAnimationFrame(async () => {
-      const { gsap } = await import('gsap');
       const root = this.el.nativeElement;
-
-      // Stagger news cards
-      const cards = root.querySelectorAll('.news-grid app-news-item-card');
-      if (cards.length) {
-        gsap.from(cards, {
-          y: 20, opacity: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out',
-        });
-      }
-
-      // Hero card entrance
-      const hero = root.querySelector('.hero-card');
-      if (hero) {
-        gsap.from(hero, { y: 30, opacity: 0, duration: 0.5, ease: 'power2.out' });
-      }
-
-      // Stat counter animation
-      root.querySelectorAll('.stat-value').forEach((statEl: Element) => {
-        const text = statEl.textContent?.trim() ?? '';
-        const match = text.match(/^([\d.]+)(.*)/);
-        if (!match) return;
-        const num = parseFloat(match[1]);
-        if (isNaN(num)) return;
-        const suffix = match[2];
-        const isFloat = match[1].includes('.');
-        const obj = { val: 0 };
-        gsap.to(obj, {
-          val: num, duration: 1.2, ease: 'power2.out',
-          onUpdate: () => {
-            const display = isFloat ? obj.val.toFixed(1) : Math.round(obj.val).toString();
-            (statEl as HTMLElement).textContent = display + suffix;
-          },
-        });
-      });
+      const cardTween = await animateCardStagger(root, '.news-grid app-news-item-card');
+      const heroTween = await animateElement(root.querySelector('.hero-card'));
+      const statTweens = await animateStatCounters(root);
+      this.activeTweens.push(cardTween, heroTween, ...statTweens);
     });
+
+    this.destroyRef.onDestroy(() => killTweens(this.activeTweens));
   }
 }

@@ -1,6 +1,7 @@
-import { Component, Input, ElementRef, inject, afterNextRender } from '@angular/core';
+import { Component, Input, ElementRef, DestroyRef, inject, afterNextRender } from '@angular/core';
 import { DatePipe, UpperCasePipe } from '@angular/common';
 import { NewsItem } from '../models/news-item';
+import { setupSpringHover } from '../utils/gsap-animations';
 
 @Component({
   selector: 'app-news-item-card',
@@ -169,19 +170,15 @@ export class NewsItemCard {
   @Input() hero = false;
 
   private el = inject(ElementRef);
+  private destroyRef = inject(DestroyRef);
 
   constructor() {
     afterNextRender(async () => {
-      const { gsap } = await import('gsap');
-      const card = this.el.nativeElement.querySelector('.ed-card');
+      const card = this.el.nativeElement.querySelector('.ed-card') as HTMLElement | null;
       if (!card) return;
 
-      card.addEventListener('mouseenter', () => {
-        gsap.to(card, { y: -3, duration: 0.3, ease: 'back.out(2)' });
-      });
-      card.addEventListener('mouseleave', () => {
-        gsap.to(card, { y: 0, duration: 0.3, ease: 'power2.out' });
-      });
+      const cleanup = await setupSpringHover(card);
+      this.destroyRef.onDestroy(cleanup);
     });
   }
 }

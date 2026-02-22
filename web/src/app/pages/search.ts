@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { NewsService } from '../services/news.service';
 import { NewsItem } from '../models/news-item';
 import { NewsItemCard } from '../components/news-item-card';
+import { animateCardStagger } from '../utils/gsap-animations';
 
 @Component({
   selector: 'app-search',
@@ -108,28 +109,8 @@ import { NewsItemCard } from '../components/news-item-card';
   styles: [`
     :host { display: block; }
 
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .section-title {
-      font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: 1.5rem;
-      text-transform: uppercase;
-      letter-spacing: -0.02em;
-      margin: 0;
-      white-space: nowrap;
-      color: var(--text-primary);
-    }
-    .section-line {
-      flex: 1;
-      height: 1px;
-      background: var(--text-primary);
-      opacity: 0.2;
-    }
+    .section-header { margin-bottom: 20px; }
+    .section-title { font-size: 1.5rem; letter-spacing: -0.02em; }
 
     .search-form { margin-bottom: 8px; }
 
@@ -154,8 +135,6 @@ import { NewsItemCard } from '../components/news-item-card';
       flex-wrap: wrap;
     }
     .filter-field { min-width: 140px; }
-
-    .mono { font-family: var(--font-mono); }
 
     .search-empty-state {
       display: flex;
@@ -201,28 +180,6 @@ import { NewsItemCard } from '../components/news-item-card';
       color: var(--bg-base);
     }
 
-    .ed-loading, .ed-error, .ed-empty {
-      padding: 48px;
-      text-align: center;
-      border: 1px solid var(--border);
-      font-size: var(--text-base);
-    }
-    .ed-error { color: var(--error); }
-    .ed-empty { color: var(--text-muted); }
-
-    .count-label {
-      color: var(--text-muted);
-      margin-bottom: 16px;
-      font-size: 10px;
-      letter-spacing: 0.06em;
-    }
-
-    .news-list {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
     @media (max-width: 640px) {
       .search-form {
         display: flex;
@@ -263,7 +220,7 @@ export class SearchPage implements OnInit {
   ngOnInit() {
     this.newsService.getTopics().subscribe({
       next: (topics) => this.topics.set(topics),
-      error: (err) => console.error('Failed to load topics:', err),
+      error: () => { /* topics load is non-critical */ },
     });
   }
 
@@ -294,20 +251,13 @@ export class SearchPage implements OnInit {
         error: (err) => {
           this.error.set('Error en la búsqueda. Intenta de nuevo.');
           this.loading.set(false);
-          console.error('Search failed:', err);
         },
       });
   }
 
   private animateResults() {
-    requestAnimationFrame(async () => {
-      const { gsap } = await import('gsap');
-      const cards = this.el.nativeElement.querySelectorAll('.news-list app-news-item-card');
-      if (cards.length) {
-        gsap.from(cards, {
-          y: 20, opacity: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out',
-        });
-      }
+    requestAnimationFrame(() => {
+      animateCardStagger(this.el.nativeElement, '.news-list app-news-item-card');
     });
   }
 }

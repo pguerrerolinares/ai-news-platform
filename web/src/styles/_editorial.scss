@@ -1,0 +1,86 @@
+// web/src/styles/_editorial.scss
+// Shared editorial layout classes used across multiple page components.
+// Extracted to avoid DRY violations in inline component styles.
+
+// === Section header (used in dashboard, archive, search) ===
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--text-primary);
+  opacity: 0.2;
+}
+
+// === Typography helpers ===
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.text-muted { opacity: 0.6; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+// === Status dot (used in navbar + dashboard) ===
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ed-status-color);
+  margin-right: 4px;
+  vertical-align: middle;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.accent { color: var(--ed-terracotta); }
+.accent-bg { background: var(--ed-terracotta); }
+.forest { color: var(--ed-forest); }
+.forest-bg { background: var(--ed-forest); }
+
+// === State blocks (loading / error / empty) ===
+
+.ed-loading,
+.ed-error,
+.ed-empty {
+  padding: 48px;
+  text-align: center;
+  border: 1px solid var(--border);
+  font-size: var(--text-base);
+}
+
+.ed-error { color: var(--error); }
+.ed-empty { color: var(--text-muted); }
+
+// === News list (vertical stack) ===
+
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// === Count label ===
+
+.count-label {
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}

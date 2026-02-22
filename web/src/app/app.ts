@@ -12,7 +12,7 @@ import { AuthService } from './services/auth.service';
           <span class="status-dot"></span>
           AI NEWS AGGREGATOR
         </div>
-        <button class="hamburger" (click)="toggleMenu()" aria-label="Menu">
+        <button class="hamburger" (click)="toggleMenu()" aria-label="Menu" [attr.aria-expanded]="menuOpen()">
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
         </button>
@@ -217,6 +217,12 @@ export class App {
   private getInitialTheme(): 'dark' | 'light' {
     const stored = localStorage.getItem('theme');
     if (stored === 'light') return 'light';
+    if (stored === 'system') {
+      // Migrate legacy 'system' preference to resolved value
+      const preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      localStorage.setItem('theme', preferred);
+      return preferred;
+    }
     return 'dark';
   }
 

@@ -151,8 +151,6 @@ interface ChatSource {
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    .mono { font-family: var(--font-mono); }
-
     .suggestions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -352,7 +350,7 @@ export class ChatPage implements OnInit, AfterViewChecked {
   ngOnInit() {
     this.newsService.getTopics().subscribe({
       next: (topics) => this.topics.set(topics),
-      error: (err) => console.error('Failed to load topics:', err),
+      error: () => { /* topics load is non-critical */ },
     });
   }
 
