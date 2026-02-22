@@ -130,19 +130,6 @@ import { animateCardStagger, animateStatCounters, killTweens, GsapTween } from '
       margin-bottom: 16px;
     }
     .stat-item { display: flex; flex-direction: column; align-items: center; }
-    .stat-value {
-      font-family: var(--font-mono);
-      font-size: 1.25rem;
-      font-weight: 500;
-    }
-    .stat-label {
-      font-size: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-weight: 700;
-      opacity: 0.7;
-      font-family: var(--font-mono);
-    }
 
     .topic-row {
       display: flex;

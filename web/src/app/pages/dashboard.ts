@@ -144,14 +144,6 @@ import { animateCardStagger, animateElement, animateStatCounters, killTweens, Gs
   styles: [`
     :host { display: block; }
 
-    .heading-xs {
-      font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
     .editorial {
       max-width: 900px;
       margin: 0 auto;
@@ -201,29 +193,6 @@ import { animateCardStagger, animateElement, animateStatCounters, killTweens, Gs
     }
     .stat-item { display: flex; flex-direction: column; }
     .stat-item.span-2 { grid-column: span 2; }
-    .stat-value {
-      font-family: var(--font-mono);
-      font-size: 1.25rem;
-      font-weight: 500;
-    }
-    .stat-label {
-      font-size: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-weight: 700;
-      opacity: 0.7;
-    }
-    .stat-bar {
-      width: 100%;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.15);
-      margin-top: 6px;
-    }
-    .stat-bar-fill {
-      height: 100%;
-      background: rgba(255, 255, 255, 0.7);
-      transition: width 0.6s ease;
-    }
 
     .ed-filters {
       display: flex;
@@ -267,43 +236,7 @@ import { animateCardStagger, animateElement, animateStatCounters, killTweens, Gs
       white-space: nowrap;
     }
 
-    .ed-section { margin-bottom: 32px; }
     .section-title { font-size: 1.125rem; }
-
-    .ed-card {
-      border: 1px solid var(--text-primary);
-      background: var(--bg-surface);
-      transition: transform 0.15s ease;
-    }
-    .ed-card:active { transform: scale(0.99); }
-
-    .card-header {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 10px;
-      background: var(--bg-elevated);
-    }
-    .card-header[data-source="hackernews"] { background: var(--source-hackernews); color: white; }
-    .card-header[data-source="arxiv"] { background: var(--source-arxiv); color: white; }
-    .card-header[data-source="github"] { background: var(--source-github); color: white; }
-    .card-header[data-source="reddit"] { background: var(--source-reddit); color: white; }
-    .card-header[data-source="rss"] { background: var(--source-rss); color: #1A1A1A; }
-    .card-header[data-source="huggingface"] { background: var(--source-huggingface); color: #1A1A1A; }
-
-    .card-body { padding: 16px; }
-
-    .card-meta-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      border-top: 1px solid var(--border);
-    }
-    .meta-cell { padding: 10px 12px; display: flex; flex-direction: column; }
-    .meta-cell.border-right { border-right: 1px solid var(--border); }
-    .meta-label { font-size: 9px; text-transform: uppercase; }
-    .meta-value { font-size: 0.9rem; }
 
     .hero-card { margin-bottom: 24px; }
     .hero-title {

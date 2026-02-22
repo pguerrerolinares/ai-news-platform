@@ -96,8 +96,6 @@ import { AuthService } from '../services/auth.service';
       font-size: 10px;
       letter-spacing: 0.1em;
     }
-    .mono { font-family: var(--font-mono); }
-
     .error {
       background: var(--error-subtle);
       color: var(--error);

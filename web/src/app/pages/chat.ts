@@ -48,7 +48,7 @@ interface ChatSource {
         @for (msg of messages(); track $index) {
           <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
             @if (msg.role === 'assistant') {
-              <div class="message-content" [innerHTML]="msg.renderedHtml"></div>
+              <div class="message-content rendered-markdown" [innerHTML]="msg.renderedHtml"></div>
             } @else {
               <div class="message-content">{{ msg.content }}</div>
             }
@@ -217,52 +217,6 @@ interface ChatSource {
     }
 
     .message-content { word-break: break-word; }
-    .message.assistant .message-content :first-child { margin-top: 0; }
-    .message.assistant .message-content :last-child { margin-bottom: 0; }
-    .message.assistant .message-content p { margin: 0.5em 0; }
-
-    .message.assistant .message-content ul,
-    .message.assistant .message-content ol {
-      margin: 0.5em 0;
-      padding-left: 1.5em;
-    }
-
-    .message.assistant .message-content code {
-      background: var(--bg-base);
-      border: 1px solid var(--border);
-      padding: 2px 6px;
-      font-family: var(--font-mono);
-      font-size: 0.85em;
-    }
-
-    .message.assistant .message-content pre {
-      background: var(--bg-base);
-      border: 1px solid var(--text-primary);
-      color: var(--text-primary);
-      padding: 16px 18px;
-      overflow-x: auto;
-      margin: 0.5em 0;
-    }
-
-    .message.assistant .message-content pre code {
-      background: none;
-      border: none;
-      padding: 0;
-      color: inherit;
-    }
-
-    .message.assistant .message-content strong {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .message.assistant .message-content a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-    .message.assistant .message-content a:hover {
-      text-decoration: underline;
-    }
 
     .cursor {
       animation: blink 0.8s infinite;

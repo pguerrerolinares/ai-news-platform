@@ -58,38 +58,8 @@ import { Briefing, NewsItem } from '../models/news-item';
   styles: [`
     :host { display: block; }
 
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .section-title {
-      font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: 1.5rem;
-      text-transform: uppercase;
-      letter-spacing: -0.02em;
-      margin: 0;
-      white-space: nowrap;
-      color: var(--text-primary);
-    }
-    .section-line {
-      flex: 1;
-      height: 1px;
-      background: var(--text-primary);
-      opacity: 0.2;
-    }
-
-    .mono { font-family: var(--font-mono); }
-
-    .ed-loading, .ed-error {
-      padding: 48px;
-      text-align: center;
-      border: 1px solid var(--border);
-      font-size: var(--text-base);
-    }
-    .ed-error { color: var(--error); }
+    .section-header { margin-bottom: 20px; }
+    .section-title { font-size: 1.5rem; letter-spacing: -0.02em; }
 
     .chart-grid {
       display: grid;
@@ -150,7 +120,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
     return {
       chart: {
         backgroundColor: 'transparent',
-        style: { fontFamily: "'Inter', sans-serif" },
+        style: { fontFamily: 'var(--font-body)' },
       },
       xAxis: {
         labels: { style: { color: labelColor } },
@@ -172,7 +142,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
         borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
         borderRadius: 2,
         shadow: false,
-        style: { color: dark ? '#E0E0E0' : '#1A1A1A', fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace" },
+        style: { color: dark ? '#E0E0E0' : '#1A1A1A', fontSize: '12px', fontFamily: 'var(--font-mono)' },
         padding: 12,
       },
     };
@@ -194,7 +164,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
         categories: data.map(d => d.date),
         labels: {
           rotation: -45,
-          style: { fontSize: '10px', color: dark ? '#A0A0A0' : '#4A4A4A', fontFamily: "'IBM Plex Mono', monospace" },
+          style: { fontSize: '10px', color: dark ? '#A0A0A0' : '#4A4A4A', fontFamily: 'var(--font-mono)' },
         },
       },
       yAxis: {
@@ -252,7 +222,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
         pie: {
           dataLabels: {
             format: '{point.name}: {point.y}',
-            style: { color: dark ? '#A0A0A0' : '#4A4A4A', textOutline: 'none', fontSize: '11px', fontWeight: '500', fontFamily: "'IBM Plex Mono', monospace" },
+            style: { color: dark ? '#A0A0A0' : '#4A4A4A', textOutline: 'none', fontSize: '11px', fontWeight: '500', fontFamily: 'var(--font-mono)' },
             connectorColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
           },
           borderColor: dark ? '#111111' : '#FFFFFF',
@@ -282,7 +252,7 @@ export class AnalyticsPage implements OnInit, OnDestroy {
       xAxis: {
         ...theme.xAxis as Highcharts.XAxisOptions,
         categories,
-        labels: { style: { fontSize: '11px', fontWeight: '500', color: this.isDark() ? '#A0A0A0' : '#4A4A4A', fontFamily: "'IBM Plex Mono', monospace" } },
+        labels: { style: { fontSize: '11px', fontWeight: '500', color: this.isDark() ? '#A0A0A0' : '#4A4A4A', fontFamily: 'var(--font-mono)' } },
       },
       yAxis: {
         ...theme.yAxis as Highcharts.YAxisOptions,
