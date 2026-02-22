@@ -4,38 +4,44 @@
 
 // Light mode (default in :root for html:not(.dark))
 :root {
-  // Surfaces
-  --bg-base: #FAFAFA;
+  // Surfaces — cream editorial
+  --bg-base: #F9F7F2;
   --bg-surface: #FFFFFF;
-  --bg-elevated: #F4F4F5;
-  --bg-hover: #E4E4E7;
+  --bg-elevated: #f5f5f0;
+  --bg-hover: #EDECE8;
 
-  // Accent
-  --accent: #4F46E5;
-  --accent-dim: #4338CA;
-  --accent-glow: rgba(79, 70, 229, 0.1);
+  // Accent — terracotta
+  --accent: #C05E4E;
+  --accent-dim: #A34B3C;
+  --accent-glow: rgba(192, 94, 78, 0.10);
 
-  // Text
-  --text-primary: #09090B;
-  --text-secondary: #52525B;
-  --text-muted: #A1A1AA;
+  // Text — charcoal
+  --text-primary: #1A1A1A;
+  --text-secondary: #4A4A4A;
+  --text-muted: #8A8A8A;
 
-  // Borders
-  --border: rgba(0, 0, 0, 0.09);
-  --border-hover: rgba(0, 0, 0, 0.15);
-  --border-accent: rgba(79, 70, 229, 0.25);
+  // Borders — hard editorial
+  --border: rgba(26, 26, 26, 0.15);
+  --border-hover: rgba(26, 26, 26, 0.30);
+  --border-accent: rgba(192, 94, 78, 0.30);
 
   // Semantic
   --error: #EF4444;
-  --error-subtle: rgba(239, 68, 68, 0.1);
-  --success: #10B981;
-  --warning: #F59E0B;
+  --error-subtle: rgba(239, 68, 68, 0.08);
+  --success: #2D4739;
+  --warning: #E8A317;
+
+  // Editorial accents
+  --ed-terracotta: #C05E4E;
+  --ed-forest: #2D4739;
+  --ed-stat-shadow: 4px 4px 0px #C05E4E;
+  --ed-status-color: #2D4739;
 
   // Source colors
   --source-hackernews: #FF6600;
   --source-arxiv: #B31B1B;
   --source-github: #8B5CF6;
-  --source-rss: #F59E0B;
+  --source-rss: #E8A317;
   --source-huggingface: #FFD21E;
   --source-reddit: #FF4500;
 
@@ -48,38 +54,43 @@
   --topic-agentes: #F43F5E;
   --topic-regulacion: #64748B;
 
-  // Shadows
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-glow: 0 0 0 3px var(--accent-glow);
+  // Shadows — minimal editorial
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-glow: 0 0 0 2px var(--accent-glow);
 }
 
-// Dark mode (primary experience — .dark on <html>)
+// Dark mode (terminal aesthetic — .dark on <html>)
 .dark {
-  --bg-base: #0C0C0E;
-  --bg-surface: #141418;
-  --bg-elevated: #1C1C22;
-  --bg-hover: #24242C;
+  --bg-base: #0A0A0A;
+  --bg-surface: #111111;
+  --bg-elevated: #141414;
+  --bg-hover: #1E1E1E;
 
-  --accent: #6366F1;
-  --accent-dim: #4F46E5;
-  --accent-glow: rgba(99, 102, 241, 0.15);
+  --accent: #4ADE80;
+  --accent-dim: #22C55E;
+  --accent-glow: rgba(74, 222, 128, 0.12);
 
-  --text-primary: #F4F4F5;
-  --text-secondary: #B4B4BE;
-  --text-muted: #6B6B78;
+  --text-primary: #E0E0E0;
+  --text-secondary: #A0A0A0;
+  --text-muted: #606060;
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.10);
-  --border-accent: rgba(99, 102, 241, 0.3);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --border-accent: rgba(74, 222, 128, 0.25);
 
   --error: #EF4444;
-  --error-subtle: rgba(239, 68, 68, 0.1);
-  --success: #10B981;
-  --warning: #F59E0B;
+  --error-subtle: rgba(239, 68, 68, 0.08);
+  --success: #4ADE80;
+  --warning: #E8A317;
 
-  // Topic colors (same in dark, bg opacity handled in components)
+  --ed-terracotta: #EF6B5A;
+  --ed-forest: #4ADE80;
+  --ed-stat-shadow: 4px 4px 0px #4ADE80;
+  --ed-status-color: #4ADE80;
+
+  // Topic colors (brighter for dark bg)
   --topic-modelos: #818CF8;
   --topic-herramientas: #34D399;
   --topic-papers: #FBBF24;
@@ -88,16 +99,16 @@
   --topic-agentes: #FB7185;
   --topic-regulacion: #94A3B8;
 
-  // Source colors (same brand colors, adjusted bg opacity in components)
+  // Source colors (adjusted for dark)
   --source-hackernews: #FF6600;
-  --source-arxiv: #B31B1B;
-  --source-github: #8B5CF6;
-  --source-rss: #F59E0B;
+  --source-arxiv: #EF6B5A;
+  --source-github: #A78BFA;
+  --source-rss: #E8A317;
   --source-huggingface: #FFD21E;
   --source-reddit: #FF4500;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 0 3px var(--accent-glow);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-glow: 0 0 0 2px var(--accent-glow);
 }
