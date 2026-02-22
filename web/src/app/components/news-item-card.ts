@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ElementRef, inject, afterNextRender } from '@angular/core';
 import { DatePipe, UpperCasePipe } from '@angular/common';
 import { NewsItem } from '../models/news-item';
 
@@ -55,7 +55,6 @@ import { NewsItem } from '../models/news-item';
     }
     .ed-card:hover {
       border-color: var(--accent);
-      transform: translateY(-1px);
     }
 
     /* Source-colored header bar */
@@ -168,4 +167,21 @@ import { NewsItem } from '../models/news-item';
 export class NewsItemCard {
   @Input({ required: true }) item!: NewsItem;
   @Input() hero = false;
+
+  private el = inject(ElementRef);
+
+  constructor() {
+    afterNextRender(async () => {
+      const { gsap } = await import('gsap');
+      const card = this.el.nativeElement.querySelector('.ed-card');
+      if (!card) return;
+
+      card.addEventListener('mouseenter', () => {
+        gsap.to(card, { y: -3, duration: 0.3, ease: 'back.out(2)' });
+      });
+      card.addEventListener('mouseleave', () => {
+        gsap.to(card, { y: 0, duration: 0.3, ease: 'power2.out' });
+      });
+    });
+  }
 }

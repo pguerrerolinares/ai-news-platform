@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -100,7 +100,7 @@ import { NewsItemCard } from '../components/news-item-card';
 
       <div class="news-list">
         @for (item of results(); track item.id; let i = $index) {
-          <app-news-item-card [item]="item" class="fade-in" [style.animation-delay]="i * 50 + 'ms'" />
+          <app-news-item-card [item]="item" />
         }
       </div>
     </div>
@@ -239,6 +239,7 @@ import { NewsItemCard } from '../components/news-item-card';
 })
 export class SearchPage implements OnInit {
   private newsService = inject(NewsService);
+  private el = inject(ElementRef);
 
   query = '';
   selectedTopic = '';
@@ -288,6 +289,7 @@ export class SearchPage implements OnInit {
         next: (res) => {
           this.results.set(res.items);
           this.loading.set(false);
+          this.animateResults();
         },
         error: (err) => {
           this.error.set('Error en la búsqueda. Intenta de nuevo.');
@@ -295,5 +297,17 @@ export class SearchPage implements OnInit {
           console.error('Search failed:', err);
         },
       });
+  }
+
+  private animateResults() {
+    requestAnimationFrame(async () => {
+      const { gsap } = await import('gsap');
+      const cards = this.el.nativeElement.querySelectorAll('.news-list app-news-item-card');
+      if (cards.length) {
+        gsap.from(cards, {
+          y: 20, opacity: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out',
+        });
+      }
+    });
   }
 }

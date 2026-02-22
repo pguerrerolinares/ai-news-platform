@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ElementRef } from '@angular/core';
 import { UpperCasePipe } from '@angular/common';
 import { NewsService } from '../services/news.service';
 import { NewsItem, Briefing } from '../models/news-item';
@@ -403,6 +403,7 @@ import { NewsItemCard } from '../components/news-item-card';
 })
 export class DashboardPage implements OnInit {
   private newsService = inject(NewsService);
+  private el = inject(ElementRef);
 
   items = signal<NewsItem[]>([]);
   briefing = signal<Briefing | null>(null);
@@ -461,6 +462,7 @@ export class DashboardPage implements OnInit {
       next: (res) => {
         this.items.set(res.items);
         this.loading.set(false);
+        this.animateEntrance();
       },
       error: () => {
         this.error.set('Error al cargar noticias. Verifica que el API esté disponible.');
@@ -478,11 +480,52 @@ export class DashboardPage implements OnInit {
         if (briefing.items && briefing.items.length > 0) {
           this.items.set(briefing.items);
           this.loading.set(false);
+          this.animateEntrance();
         } else {
           this.loadTodayItems();
         }
       },
       error: () => this.loadTodayItems(),
+    });
+  }
+
+  private animateEntrance() {
+    requestAnimationFrame(async () => {
+      const { gsap } = await import('gsap');
+      const root = this.el.nativeElement;
+
+      // Stagger news cards
+      const cards = root.querySelectorAll('.news-grid app-news-item-card');
+      if (cards.length) {
+        gsap.from(cards, {
+          y: 20, opacity: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out',
+        });
+      }
+
+      // Hero card entrance
+      const hero = root.querySelector('.hero-card');
+      if (hero) {
+        gsap.from(hero, { y: 30, opacity: 0, duration: 0.5, ease: 'power2.out' });
+      }
+
+      // Stat counter animation
+      root.querySelectorAll('.stat-value').forEach((statEl: Element) => {
+        const text = statEl.textContent?.trim() ?? '';
+        const match = text.match(/^([\d.]+)(.*)/);
+        if (!match) return;
+        const num = parseFloat(match[1]);
+        if (isNaN(num)) return;
+        const suffix = match[2];
+        const isFloat = match[1].includes('.');
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: num, duration: 1.2, ease: 'power2.out',
+          onUpdate: () => {
+            const display = isFloat ? obj.val.toFixed(1) : Math.round(obj.val).toString();
+            (statEl as HTMLElement).textContent = display + suffix;
+          },
+        });
+      });
     });
   }
 }

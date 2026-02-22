@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -97,7 +97,7 @@ import { NewsItemCard } from '../components/news-item-card';
 
         <div class="news-list">
           @for (item of filteredItems(); track item.id; let i = $index) {
-            <app-news-item-card [item]="item" class="fade-in" [style.animation-delay]="i * 50 + 'ms'" />
+            <app-news-item-card [item]="item" />
           }
         </div>
       }
@@ -219,6 +219,7 @@ import { NewsItemCard } from '../components/news-item-card';
 })
 export class ArchivePage implements OnInit {
   private newsService = inject(NewsService);
+  private el = inject(ElementRef);
 
   today = new Date();
   selectedDate: Date = new Date();
@@ -267,6 +268,7 @@ export class ArchivePage implements OnInit {
         this.briefing.set(briefing);
         this.items.set(briefing.items || []);
         this.loading.set(false);
+        this.animateEntrance();
       },
       error: (err) => {
         if (err.status === 404) {
@@ -276,6 +278,40 @@ export class ArchivePage implements OnInit {
         }
         this.loading.set(false);
       },
+    });
+  }
+
+  private animateEntrance() {
+    requestAnimationFrame(async () => {
+      const { gsap } = await import('gsap');
+      const root = this.el.nativeElement;
+
+      // Stagger news cards
+      const cards = root.querySelectorAll('.news-list app-news-item-card');
+      if (cards.length) {
+        gsap.from(cards, {
+          y: 20, opacity: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out',
+        });
+      }
+
+      // Stat counter animation
+      root.querySelectorAll('.stat-value').forEach((statEl: Element) => {
+        const text = statEl.textContent?.trim() ?? '';
+        const match = text.match(/^([\d.]+)(.*)/);
+        if (!match) return;
+        const num = parseFloat(match[1]);
+        if (isNaN(num)) return;
+        const suffix = match[2];
+        const isFloat = match[1].includes('.');
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: num, duration: 1.2, ease: 'power2.out',
+          onUpdate: () => {
+            const display = isFloat ? obj.val.toFixed(1) : Math.round(obj.val).toString();
+            (statEl as HTMLElement).textContent = display + suffix;
+          },
+        });
+      });
     });
   }
 }
