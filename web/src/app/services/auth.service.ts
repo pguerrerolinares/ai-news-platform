@@ -4,8 +4,8 @@ import { Observable, tap, firstValueFrom } from 'rxjs';
 
 interface TokenResponseV2 {
   access_token: string;
-  refresh_token: string;
-  expires_in: number;
+  refresh_token?: string;
+  expires_in?: number;
   token_type: string;
 }
 
@@ -83,10 +83,25 @@ export class AuthService {
 
   private storeTokens(res: TokenResponseV2): void {
     localStorage.setItem(this.tokenKey, res.access_token);
-    localStorage.setItem(this.refreshKey, res.refresh_token);
-    localStorage.setItem(
-      this.expiryKey,
-      (Date.now() + res.expires_in * 1000).toString()
-    );
+    if (res.refresh_token) {
+      localStorage.setItem(this.refreshKey, res.refresh_token);
+    }
+    if (res.expires_in) {
+      localStorage.setItem(
+        this.expiryKey,
+        (Date.now() + res.expires_in * 1000).toString(),
+      );
+    } else {
+      // Derive expiry from JWT exp claim
+      try {
+        const payload = JSON.parse(atob(res.access_token.split('.')[1]));
+        if (payload.exp) {
+          localStorage.setItem(this.expiryKey, (payload.exp * 1000).toString());
+        }
+      } catch {
+        // If JWT decode fails, remove stale expiry so isAuthenticated falls back to JWT check
+        localStorage.removeItem(this.expiryKey);
+      }
+    }
   }
 }
