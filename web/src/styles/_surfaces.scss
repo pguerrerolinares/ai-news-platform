@@ -1,26 +1,6 @@
 // web/src/styles/_surfaces.scss
 // Material component overrides and shared surface classes — editorial style.
 
-// === Material System Typography — use design system tokens ===
-
-html {
-  --mat-sys-body-large-font: var(--font-body);
-  --mat-sys-body-medium-font: var(--font-body);
-  --mat-sys-body-small-font: var(--font-body);
-  --mat-sys-label-large-font: var(--font-body);
-  --mat-sys-label-medium-font: var(--font-body);
-  --mat-sys-label-small-font: var(--font-body);
-  --mat-sys-title-large-font: var(--font-body);
-  --mat-sys-title-medium-font: var(--font-body);
-  --mat-sys-title-small-font: var(--font-body);
-  --mat-sys-headline-large-font: var(--font-body);
-  --mat-sys-headline-medium-font: var(--font-body);
-  --mat-sys-headline-small-font: var(--font-body);
-  --mat-sys-display-large-font: var(--font-body);
-  --mat-sys-display-medium-font: var(--font-body);
-  --mat-sys-display-small-font: var(--font-body);
-}
-
 // === Material Component Overrides ===
 
 // MatCard — hard editorial borders

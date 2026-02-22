@@ -18,7 +18,7 @@ html.dark {
       tertiary: mat.$green-palette,
       theme-type: dark,
     ),
-    typography: Inter,
+    typography: var(--font-body),
     density: 0,
   ));
 
@@ -43,7 +43,7 @@ html:not(.dark) {
       tertiary: mat.$red-palette,
       theme-type: light,
     ),
-    typography: Inter,
+    typography: var(--font-body),
     density: 0,
   ));
 
