@@ -121,4 +121,10 @@
   body {
     @apply bg-background text-foreground;
     }
+  :root {
+    transition: color 300ms ease, background-color 300ms ease;
+  }
+  :root * {
+    transition: color 300ms ease, background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+  }
 }
