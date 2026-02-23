@@ -3,6 +3,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { IconSend } from '@tabler/icons-react'
+import { motion, AnimatePresence } from 'motion/react'
+import { useReducedMotion } from '@/hooks/use-reduced-motion'
 
 interface Message {
   id: string
@@ -39,11 +41,22 @@ function getMockResponse(input: string): string {
   return MOCK_RESPONSES.default
 }
 
+const chipContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+}
+
+const chipItem = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' as const } },
+}
+
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const reduced = useReducedMotion()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -79,32 +92,52 @@ export default function Chat() {
       {/* Messages */}
       <ScrollArea className="flex-1">
         <div className="mx-auto max-w-3xl space-y-4 p-4">
-          {messages.length === 0 && !isTyping && (
-            <div className="flex flex-col items-center gap-6 pt-24 text-center">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">Chat IA</h2>
-                <p className="text-sm text-muted-foreground">
-                  Pregunta sobre las noticias de IA de hoy
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                {SUGGESTIONS.map(s => (
-                  <Button
-                    key={s}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => send(s)}
-                  >
-                    {s}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AnimatePresence>
+            {messages.length === 0 && !isTyping && (
+              <motion.div
+                key="empty"
+                initial={reduced ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduced ? undefined : { opacity: 0 }}
+                className="flex flex-col items-center gap-6 pt-24 text-center"
+              >
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Chat IA</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Pregunta sobre las noticias de IA de hoy
+                  </p>
+                </div>
+                <motion.div
+                  className="flex flex-wrap justify-center gap-2"
+                  variants={chipContainer}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {SUGGESTIONS.map(s => (
+                    <motion.div key={s} variants={chipItem}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => send(s)}
+                      >
+                        {s}
+                      </Button>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {messages.map(msg => (
-            <div
+            <motion.div
               key={msg.id}
+              initial={reduced ? false : {
+                opacity: 0,
+                x: msg.role === 'user' ? 20 : -20,
+              }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' as const }}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
@@ -116,16 +149,31 @@ export default function Chat() {
               >
                 {msg.content}
               </div>
-            </div>
+            </motion.div>
           ))}
 
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-                Escribiendo...
-              </div>
-            </div>
-          )}
+          <AnimatePresence>
+            {isTyping && (
+              <motion.div
+                key="typing"
+                initial={reduced ? false : { opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={reduced ? undefined : { opacity: 0 }}
+                className="flex justify-start"
+              >
+                <div className="flex items-center gap-1.5 rounded-2xl bg-muted px-4 py-3">
+                  {[0, 1, 2].map(i => (
+                    <motion.span
+                      key={i}
+                      className="size-1.5 rounded-full bg-muted-foreground"
+                      animate={reduced ? undefined : { scale: [1, 1.4, 1] }}
+                      transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div ref={bottomRef} />
         </div>
