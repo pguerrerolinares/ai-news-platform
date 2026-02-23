@@ -10,6 +10,9 @@ import { MOCK_ITEMS, MOCK_TOPICS } from '@/lib/mock-data'
 import { TOPIC_LABELS } from '@/lib/constants'
 import { NewsCard } from '@/components/news-card'
 import { FeaturedCard } from '@/components/featured-card'
+import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-grid'
+import { motion } from 'motion/react'
+import { useReducedMotion } from '@/hooks/use-reduced-motion'
 
 export default function Dashboard() {
   const [activeTopic, setActiveTopic] = useState<string>('all')
@@ -23,6 +26,8 @@ export default function Dashboard() {
     const rest = MOCK_ITEMS.filter(i => i.id !== featured.id)
     return activeTopic !== 'all' ? rest.filter(i => i.topic === activeTopic) : rest
   }, [activeTopic, featured.id])
+
+  const reduced = useReducedMotion()
 
   return (
     <div className="space-y-6">
@@ -50,14 +55,24 @@ export default function Dashboard() {
       </div>
 
       {/* Featured */}
-      {activeTopic === 'all' && <FeaturedCard item={featured} />}
+      {activeTopic === 'all' && (
+        <motion.div
+          initial={reduced ? false : { opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
+          <FeaturedCard item={featured} />
+        </motion.div>
+      )}
 
       {/* News grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey={activeTopic}>
         {filtered.map(item => (
-          <NewsCard key={item.id} item={item} />
+          <AnimatedCardItem key={item.id}>
+            <NewsCard item={item} />
+          </AnimatedCardItem>
         ))}
-      </div>
+      </AnimatedCardGrid>
 
       {filtered.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">

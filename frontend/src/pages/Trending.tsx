@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { MOCK_ITEMS } from '@/lib/mock-data'
 import { NewsCard } from '@/components/news-card'
+import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-grid'
 
 export default function Trending() {
   const trendingItems = useMemo(
@@ -23,11 +24,13 @@ export default function Trending() {
             {trendingItems.length} noticias generando traccion ahora
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey="trending">
           {trendingItems.map(item => (
-            <NewsCard key={item.id} item={item} />
+            <AnimatedCardItem key={item.id}>
+              <NewsCard item={item} />
+            </AnimatedCardItem>
           ))}
-        </div>
+        </AnimatedCardGrid>
       </section>
 
       {/* Top scored section */}
@@ -38,11 +41,13 @@ export default function Trending() {
             Las noticias con mayor puntuacion
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey="top">
           {topScored.map(item => (
-            <NewsCard key={item.id} item={item} />
+            <AnimatedCardItem key={item.id}>
+              <NewsCard item={item} />
+            </AnimatedCardItem>
           ))}
-        </div>
+        </AnimatedCardGrid>
       </section>
     </div>
   )

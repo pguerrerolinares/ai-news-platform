@@ -6,6 +6,7 @@ import {
 import { MOCK_ITEMS, MOCK_TOPICS } from '@/lib/mock-data'
 import { TOPIC_LABELS } from '@/lib/constants'
 import { NewsCard } from '@/components/news-card'
+import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-grid'
 import { IconSearch } from '@tabler/icons-react'
 
 export default function Buscar() {
@@ -83,11 +84,13 @@ export default function Buscar() {
       )}
 
       {results.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey={`${query}-${topic}-${sortBy}`}>
           {results.map(item => (
-            <NewsCard key={item.id} item={item} />
+            <AnimatedCardItem key={item.id}>
+              <NewsCard item={item} />
+            </AnimatedCardItem>
           ))}
-        </div>
+        </AnimatedCardGrid>
       )}
 
       {query && results.length === 0 && (
