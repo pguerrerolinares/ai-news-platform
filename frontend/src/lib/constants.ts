@@ -22,3 +22,13 @@ export function formatTime(dateStr: string | null) {
   const d = new Date(dateStr)
   return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 }
+
+export function safeUrl(url: string | null): string | null {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    return ['http:', 'https:'].includes(u.protocol) ? url : null
+  } catch {
+    return null
+  }
+}

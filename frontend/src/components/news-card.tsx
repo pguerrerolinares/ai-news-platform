@@ -1,6 +1,6 @@
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { SOURCE_COLORS, TOPIC_LABELS, formatTime } from '@/lib/constants'
+import { SOURCE_COLORS, TOPIC_LABELS, formatTime, safeUrl } from '@/lib/constants'
 import type { NewsItem } from '@/lib/types'
 import {
   IconFlame,
@@ -9,6 +9,8 @@ import {
 } from '@tabler/icons-react'
 
 export function NewsCard({ item }: { item: NewsItem }) {
+  const href = safeUrl(item.url)
+
   return (
     <Card className="group flex flex-col transition-colors hover:border-primary/30">
       <CardHeader className="flex-1 space-y-2">
@@ -26,9 +28,9 @@ export function NewsCard({ item }: { item: NewsItem }) {
           )}
         </div>
         <CardTitle className="line-clamp-2 text-sm font-semibold leading-snug">
-          {item.url ? (
+          {href ? (
             <a
-              href={item.url}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:underline"

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 import { Layout } from '@/components/layout'
 import Dashboard from '@/pages/Dashboard'
 import Trending from '@/pages/Trending'
@@ -14,6 +14,7 @@ function App() {
           <Route path="trending" element={<Trending />} />
           <Route path="buscar" element={<Buscar />} />
           <Route path="chat" element={<Chat />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -13,22 +13,25 @@ export default function Buscar() {
   const [topic, setTopic] = useState('all')
   const [sortBy, setSortBy] = useState('relevancia')
 
-  const q = query.toLowerCase()
-  let results = q
-    ? MOCK_ITEMS.filter(
-        i => i.title.toLowerCase().includes(q) || (i.summary ?? '').toLowerCase().includes(q)
-      )
-    : []
+  const results = useMemo(() => {
+    const q = query.toLowerCase()
+    let items = q
+      ? MOCK_ITEMS.filter(
+          i => i.title.toLowerCase().includes(q) || (i.summary ?? '').toLowerCase().includes(q)
+        )
+      : []
 
-  if (topic !== 'all') {
-    results = results.filter(i => i.topic === topic)
-  }
+    if (topic !== 'all') {
+      items = items.filter(i => i.topic === topic)
+    }
 
-  if (sortBy === 'fecha') {
-    results.sort((a, b) => (b.published_at ?? '').localeCompare(a.published_at ?? ''))
-  } else if (sortBy === 'score') {
-    results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-  }
+    if (sortBy === 'fecha') {
+      return [...items].sort((a, b) => (b.published_at ?? '').localeCompare(a.published_at ?? ''))
+    } else if (sortBy === 'score') {
+      return [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    }
+    return items
+  }, [query, topic, sortBy])
 
   return (
     <div className="space-y-6">
@@ -46,6 +49,7 @@ export default function Buscar() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="pl-9"
+            aria-label="Buscar noticias"
           />
         </div>
         <Select value={topic} onValueChange={setTopic}>

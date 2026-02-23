@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Select,
   SelectContent,
@@ -14,9 +14,15 @@ import { FeaturedCard } from '@/components/featured-card'
 export default function Dashboard() {
   const [activeTopic, setActiveTopic] = useState<string>('all')
 
-  const featured = [...MOCK_ITEMS].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
-  const rest = MOCK_ITEMS.filter(i => i.id !== featured.id)
-  const filtered = activeTopic !== 'all' ? rest.filter(i => i.topic === activeTopic) : rest
+  const featured = useMemo(
+    () => [...MOCK_ITEMS].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0],
+    [],
+  )
+
+  const filtered = useMemo(() => {
+    const rest = MOCK_ITEMS.filter(i => i.id !== featured.id)
+    return activeTopic !== 'all' ? rest.filter(i => i.topic === activeTopic) : rest
+  }, [activeTopic, featured.id])
 
   return (
     <div className="space-y-6">

@@ -1,12 +1,17 @@
+import { useMemo } from 'react'
 import { MOCK_ITEMS } from '@/lib/mock-data'
 import { NewsCard } from '@/components/news-card'
 
 export default function Trending() {
-  const trendingItems = MOCK_ITEMS.filter(i => i.trending)
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-  const topScored = [...MOCK_ITEMS]
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .slice(0, 10)
+  const trendingItems = useMemo(
+    () => [...MOCK_ITEMS.filter(i => i.trending)].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)),
+    [],
+  )
+
+  const topScored = useMemo(
+    () => [...MOCK_ITEMS].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 10),
+    [],
+  )
 
   return (
     <div className="space-y-8">

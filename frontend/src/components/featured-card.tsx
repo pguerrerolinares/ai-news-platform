@@ -1,6 +1,6 @@
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { SOURCE_COLORS, TOPIC_LABELS, formatTime } from '@/lib/constants'
+import { SOURCE_COLORS, TOPIC_LABELS, formatTime, safeUrl } from '@/lib/constants'
 import type { NewsItem } from '@/lib/types'
 import {
   IconFlame,
@@ -10,6 +10,8 @@ import {
 } from '@tabler/icons-react'
 
 export function FeaturedCard({ item }: { item: NewsItem }) {
+  const href = safeUrl(item.url)
+
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
       <CardHeader className="space-y-3">
@@ -36,9 +38,9 @@ export function FeaturedCard({ item }: { item: NewsItem }) {
           )}
         </div>
         <CardTitle className="text-xl font-bold leading-tight">
-          {item.url ? (
+          {href ? (
             <a
-              href={item.url}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
               className="hover:underline inline-flex items-start gap-2"

@@ -1,12 +1,18 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { IconSend } from '@tabler/icons-react'
 
 interface Message {
+  id: string
   role: 'user' | 'assistant'
   content: string
+}
+
+let nextId = 0
+function msgId() {
+  return `msg-${++nextId}`
 }
 
 const MOCK_RESPONSES: Record<string, string> = {
@@ -37,30 +43,29 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  function send(text: string) {
+  const send = useCallback((text: string) => {
     if (!text.trim()) return
-    const userMsg: Message = { role: 'user', content: text.trim() }
+    const userMsg: Message = { id: msgId(), role: 'user', content: text.trim() }
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setIsTyping(true)
 
     setTimeout(() => {
       const assistantMsg: Message = {
+        id: msgId(),
         role: 'assistant',
         content: getMockResponse(text),
       }
       setMessages(prev => [...prev, assistantMsg])
       setIsTyping(false)
     }, 500)
-  }
+  }, [])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -72,7 +77,7 @@ export default function Chat() {
   return (
     <div className="flex h-[calc(100vh-5rem)] flex-col">
       {/* Messages */}
-      <ScrollArea className="flex-1" ref={scrollRef}>
+      <ScrollArea className="flex-1">
         <div className="mx-auto max-w-3xl space-y-4 p-4">
           {messages.length === 0 && !isTyping && (
             <div className="flex flex-col items-center gap-6 pt-24 text-center">
@@ -97,9 +102,9 @@ export default function Chat() {
             </div>
           )}
 
-          {messages.map((msg, i) => (
+          {messages.map(msg => (
             <div
-              key={i}
+              key={msg.id}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
@@ -121,6 +126,8 @@ export default function Chat() {
               </div>
             </div>
           )}
+
+          <div ref={bottomRef} />
         </div>
       </ScrollArea>
 
@@ -134,6 +141,7 @@ export default function Chat() {
             onKeyDown={handleKeyDown}
             rows={1}
             className="min-h-10 max-h-32 resize-none"
+            aria-label="Escribe tu pregunta"
           />
           <Button
             size="icon"
