@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { MOCK_BRIEFING, MOCK_ITEMS, MOCK_TOPICS } from '@/lib/mock-data'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { MOCK_ITEMS, MOCK_TOPICS } from '@/lib/mock-data'
 import type { NewsItem } from '@/lib/types'
 import {
   IconFlame,
   IconExternalLink,
   IconClock,
-  IconFilter,
   IconTrendingUp,
 } from '@tabler/icons-react'
 
@@ -146,79 +151,39 @@ function FeaturedCard({ item }: { item: NewsItem }) {
 }
 
 export default function Dashboard() {
-  const [activeTopic, setActiveTopic] = useState<string | null>(null)
-  const briefing = MOCK_BRIEFING
-
-  const topicCounts = MOCK_ITEMS.reduce<Record<string, number>>((acc, item) => {
-    if (item.topic) acc[item.topic] = (acc[item.topic] ?? 0) + 1
-    return acc
-  }, {})
+  const [activeTopic, setActiveTopic] = useState<string>('all')
 
   const featured = [...MOCK_ITEMS].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
   const rest = MOCK_ITEMS.filter(i => i.id !== featured.id)
-  const filtered = activeTopic ? rest.filter(i => i.topic === activeTopic) : rest
-
-  const stats = [
-    { label: 'Extraidas', value: briefing.total_items },
-    { label: 'Dedup', value: briefing.items_after_dedup },
-    { label: 'Filtradas', value: briefing.items_filtered },
-    { label: 'Trending', value: briefing.trending_count },
-    { label: 'Duracion', value: briefing.duration_seconds ? `${briefing.duration_seconds}s` : '—' },
-  ]
+  const filtered = activeTopic !== 'all' ? rest.filter(i => i.topic === activeTopic) : rest
 
   return (
     <div className="space-y-6">
-      {/* Date + Stats summary */}
+      {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Hoy en IA</h2>
-          <p className="text-sm text-muted-foreground">{briefing.date}</p>
+          <p className="text-sm text-muted-foreground">
+            {MOCK_ITEMS.length} noticias de {MOCK_ITEMS.filter(i => i.trending).length} trending
+          </p>
         </div>
-        <div className="hidden items-center gap-4 text-sm text-muted-foreground sm:flex">
-          {stats.map(s => (
-            <div key={s.label} className="text-center">
-              <p className="text-lg font-bold tabular-nums text-foreground">{s.value ?? '—'}</p>
-              <p className="text-xs">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Mobile stats */}
-      <div className="grid grid-cols-5 gap-2 sm:hidden">
-        {stats.map(s => (
-          <Card key={s.label} className="px-2 py-2 text-center">
-            <p className="text-xs text-muted-foreground">{s.label}</p>
-            <p className="text-lg font-bold tabular-nums">{s.value ?? '—'}</p>
-          </Card>
-        ))}
-      </div>
-
-      {/* Topic filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <IconFilter className="size-4 text-muted-foreground" />
-        <Button
-          variant={activeTopic === null ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveTopic(null)}
-        >
-          Todas ({MOCK_ITEMS.length})
-        </Button>
-        {MOCK_TOPICS.map(topic => (
-          <Button
-            key={topic}
-            variant={activeTopic === topic ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setActiveTopic(activeTopic === topic ? null : topic)}
-          >
-            {TOPIC_LABELS[topic] ?? topic}
-            <span className="ml-1 opacity-60">{topicCounts[topic] ?? 0}</span>
-          </Button>
-        ))}
+        <Select value={activeTopic} onValueChange={setActiveTopic}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por topic" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los topics</SelectItem>
+            {MOCK_TOPICS.map(topic => (
+              <SelectItem key={topic} value={topic}>
+                {TOPIC_LABELS[topic] ?? topic}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Featured */}
-      {!activeTopic && <FeaturedCard item={featured} />}
+      {activeTopic === 'all' && <FeaturedCard item={featured} />}
 
       {/* News grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
