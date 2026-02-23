@@ -23,7 +23,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    if (document.startViewTransition) {
+      document.startViewTransition(() => setTheme(next))
+    } else {
+      setTheme(next)
+    }
+  }
 
   return (
     <ThemeContext value={{ theme, toggleTheme }}>

@@ -121,10 +121,23 @@
   body {
     @apply bg-background text-foreground;
     }
-  :root {
-    transition: color 300ms ease, background-color 300ms ease;
-  }
-  :root * {
-    transition: color 300ms ease, background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
-  }
+}
+
+/* Smooth theme crossfade via View Transitions API */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
+.dark::view-transition-old(root) {
+  z-index: 9999;
+}
+.dark::view-transition-new(root) {
+  z-index: 1;
 }
