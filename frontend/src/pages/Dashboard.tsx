@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { MOCK_BRIEFING, MOCK_ITEMS, MOCK_TOPICS } from '@/lib/mock-data'
 import type { NewsItem } from '@/lib/types'
 import {
@@ -11,7 +9,6 @@ import {
   IconExternalLink,
   IconClock,
   IconFilter,
-  IconArrowDown,
   IconTrendingUp,
 } from '@tabler/icons-react'
 
@@ -96,7 +93,7 @@ function FeaturedCard({ item }: { item: NewsItem }) {
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
       <CardHeader className="space-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" className={SOURCE_COLORS[item.source] ?? ''}>
             {item.source}
           </Badge>
@@ -124,10 +121,10 @@ function FeaturedCard({ item }: { item: NewsItem }) {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:underline inline-flex items-center gap-2"
+              className="hover:underline inline-flex items-start gap-2"
             >
               {item.title}
-              <IconExternalLink className="size-4 opacity-50" />
+              <IconExternalLink className="mt-1 size-4 shrink-0 opacity-50" />
             </a>
           ) : (
             item.title
@@ -170,70 +167,71 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight">AI News</h1>
-            <Separator orientation="vertical" className="h-5" />
-            <span className="text-sm text-muted-foreground">{briefing.date}</span>
-          </div>
-          <ThemeToggle />
+    <div className="space-y-6">
+      {/* Date + Stats summary */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Hoy en IA</h2>
+          <p className="text-sm text-muted-foreground">{briefing.date}</p>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-6 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+        <div className="hidden items-center gap-4 text-sm text-muted-foreground sm:flex">
           {stats.map(s => (
-            <Card key={s.label} className="px-4 py-3">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="text-2xl font-bold tabular-nums">{s.value ?? '—'}</p>
-            </Card>
+            <div key={s.label} className="text-center">
+              <p className="text-lg font-bold tabular-nums text-foreground">{s.value ?? '—'}</p>
+              <p className="text-xs">{s.label}</p>
+            </div>
           ))}
         </div>
+      </div>
 
-        {/* Topic filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <IconFilter className="size-4 text-muted-foreground" />
+      {/* Mobile stats */}
+      <div className="grid grid-cols-5 gap-2 sm:hidden">
+        {stats.map(s => (
+          <Card key={s.label} className="px-2 py-2 text-center">
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+            <p className="text-lg font-bold tabular-nums">{s.value ?? '—'}</p>
+          </Card>
+        ))}
+      </div>
+
+      {/* Topic filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <IconFilter className="size-4 text-muted-foreground" />
+        <Button
+          variant={activeTopic === null ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveTopic(null)}
+        >
+          Todas ({MOCK_ITEMS.length})
+        </Button>
+        {MOCK_TOPICS.map(topic => (
           <Button
-            variant={activeTopic === null ? 'default' : 'outline'}
+            key={topic}
+            variant={activeTopic === topic ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setActiveTopic(null)}
+            onClick={() => setActiveTopic(activeTopic === topic ? null : topic)}
           >
-            Todas ({MOCK_ITEMS.length})
+            {TOPIC_LABELS[topic] ?? topic}
+            <span className="ml-1 opacity-60">{topicCounts[topic] ?? 0}</span>
           </Button>
-          {MOCK_TOPICS.map(topic => (
-            <Button
-              key={topic}
-              variant={activeTopic === topic ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveTopic(activeTopic === topic ? null : topic)}
-            >
-              {TOPIC_LABELS[topic] ?? topic}
-              <span className="ml-1 opacity-60">{topicCounts[topic] ?? 0}</span>
-            </Button>
-          ))}
+        ))}
+      </div>
+
+      {/* Featured */}
+      {!activeTopic && <FeaturedCard item={featured} />}
+
+      {/* News grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {filtered.map(item => (
+          <NewsCard key={item.id} item={item} />
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+          <p>No hay noticias para este topic</p>
         </div>
-
-        {/* Featured */}
-        {!activeTopic && <FeaturedCard item={featured} />}
-
-        {/* News grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(item => (
-            <NewsCard key={item.id} item={item} />
-          ))}
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-            <IconArrowDown className="size-6" />
-            <p>No hay noticias para este topic</p>
-          </div>
-        )}
-      </main>
+      )}
     </div>
   )
 }
