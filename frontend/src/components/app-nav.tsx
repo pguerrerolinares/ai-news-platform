@@ -11,6 +11,7 @@ import {
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { IconMenu2 } from '@tabler/icons-react'
+import { motion } from 'motion/react'
 
 const links = [
   { to: '/', label: 'Latest' },
@@ -19,7 +20,7 @@ const links = [
   { to: '/chat', label: 'Chat' },
 ]
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
+const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
     isActive
       ? 'bg-primary text-primary-foreground'
@@ -60,7 +61,7 @@ export function AppNav() {
                       key={to}
                       to={to}
                       end={to === '/'}
-                      className={linkClass}
+                      className={mobileLinkClass}
                       onClick={() => setOpen(false)}
                     >
                       {label}
@@ -81,9 +82,26 @@ export function AppNav() {
                   key={to}
                   to={to}
                   end={to === '/'}
-                  className={linkClass}
+                  className={({ isActive }) =>
+                    `relative rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }`
+                  }
                 >
-                  {label}
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-active"
+                          className="absolute inset-0 rounded-md bg-primary"
+                          transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                        />
+                      )}
+                      <span className="relative z-10">{label}</span>
+                    </>
+                  )}
                 </NavLink>
               ))}
             </nav>
