@@ -46,16 +46,15 @@ Thumbs.db
 # Backups
 /tmp/ainews-backups/
 
-# Angular build output
-web/dist/
-web/node_modules/
-web/.angular/
+# Angular frontend (deprecated, replaced by React frontend/)
+web/
 
 # Worktrees
 .worktrees/
 
-# Ad-hoc screenshots (docs/screenshots/ is tracked intentionally)
+# Screenshots (Angular screenshots outdated, React screenshots pending)
 /screenshots/
+docs/screenshots/
 
 # OMC plugin state
 .omc/

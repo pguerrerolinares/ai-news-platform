@@ -11,8 +11,8 @@ __pycache__
 docs/
 tests/
 scripts/
-web/node_modules/
-web/.angular/
+web/
+frontend/node_modules/
 *.md
 .coverage
 htmlcov/

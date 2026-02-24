@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + Angular frontend. Includes RAG-based Q&A chat.
+**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat.
 
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
@@ -38,7 +38,7 @@ Docker Compose on Hetzner VPS
 ```
 Sources -> Extract -> Dedup -> Classify (LLM) -> Validate -> Store (PostgreSQL)
                                                                  |
-                                                    FastAPI API <-+-> Angular UI
+                                                    FastAPI API <-+-> React UI
                                                                  |
                                                     Telegram     <-+
                                                                  |
@@ -157,44 +157,38 @@ ai-news-platform/
 │   └── mcp/
 │       ├── server.py              # MCP server (news tools: search, trending, topics, briefing)
 │       └── client.py              # MCP client (connect to server, call tools)
-├── web/                           # Angular 21 app
-│   ├── package.json               # Angular 21 + Material 21 dependencies
-│   ├── angular.json               # Angular CLI config (SCSS, budgets 1MB/1.5MB)
+├── frontend/                      # React 19 app (Vite + Shadcn UI + Tailwind CSS 4)
+│   ├── package.json               # React 19 + Vite 7 + Shadcn + Motion dependencies
+│   ├── vite.config.ts             # Vite config
 │   ├── tsconfig.json              # TypeScript config
-│   ├── tsconfig.app.json          # App-specific TS config
+│   ├── components.json            # Shadcn UI config
 │   ├── src/
-│   │   ├── main.ts                # Angular bootstrap
-│   │   ├── index.html             # HTML shell (Material Icons + Plus Jakarta Sans + JetBrains Mono)
-│   │   ├── styles/                # Design system partials
-│   │   │   ├── styles.scss        # Entry point — imports all partials + M3 theme + reset
-│   │   │   ├── _tokens.scss       # CSS custom properties (colors, borders, shadows) for dark/light
-│   │   │   ├── _typography.scss   # Font families + type scale + line heights + letter spacing
-│   │   │   ├── _animations.scss   # Keyframes, View Transitions CSS, utility classes
-│   │   │   ├── _surfaces.scss     # Material overrides, submit button, stats bar, card utility
-│   │   │   └── _layout.scss       # Focus ring, scrollbar, global transitions, responsive
-│   │   └── app/
-│   │       ├── app.ts             # Root component (MatToolbar navbar + router-outlet)
-│   │       ├── app.config.ts      # provideRouter + withViewTransitions, provideHttpClient, provideAnimationsAsync
-│   │       ├── app.routes.ts      # Route definitions (login, dashboard, archive, search, chat, analytics)
-│   │       ├── models/
-│   │       │   └── news-item.ts   # NewsItem, Briefing, PaginatedResponse, Stats interfaces
-│   │       ├── services/
-│   │       │   ├── news.service.ts # HTTP service (items, briefings, search, stats, pagination)
-│   │       │   └── auth.service.ts # JWT auth (login, logout, refresh tokens, expiry tracking)
-│   │       ├── guards/
-│   │       │   └── auth.guard.ts  # Route guard (redirects to login if unauthenticated)
-│   │       ├── interceptors/
-│   │       │   └── auth.interceptor.ts # Adds JWT to requests, auto-refresh on 401, logout on 403
-│   │       ├── components/
-│   │       │   └── news-item-card.ts # Reusable card (MatCard, source badges, MatChip topic)
-│   │       └── pages/
-│   │           ├── login.ts       # Password login (MatCard, MatFormField, mat-flat-button)
-│   │           ├── dashboard.ts   # Today's news (MatChipListbox, MatProgressBar, stats)
-│   │           ├── archive.ts     # Historical briefings (MatFormField date, MatSelect)
-│   │           ├── search.ts      # Full-text search (MatFormField, native select, mat-flat-button)
-│   │           ├── chat.ts        # RAG Q&A chat (MatChip suggestions, MatFormField, SSE)
-│   │           └── analytics.ts   # Charts (MatCard, MatProgressBar, Highcharts)
-│   └── dist/                      # Built Angular (served by Nginx)
+│   │   ├── main.tsx               # React bootstrap (ThemeProvider + BrowserRouter)
+│   │   ├── App.tsx                # Route definitions (/, /trending, /buscar, /chat)
+│   │   ├── index.css              # Tailwind + Shadcn theme tokens + View Transition CSS
+│   │   ├── lib/
+│   │   │   ├── constants.ts       # SOURCE_COLORS, TOPIC_LABELS, formatTime, safeUrl, mock data
+│   │   │   ├── types.ts           # NewsItem interface
+│   │   │   └── utils.ts           # cn() utility (clsx + tailwind-merge)
+│   │   ├── hooks/
+│   │   │   ├── use-theme.tsx      # ThemeProvider context + circular reveal (View Transitions API + flushSync)
+│   │   │   ├── use-mobile.tsx     # useIsMobile() responsive hook
+│   │   │   └── use-reduced-motion.ts # Re-exports Motion's useReducedMotion
+│   │   ├── components/
+│   │   │   ├── layout.tsx         # Root layout (AppNav + AnimatedOutlet)
+│   │   │   ├── app-nav.tsx        # Nav bar (desktop: layoutId animated pill, mobile: Sheet drawer)
+│   │   │   ├── theme-toggle.tsx   # Dark/light toggle (AnimatePresence icon morph)
+│   │   │   ├── news-card.tsx      # News card (hover lift + tap scale)
+│   │   │   ├── featured-card.tsx  # Featured card with gradient border
+│   │   │   ├── animated-outlet.tsx # Page transitions (AnimatePresence fade + slide)
+│   │   │   ├── animated-card-grid.tsx # Staggered card grid wrapper
+│   │   │   └── ui/               # Shadcn UI primitives (badge, button, card, etc.)
+│   │   └── pages/
+│   │       ├── Dashboard.tsx      # Latest news (topic filter, featured card, staggered grid)
+│   │       ├── Trending.tsx       # Trending + top scored items
+│   │       ├── Buscar.tsx         # Full-text search with filters
+│   │       └── Chat.tsx           # Mock AI chat (animated messages, typing dots)
+│   └── dist/                      # Built React app (served by Nginx)
 ├── tests/                         # (every package has __init__.py)
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
 │   ├── factories.py               # Test data factories
@@ -407,7 +401,7 @@ All config via environment variables. See `.env.example` for full list.
 - `ENABLED_SOURCES`: `hackernews,arxiv,reddit,rss,github,huggingface`
 - `MIN_RELEVANCE_SCORE`: `0.8`
 - `LOG_FORMAT`: `json`
-- `CORS_ORIGINS`: `http://localhost:4200`
+- `CORS_ORIGINS`: `http://localhost:5173`
 
 ## Testing
 
@@ -418,7 +412,7 @@ pytest tests/ -v
 # Unit tests only
 pytest tests/unit/ -v
 
-# E2E tests (requires Angular build in web/dist/browser)
+# E2E tests (requires React build in frontend/dist)
 pytest tests/e2e/ -v
 
 # With coverage
@@ -670,11 +664,27 @@ pytest tests/ -x --timeout=30 -q
 - All new endpoints require JWT auth, follow existing pagination + error conventions
 - `sources.py` added as a separate route module (SRP) rather than extending items.py
 
+## Frontend Migration
+
+The Angular 21 frontend (`web/`) was replaced by a React 19 frontend (`frontend/`) in Feb 2026.
+The Angular code is preserved on disk but removed from git tracking (see `.gitignore`).
+
+**React frontend stack**: Vite 7, React 19, TypeScript, Tailwind CSS 4, Shadcn UI, Motion (Framer Motion), React Router 7.
+
+**Key features**:
+- 4 pages: Latest (dashboard), Trending, Buscar (search), Chat (mock)
+- Dark/light theme with circular reveal animation (View Transitions API + flushSync)
+- Page transitions (AnimatePresence fade + slide)
+- Staggered card grids, chat message animations, card hover/tap micro-interactions
+- Nav active indicator with Motion layoutId spring animation
+- All animations respect `prefers-reduced-motion`
+- ~167 kB gzip bundle
+
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
 2. Monitor pipeline-cron in production
-3. Frontend: wire new M16 endpoints — trending, top, by-date, similar, sources, chart-ready stats
+3. Frontend: wire React app to real API endpoints (replace mock data)
 4. Consider: user preferences, saved searches, email digest
 
 ## Development History
