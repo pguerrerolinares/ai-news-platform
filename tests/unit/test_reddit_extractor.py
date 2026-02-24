@@ -8,7 +8,7 @@ import httpx
 import respx
 
 from src.extractors.base import ExtractedItem
-from src.extractors.reddit import BASE_URL, RedditExtractor
+from src.extractors.reddit import BASE_URL, OAUTH_BASE_URL, OAUTH_TOKEN_URL, RedditExtractor
 
 
 # ---------------------------------------------------------------------------
@@ -463,3 +463,68 @@ class TestEdgeCases:
         assert len(result) == 1
         assert result[0].score == 0
         assert result[0].metadata["post_id"] == "zero1"
+
+
+class TestRedditOAuth:
+    """RedditExtractor with OAuth client_credentials flow."""
+
+    @respx.mock
+    async def test_uses_oauth_when_credentials_set(self):
+        respx.post(OAUTH_TOKEN_URL).mock(
+            return_value=httpx.Response(200, json={
+                "access_token": "test-bearer-token",
+                "token_type": "bearer",
+                "expires_in": 7200,
+            }),
+        )
+        respx.get(f"{OAUTH_BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response([
+                _make_post("oauth1", "OAuth Post", score=100),
+            ])),
+        )
+
+        settings = _mock_settings(
+            reddit_client_id="test-client-id",
+            reddit_client_secret="test-client-secret",
+        )
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            extractor = RedditExtractor()
+            result = await extractor.extract()
+
+        assert len(result) == 1
+        assert result[0].title == "OAuth Post"
+
+    @respx.mock
+    async def test_falls_back_to_unauthenticated_when_no_credentials(self):
+        posts = [_make_post("noauth1", "NoAuth Post", score=50)]
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response(posts)),
+        )
+
+        settings = _mock_settings(reddit_client_id="", reddit_client_secret="")
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            extractor = RedditExtractor()
+            result = await extractor.extract()
+
+        assert len(result) == 1
+
+    @respx.mock
+    async def test_oauth_token_failure_falls_back(self):
+        respx.post(OAUTH_TOKEN_URL).mock(
+            return_value=httpx.Response(401, text="Unauthorized"),
+        )
+        posts = [_make_post("fb1", "Fallback Post", score=75)]
+        respx.get(f"{BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response(posts)),
+        )
+
+        settings = _mock_settings(
+            reddit_client_id="bad-id",
+            reddit_client_secret="bad-secret",
+        )
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            extractor = RedditExtractor()
+            result = await extractor.extract()
+
+        assert len(result) == 1
+        assert result[0].title == "Fallback Post"

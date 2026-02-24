@@ -25,6 +25,8 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 logger = get_logger(__name__)
 
 BASE_URL = "https://www.reddit.com"
+OAUTH_BASE_URL = "https://oauth.reddit.com"
+OAUTH_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 
 
 class RedditExtractor(BaseExtractor):
@@ -33,6 +35,29 @@ class RedditExtractor(BaseExtractor):
     @property
     def source_name(self) -> str:
         return "reddit"
+
+    async def _get_oauth_token(self, client: httpx.AsyncClient) -> str | None:
+        """Request OAuth bearer token using client_credentials grant."""
+        settings = get_settings()
+        if not settings.reddit_client_id or not settings.reddit_client_secret:
+            return None
+
+        try:
+            resp = await client.post(
+                OAUTH_TOKEN_URL,
+                data={"grant_type": "client_credentials"},
+                auth=(settings.reddit_client_id, settings.reddit_client_secret),
+                headers={"User-Agent": "AI-News-Platform/1.0"},
+            )
+            resp.raise_for_status()
+            token_data = resp.json()
+            token = token_data.get("access_token")
+            if token:
+                logger.info("reddit_oauth_token_acquired")
+            return token
+        except Exception as exc:
+            logger.warning("reddit_oauth_token_failed", error=str(exc))
+            return None
 
     async def extract(self, since_hours: int = 24) -> list[ExtractedItem]:
         """Extract top posts from configured subreddits.
@@ -53,9 +78,21 @@ class RedditExtractor(BaseExtractor):
                 timeout=30,
                 headers={"User-Agent": "AI-News-Platform/1.0"},
             ) as client:
+                # Try OAuth first
+                token = await self._get_oauth_token(client)
+                if token:
+                    api_base = OAUTH_BASE_URL
+                    auth_headers: dict[str, str] = {"Authorization": f"Bearer {token}"}
+                else:
+                    api_base = BASE_URL
+                    auth_headers = {}
+
                 for subreddit in subreddits:
                     try:
-                        new_items = await self._fetch_subreddit(client, subreddit, limit, seen_ids)
+                        new_items = await self._fetch_subreddit(
+                            client, subreddit, limit, seen_ids,
+                            base_url=api_base, extra_headers=auth_headers,
+                        )
                         items.extend(new_items)
                     except Exception as exc:
                         logger.warning(
@@ -87,12 +124,15 @@ class RedditExtractor(BaseExtractor):
         subreddit: str,
         limit: int,
         seen_ids: set[str],
+        *,
+        base_url: str = BASE_URL,
+        extra_headers: dict[str, str] | None = None,
     ) -> list[ExtractedItem]:
         """Fetch top posts from a single subreddit."""
-        url = f"{BASE_URL}/r/{subreddit}/top/.json"
+        url = f"{base_url}/r/{subreddit}/top/.json"
         params = {"t": "day", "limit": limit}
 
-        resp = await client.get(url, params=params)
+        resp = await client.get(url, params=params, headers=extra_headers or {})
         resp.raise_for_status()
         data = resp.json()
 
