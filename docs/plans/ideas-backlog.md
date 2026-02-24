@@ -5,17 +5,19 @@
 
 ---
 
-## Done / Obsolete (React Migration)
+## Done
 
 - [x] **Trending page/section** — Done (React Trending.tsx with `/api/items/trending` + `/api/items/top`)
 - [x] **Theme simplification** — Done (React ThemeToggle, dark/light only, no "system" option)
 - [x] ~~**Design fixes (2026-02-19 plan)**~~ — Obsolete (Angular-specific, React frontend is fresh)
 - [x] ~~**Mobile bottom nav redesign**~~ — Obsolete (React uses top nav + Sheet drawer)
+- [x] **Wire React to real API** — Done (2026-02-24). Login, JWT auth, API client, 4 pages wired, SSE chat
 
 ## In Progress
 
-- [ ] **Wire React to real API** — Milestone planned (2026-02-24-wire-react-api-design.md)
-  Login page, JWT auth, HTTP client, replace mock data in 4 pages, real SSE chat
+- [ ] **Pipeline scheduling + live feeds** — Milestone planned (2026-02-25-pipeline-scheduling-design.md)
+  APScheduler in FastAPI, per-source intervals (15min HN/Reddit, 1h RSS/GH/HF, daily arXiv),
+  Reddit OAuth, RSS ETags, HF daily_papers
 
 ## Frontend — Charts & Analytics
 
@@ -67,4 +69,4 @@
 
 ---
 
-*Last updated: 24 de febrero de 2026*
+*Last updated: 25 de febrero de 2026*
