@@ -16,6 +16,7 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
 API_URL = "https://huggingface.co/api/models"
+DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
 
 
 class HuggingFaceExtractor(BaseExtractor):
@@ -24,6 +25,59 @@ class HuggingFaceExtractor(BaseExtractor):
     @property
     def source_name(self) -> str:
         return "huggingface"
+
+    async def _fetch_daily_papers(
+        self, client: httpx.AsyncClient, seen_urls: set[str]
+    ) -> list[ExtractedItem]:
+        """Fetch curated daily papers from HuggingFace."""
+        items: list[ExtractedItem] = []
+        try:
+            resp = await client.get(DAILY_PAPERS_URL)
+            resp.raise_for_status()
+            papers = resp.json()
+
+            for entry in papers:
+                paper = entry.get("paper", {})
+                paper_id = paper.get("id", "")
+                if not paper_id:
+                    continue
+
+                url = f"https://arxiv.org/abs/{paper_id}"
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+
+                authors = paper.get("authors", [])
+                author = authors[0].get("name", "unknown") if authors else "unknown"
+
+                published_str = paper.get("publishedAt", "")
+                try:
+                    published = datetime.fromisoformat(
+                        published_str.replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    published = datetime.now(tz=UTC)
+
+                items.append(
+                    ExtractedItem(
+                        title=paper.get("title", paper_id),
+                        source=self.source_name,
+                        url=url,
+                        text=paper.get("title", ""),
+                        author=author,
+                        published_at=published,
+                        score=paper.get("upvotes", 0),
+                        metadata={
+                            "paper_id": paper_id,
+                            "upvotes": paper.get("upvotes", 0),
+                            "type": "daily_paper",
+                        },
+                    )
+                )
+        except Exception as exc:
+            logger.warning("huggingface_daily_papers_failed", error=str(exc))
+
+        return items
 
     async def extract(self, since_hours: int = 48) -> list[ExtractedItem]:
         settings = get_settings()
@@ -35,11 +89,11 @@ class HuggingFaceExtractor(BaseExtractor):
         items: list[ExtractedItem] = []
 
         with extractor_duration_seconds.labels(source=self.source_name).time():
-            try:
-                async with httpx.AsyncClient(
-                    timeout=30,
-                    headers={"User-Agent": "AI-News-Platform/1.0"},
-                ) as client:
+            async with httpx.AsyncClient(
+                timeout=30,
+                headers={"User-Agent": "AI-News-Platform/1.0"},
+            ) as client:
+                try:
                     params = {
                         "sort": "trending",
                         "direction": "-1",
@@ -91,8 +145,12 @@ class HuggingFaceExtractor(BaseExtractor):
                                 },
                             )
                         )
-            except Exception as exc:
-                logger.warning("huggingface_fetch_failed", error=str(exc))
+                except Exception as exc:
+                    logger.warning("huggingface_fetch_failed", error=str(exc))
+
+                # Also fetch daily papers
+                daily_items = await self._fetch_daily_papers(client, seen_urls)
+                items.extend(daily_items)
 
         items.sort(key=lambda x: x.score or 0, reverse=True)
         items = items[:max_items]

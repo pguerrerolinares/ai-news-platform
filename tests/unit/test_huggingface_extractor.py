@@ -10,7 +10,7 @@ import respx
 
 from src.core.config import Settings
 from src.extractors.base import ExtractedItem
-from src.extractors.huggingface import API_URL, HuggingFaceExtractor
+from src.extractors.huggingface import API_URL, DAILY_PAPERS_URL, HuggingFaceExtractor
 
 
 def _recent_iso() -> str:
@@ -251,6 +251,82 @@ class TestExtract:
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         assert result[0].score == 42000
+
+
+def _make_daily_paper(
+    title: str = "Attention Is All You Need v2",
+    paper_id: str = "2401.12345",
+    authors: list[str] | None = None,
+    upvotes: int = 42,
+    published_at: str | None = None,
+) -> dict:
+    if authors is None:
+        authors = ["Author A", "Author B"]
+    if published_at is None:
+        published_at = _recent_iso()
+    return {
+        "paper": {
+            "id": paper_id,
+            "title": title,
+            "authors": [{"name": a} for a in authors],
+            "publishedAt": published_at,
+            "upvotes": upvotes,
+        },
+    }
+
+
+class TestDailyPapers:
+
+    @respx.mock
+    async def test_daily_papers_included_in_results(self):
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[]))
+        papers = [_make_daily_paper("Cool Paper", "2401.00001", upvotes=50)]
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=papers))
+
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+
+        assert len(result) == 1
+        assert result[0].title == "Cool Paper"
+        assert result[0].url == "https://arxiv.org/abs/2401.00001"
+        assert result[0].source == "huggingface"
+
+    @respx.mock
+    async def test_daily_papers_deduped_with_models(self):
+        models = [_make_model("org/model-a", downloads=5000)]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=models))
+        papers = [_make_daily_paper("Same URL Paper", "2401.00001")]
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=papers))
+
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+
+        urls = {item.url for item in result}
+        assert "https://huggingface.co/org/model-a" in urls
+        assert "https://arxiv.org/abs/2401.00001" in urls
+
+    @respx.mock
+    async def test_daily_papers_api_failure_still_returns_models(self):
+        models = [_make_model("org/model-b", downloads=3000)]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=models))
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(500, text="Server Error"))
+
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+
+        assert len(result) == 1
+        assert result[0].title == "org/model-b"
+
+    @respx.mock
+    async def test_daily_papers_author_from_first_author(self):
+        papers = [_make_daily_paper("Multi Author Paper", "2401.99999", authors=["Alice", "Bob", "Charlie"])]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[]))
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=papers))
+
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+
+        assert result[0].author == "Alice"
 
 
 class TestEdgeCases:
