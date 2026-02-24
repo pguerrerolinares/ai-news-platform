@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_workers: int = 2
     debug: bool = False
-    cors_origins: str = "http://localhost:4200"
+    cors_origins: str = "http://localhost:5173"
 
     # --- Auth ---
     jwt_secret: str = Field(default="change-me-in-production", description="JWT signing secret")
