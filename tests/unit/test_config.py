@@ -159,3 +159,32 @@ class TestEnvVarOverride:
         monkeypatch.setenv("MIN_RELEVANCE_SCORE", "0.5")
         s = Settings()
         assert s.min_relevance_score == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Scheduler config
+# ---------------------------------------------------------------------------
+class TestSchedulerConfig:
+    """Scheduler-related settings."""
+
+    def test_scheduler_enabled_default(self):
+        from src.core.config import Settings
+        s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
+        assert s.scheduler_enabled is True
+
+    def test_poll_interval_defaults(self):
+        from src.core.config import Settings
+        s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
+        assert s.hn_poll_interval_minutes == 15
+        assert s.reddit_poll_interval_minutes == 15
+        assert s.rss_poll_interval_minutes == 60
+        assert s.github_poll_interval_minutes == 60
+        assert s.hf_poll_interval_minutes == 60
+        assert s.arxiv_cron_hour == 1
+        assert s.arxiv_cron_minute == 30
+
+    def test_reddit_oauth_defaults_empty(self):
+        from src.core.config import Settings
+        s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
+        assert s.reddit_client_id == ""
+        assert s.reddit_client_secret == ""

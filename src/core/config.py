@@ -109,6 +109,20 @@ class Settings(BaseSettings):
     pipeline_schedule_hour: int = 8
     pipeline_schedule_minute: int = 0
 
+    # --- Scheduler ---
+    scheduler_enabled: bool = True
+    hn_poll_interval_minutes: int = 15
+    reddit_poll_interval_minutes: int = 15
+    rss_poll_interval_minutes: int = 60
+    github_poll_interval_minutes: int = 60
+    hf_poll_interval_minutes: int = 60
+    arxiv_cron_hour: int = 1
+    arxiv_cron_minute: int = 30
+
+    # --- Reddit OAuth ---
+    reddit_client_id: str = ""
+    reddit_client_secret: str = ""
+
     # --- Observability ---
     log_level: str = "INFO"
     log_format: str = "json"  # json or console
