@@ -35,6 +35,8 @@ dependencies = [
     "passlib[bcrypt]~=1.7.0",
     # Rate limiting
     "slowapi~=0.1.0",
+    # Scheduling
+    "apscheduler~=3.10",
     # MCP server
     "mcp~=1.0",
 ]
