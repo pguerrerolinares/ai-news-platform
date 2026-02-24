@@ -34,6 +34,40 @@ const chipItem = {
   show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
 } as const
 
+const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<)]+)/g
+
+function renderContent(text: string) {
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = LINK_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    const label = match[1] ?? match[3]
+    const href = match[2] ?? match[3]
+    parts.push(
+      <a
+        key={match.index}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 hover:opacity-80"
+      >
+        {label}
+      </a>,
+    )
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+  LINK_RE.lastIndex = 0
+  return parts.length > 0 ? parts : text
+}
+
 async function parseSSE(
   response: Response,
   onToken: (text: string) => void,
@@ -207,7 +241,7 @@ export default function Chat() {
                     : 'bg-muted'
                 }`}
               >
-                {msg.content || (isStreaming ? '...' : '')}
+                {msg.content ? renderContent(msg.content) : (isStreaming ? '...' : '')}
               </div>
             </motion.div>
           ))}
