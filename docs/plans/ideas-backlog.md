@@ -52,6 +52,13 @@
 - [ ] **Auto-hide nav on scroll**: Top navigation hides when scrolling down,
   reappears when scrolling up. Saves mobile viewport space.
 
+## Backend — Improvements
+
+- [ ] **HF daily_papers: fetch abstract text** — Currently `text` field for daily papers is
+  just the title (HF `/api/daily_papers` doesn't return abstracts). Could fetch abstract from
+  arXiv API (`arxiv.org/abs/{id}`) as a second pass, giving the LLM classifier and embeddings
+  richer content. Low priority: pipeline dedup may already have the arXiv version with abstract.
+
 ## Backend — Future Endpoints
 
 - [ ] **Semantic search**: Expose vector similarity search as an API endpoint

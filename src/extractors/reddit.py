@@ -32,12 +32,26 @@ OAUTH_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 class RedditExtractor(BaseExtractor):
     """Extracts AI-related posts from Reddit subreddits."""
 
+    def __init__(self) -> None:
+        self._cached_token: str | None = None
+        self._token_expires_at: float = 0.0
+
     @property
     def source_name(self) -> str:
         return "reddit"
 
     async def _get_oauth_token(self, client: httpx.AsyncClient) -> str | None:
-        """Request OAuth bearer token using client_credentials grant."""
+        """Get OAuth bearer token, returning cached token if still valid.
+
+        Reddit tokens have a 2h TTL. We refresh 5 minutes early to avoid
+        using an expired token mid-request.
+        """
+        import time
+
+        # Return cached token if still valid (with 5min safety margin)
+        if self._cached_token and time.monotonic() < self._token_expires_at - 300:
+            return self._cached_token
+
         settings = get_settings()
         if not settings.reddit_client_id or not settings.reddit_client_secret:
             return None
@@ -53,7 +67,10 @@ class RedditExtractor(BaseExtractor):
             token_data = resp.json()
             token = token_data.get("access_token")
             if token:
-                logger.info("reddit_oauth_token_acquired")
+                expires_in = token_data.get("expires_in", 3600)
+                self._cached_token = token
+                self._token_expires_at = time.monotonic() + expires_in
+                logger.info("reddit_oauth_token_acquired", expires_in=expires_in)
             return token
         except Exception as exc:
             logger.warning("reddit_oauth_token_failed", error=str(exc))

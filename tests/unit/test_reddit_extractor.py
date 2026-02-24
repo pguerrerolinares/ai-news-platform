@@ -528,3 +528,31 @@ class TestRedditOAuth:
 
         assert len(result) == 1
         assert result[0].title == "Fallback Post"
+
+    @respx.mock
+    async def test_oauth_token_cached_across_calls(self):
+        """Second extract() reuses cached token instead of requesting a new one."""
+        token_route = respx.post(OAUTH_TOKEN_URL).mock(
+            return_value=httpx.Response(200, json={
+                "access_token": "cached-token",
+                "token_type": "bearer",
+                "expires_in": 7200,
+            }),
+        )
+        respx.get(f"{OAUTH_BASE_URL}/r/MachineLearning/top/.json").mock(
+            return_value=httpx.Response(200, json=_reddit_response([
+                _make_post("c1", "Cached Post", score=100),
+            ])),
+        )
+
+        settings = _mock_settings(
+            reddit_client_id="test-id",
+            reddit_client_secret="test-secret",
+        )
+        with patch("src.extractors.reddit.get_settings", return_value=settings):
+            extractor = RedditExtractor()
+            await extractor.extract()
+            await extractor.extract()
+
+        # Token endpoint called only once — second call uses cache
+        assert token_route.call_count == 1

@@ -34,6 +34,8 @@ class RSSExtractor(BaseExtractor):
     """Extracts posts from curated RSS/Atom feeds."""
 
     def __init__(self) -> None:
+        # Bounded in practice: only curated feeds from settings (typically <20).
+        # Resets on process restart.
         self._etag_cache: dict[str, dict[str, str]] = {}
 
     @property

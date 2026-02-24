@@ -14,6 +14,8 @@ from src.pipeline.pipeline import run_pipeline
 
 logger = get_logger(__name__)
 
+# Module-level singleton — state resets on process restart.
+# Acceptable: scheduler runs in-process, single instance on VPS.
 _circuit_breaker = CircuitBreaker(threshold=3, cooldown_seconds=3600)
 
 
@@ -39,6 +41,9 @@ async def run_scheduled_pipeline(sources: list[str]) -> None:
                 for source in active_sources:
                     _circuit_breaker.record_success(source)
     except Exception as exc:
+        # Pipeline catches per-extractor errors internally; exceptions here
+        # are infrastructure-level (DB, network), so penalizing all sources
+        # in the tier is correct — the failure is not source-specific.
         logger.error("scheduled_pipeline_failed", sources=active_sources, error=str(exc))
         for source in active_sources:
             _circuit_breaker.record_failure(source)

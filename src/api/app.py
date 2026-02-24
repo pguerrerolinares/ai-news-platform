@@ -113,7 +113,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("starting_application")
     await init_db()
 
-    # Start scheduler if enabled
+    # Start scheduler if enabled (deferred import avoids circular dependency
+    # and import-time side effects from APScheduler)
     from src.pipeline.scheduler import create_scheduler
 
     scheduler = create_scheduler()
