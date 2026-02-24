@@ -5,10 +5,22 @@
 
 ---
 
+## Done / Obsolete (React Migration)
+
+- [x] **Trending page/section** — Done (React Trending.tsx with `/api/items/trending` + `/api/items/top`)
+- [x] **Theme simplification** — Done (React ThemeToggle, dark/light only, no "system" option)
+- [x] ~~**Design fixes (2026-02-19 plan)**~~ — Obsolete (Angular-specific, React frontend is fresh)
+- [x] ~~**Mobile bottom nav redesign**~~ — Obsolete (React uses top nav + Sheet drawer)
+
+## In Progress
+
+- [ ] **Wire React to real API** — Milestone planned (2026-02-24-wire-react-api-design.md)
+  Login page, JWT auth, HTTP client, replace mock data in 4 pages, real SSE chat
+
 ## Frontend — Charts & Analytics
 
-- [ ] **Analytics page overhaul**: Use new stats endpoints (`by-topic-date`, `by-source-date`,
-  `trending-timeline`, `score-distribution`) to build richer Highcharts visualizations
+- [ ] **Analytics page**: Use stats endpoints (`by-topic-date`, `by-source-date`,
+  `trending-timeline`, `score-distribution`) to build chart visualizations
   - Stacked area chart: topics over time
   - Stacked bar chart: sources over time
   - Sparkline: trending items over time
@@ -18,41 +30,15 @@
 - [ ] **Mini charts in Dashboard**: Sparkline of items per day (last 7 days), topic breakdown
   pie chart for the current day
 
-- [ ] **Charts in Archive page**: Pie chart of topic distribution for the selected date
-
-- [ ] **Charts in Search results**: Timeline showing how many results fall on each date
-  (useful for seeing trends in search results)
-
 - [ ] **Chat with inline charts**: LLM returns structured data alongside text, frontend
-  detects chart payloads and renders Highcharts inline in the conversation. Requires:
-  - Backend: Chat SSE new event type `type: "chart"` with chart config/data
-  - Frontend: Chart renderer component inside chat messages
-  - LLM prompt engineering to produce chart-ready data
-
-## Frontend — Editorial Redesign (Backlog)
-
-- [ ] **Admin/Reader view toggle**: Dashboard switches between Reader (news-first) and
-  Admin (pipeline stats) views. Requires user types/roles (not yet implemented).
-
-- [ ] **Mobile bottom nav redesign**: Current Material nav is generic. Redesign with
-  editorial aesthetic matching the Stitch dark mode design (DASH, LOGS, bolt, STATS, API).
-
-- [ ] **Theme simplification**: Only dark/light toggle (remove "system" preference option).
-  Keep it simple — 2 modes only.
-
-- [ ] **Auto-hide nav on scroll**: Bottom navigation bar should hide when scrolling down
-  and reappear when scrolling up. Saves mobile viewport space.
+  detects chart payloads and renders charts inline in the conversation
 
 ## Frontend — UX Improvements
 
-- [ ] **Pagination UI controls**: Now that all list endpoints support `offset`/`limit`
-  and return `X-Total-Count`, add pagination buttons or infinite scroll to:
+- [ ] **Pagination UI controls**: Infinite scroll or pagination buttons for:
   - Dashboard news list
-  - Archive items
   - Search results
-
-- [ ] **Design fixes (from 2026-02-19 plan)**: 9 pending tasks including stats bar
-  mobile scroll, accent marks, light mode card contrast, analytics dark mode charts
+  - Trending lists
 
 - [ ] **"Related news" sidebar**: Use `/api/items/{id}/similar` to show related items
   when clicking on a news card
@@ -60,7 +46,10 @@
 - [ ] **Source-based browse view**: Use `/api/sources` + `/api/items?source=X` to let
   users browse by source (HackerNews, arXiv, Reddit, etc.)
 
-- [ ] **Trending page/section**: Dedicated trending view using `/api/items/trending`
+- [ ] **Archive page**: Historical briefings by date (was in Angular, not yet in React)
+
+- [ ] **Auto-hide nav on scroll**: Top navigation hides when scrolling down,
+  reappears when scrolling up. Saves mobile viewport space.
 
 ## Backend — Future Endpoints
 
@@ -78,4 +67,4 @@
 
 ---
 
-*Last updated: 22 de febrero de 2026*
+*Last updated: 24 de febrero de 2026*
