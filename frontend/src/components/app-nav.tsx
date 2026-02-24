@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/sheet'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { IconMenu2 } from '@tabler/icons-react'
+import { IconMenu2, IconLogout } from '@tabler/icons-react'
 import { motion } from 'motion/react'
+import { useAuth } from '@/hooks/use-auth'
 
 const links = [
   { to: '/', label: 'Latest' },
@@ -30,6 +31,7 @@ const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function AppNav() {
   const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
+  const { logout } = useAuth()
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
@@ -70,8 +72,11 @@ export function AppNav() {
                 </nav>
               </SheetContent>
             </Sheet>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
+              <Button variant="ghost" size="icon" onClick={logout} aria-label="Cerrar sesion">
+                <IconLogout className="size-4" />
+              </Button>
             </div>
           </>
         ) : (
@@ -105,8 +110,11 @@ export function AppNav() {
                 </NavLink>
               ))}
             </nav>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
+              <Button variant="ghost" size="icon" onClick={logout} aria-label="Cerrar sesion">
+                <IconLogout className="size-4" />
+              </Button>
             </div>
           </>
         )}
