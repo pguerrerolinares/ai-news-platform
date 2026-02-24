@@ -60,7 +60,7 @@ async function request<T>(
       return request<T>(path, options, false)
     }
     clearTokens()
-    window.location.href = '/login'
+    window.location.replace('/login')
     throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
   }
 
@@ -103,7 +103,11 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return data
 }
 
-export async function apiStream(path: string, body: unknown): Promise<Response> {
+export async function apiStream(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<Response> {
   const url = `${BASE_URL}${path}`
   const res = await fetch(url, {
     method: 'POST',
@@ -112,6 +116,7 @@ export async function apiStream(path: string, body: unknown): Promise<Response> 
       ...authHeaders(),
     },
     body: JSON.stringify(body),
+    signal,
   })
 
   if (res.status === 401) {
@@ -124,10 +129,11 @@ export async function apiStream(path: string, body: unknown): Promise<Response> 
           ...authHeaders(),
         },
         body: JSON.stringify(body),
+        signal,
       })
     }
     clearTokens()
-    window.location.href = '/login'
+    window.location.replace('/login')
     throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
   }
 

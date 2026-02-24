@@ -45,6 +45,7 @@ async function parseSSE(
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let finished = false
 
   while (true) {
     const { done, value } = await reader.read()
@@ -69,7 +70,7 @@ async function parseSSE(
           } else if (currentEvent === 'error') {
             onError(parsed.error?.message ?? 'Error del servidor')
           } else if (currentEvent === 'done') {
-            onDone()
+            if (!finished) { finished = true; onDone() }
           }
         } catch {
           // ignore malformed JSON
@@ -78,7 +79,7 @@ async function parseSSE(
       }
     }
   }
-  onDone()
+  if (!finished) onDone()
 }
 
 export default function Chat() {
@@ -86,14 +87,22 @@ export default function Chat() {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const reduced = useReducedMotion()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isStreaming])
 
+  // Cleanup SSE stream on unmount
+  useEffect(() => () => { abortRef.current?.abort() }, [])
+
   const send = useCallback(async (text: string) => {
     if (!text.trim() || isStreaming) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     const userMsg: Message = { id: msgId(), role: 'user', content: text.trim() }
     const assistantId = msgId()
     setMessages(prev => [...prev, userMsg])
@@ -104,7 +113,7 @@ export default function Chat() {
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
     try {
-      const response = await apiStream('/api/chat', { question: text.trim() })
+      const response = await apiStream('/api/chat', { question: text.trim() }, controller.signal)
       await parseSSE(
         response,
         (token) => {
