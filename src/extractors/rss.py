@@ -33,6 +33,9 @@ logger = get_logger(__name__)
 class RSSExtractor(BaseExtractor):
     """Extracts posts from curated RSS/Atom feeds."""
 
+    def __init__(self) -> None:
+        self._etag_cache: dict[str, dict[str, str]] = {}
+
     @property
     def source_name(self) -> str:
         return "rss"
@@ -92,8 +95,31 @@ class RSSExtractor(BaseExtractor):
         seen_urls: set[str],
     ) -> list[ExtractedItem]:
         """Fetch and parse a single RSS/Atom feed."""
-        resp = await client.get(feed_url)
+        # Build conditional request headers from cache
+        headers: dict[str, str] = {}
+        cached = self._etag_cache.get(feed_url, {})
+        if cached.get("etag"):
+            headers["If-None-Match"] = cached["etag"]
+        if cached.get("last_modified"):
+            headers["If-Modified-Since"] = cached["last_modified"]
+
+        resp = await client.get(feed_url, headers=headers)
+
+        # 304 Not Modified: feed unchanged since last fetch
+        if resp.status_code == 304:
+            logger.info("rss_feed_unchanged", feed_url=feed_url)
+            return []
+
         resp.raise_for_status()
+
+        # Store conditional request headers for next fetch
+        new_cache: dict[str, str] = {}
+        if resp.headers.get("etag"):
+            new_cache["etag"] = resp.headers["etag"]
+        if resp.headers.get("last-modified"):
+            new_cache["last_modified"] = resp.headers["last-modified"]
+        if new_cache:
+            self._etag_cache[feed_url] = new_cache
 
         feed = feedparser.parse(resp.text)
         source_name = self._get_source_name(feed, feed_url)

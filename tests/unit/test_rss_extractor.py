@@ -440,3 +440,56 @@ class TestEdgeCases:
             result = await extractor.extract()
 
         assert result == []
+
+
+class TestRSSETags:
+    """RSSExtractor conditional request behavior with ETags."""
+
+    @respx.mock
+    async def test_stores_etag_and_sends_on_next_request(self):
+        """After a response with ETag, next request sends If-None-Match."""
+        entries = [_make_entry("Post A", "https://openai.com/blog/a")]
+        feed_xml = _make_feed(entries)
+
+        # First request: response includes ETag header
+        respx.get(FEED_URL_OPENAI).mock(
+            return_value=httpx.Response(
+                200, text=feed_xml, headers={"ETag": '"abc123"'}
+            ),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.rss.get_settings", return_value=settings):
+            extractor = RSSExtractor()
+            result1 = await extractor.extract(since_hours=48)
+
+        assert len(result1) == 1
+
+        # Second request: server returns 304 (no changes)
+        route = respx.get(FEED_URL_OPENAI).mock(
+            return_value=httpx.Response(304),
+        )
+
+        with patch("src.extractors.rss.get_settings", return_value=settings):
+            result2 = await extractor.extract(since_hours=48)
+
+        assert result2 == []
+        # Verify If-None-Match header was sent
+        request = route.calls.last.request
+        assert request.headers.get("if-none-match") == '"abc123"'
+
+    @respx.mock
+    async def test_304_returns_empty_list(self):
+        """HTTP 304 Not Modified returns empty (feed unchanged)."""
+        extractor = RSSExtractor()
+        extractor._etag_cache[FEED_URL_OPENAI] = {"etag": '"cached"'}
+
+        respx.get(FEED_URL_OPENAI).mock(
+            return_value=httpx.Response(304),
+        )
+
+        settings = _mock_settings()
+        with patch("src.extractors.rss.get_settings", return_value=settings):
+            result = await extractor.extract(since_hours=48)
+
+        assert result == []
