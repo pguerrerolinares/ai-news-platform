@@ -164,13 +164,16 @@ ai-news-platform/
 │   ├── components.json            # Shadcn UI config
 │   ├── src/
 │   │   ├── main.tsx               # React bootstrap (ThemeProvider + BrowserRouter)
-│   │   ├── App.tsx                # Route definitions (/, /trending, /buscar, /chat)
+│   │   ├── App.tsx                # Route definitions + AuthProvider + RequireAuth wrapper
 │   │   ├── index.css              # Tailwind + Shadcn theme tokens + View Transition CSS
 │   │   ├── lib/
-│   │   │   ├── constants.ts       # SOURCE_COLORS, TOPIC_LABELS, formatTime, safeUrl, mock data
+│   │   │   ├── api.ts             # Fetch wrapper (apiGet, apiPost, apiStream) with JWT, auto-refresh
+│   │   │   ├── auth.ts            # Token storage (localStorage): store, get, clear, hasTokens
+│   │   │   ├── constants.ts       # SOURCE_COLORS, TOPIC_LABELS, formatTime, safeUrl
 │   │   │   ├── types.ts           # NewsItem interface
 │   │   │   └── utils.ts           # cn() utility (clsx + tailwind-merge)
 │   │   ├── hooks/
+│   │   │   ├── use-auth.tsx       # AuthProvider context, useAuth hook, RequireAuth route guard
 │   │   │   ├── use-theme.tsx      # ThemeProvider context + circular reveal (View Transitions API + flushSync)
 │   │   │   ├── use-mobile.tsx     # useIsMobile() responsive hook
 │   │   │   └── use-reduced-motion.ts # Re-exports Motion's useReducedMotion
@@ -184,10 +187,11 @@ ai-news-platform/
 │   │   │   ├── animated-card-grid.tsx # Staggered card grid wrapper
 │   │   │   └── ui/               # Shadcn UI primitives (badge, button, card, etc.)
 │   │   └── pages/
-│   │       ├── Dashboard.tsx      # Latest news (topic filter, featured card, staggered grid)
-│   │       ├── Trending.tsx       # Trending + top scored items
-│   │       ├── Buscar.tsx         # Full-text search with filters
-│   │       └── Chat.tsx           # Mock AI chat (animated messages, typing dots)
+│   │       ├── Login.tsx          # Password login form (JWT auth)
+│   │       ├── Dashboard.tsx      # Latest news via GET /api/items/today (topic filter, featured card)
+│   │       ├── Trending.tsx       # Trending + top scored via /api/items/trending + /api/items/top
+│   │       ├── Buscar.tsx         # Full-text search via GET /api/search
+│   │       └── Chat.tsx           # AI chat via POST /api/chat (SSE streaming)
 │   └── dist/                      # Built React app (served by Nginx)
 ├── tests/                         # (every package has __init__.py)
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
@@ -672,20 +676,24 @@ The Angular code is preserved on disk but removed from git tracking (see `.gitig
 **React frontend stack**: Vite 7, React 19, TypeScript, Tailwind CSS 4, Shadcn UI, Motion (Framer Motion), React Router 7.
 
 **Key features**:
-- 4 pages: Latest (dashboard), Trending, Buscar (search), Chat (mock)
+- 5 pages: Login, Latest (dashboard), Trending, Buscar (search), Chat
+- All pages wired to real FastAPI backend (no mock data)
+- JWT auth with auto-refresh on 401, protected routes via RequireAuth
+- Chat uses SSE streaming (POST /api/chat) with token-by-token rendering
 - Dark/light theme with circular reveal animation (View Transitions API + flushSync)
 - Page transitions (AnimatePresence fade + slide)
 - Staggered card grids, chat message animations, card hover/tap micro-interactions
 - Nav active indicator with Motion layoutId spring animation
 - All animations respect `prefers-reduced-motion`
-- ~167 kB gzip bundle
+- ~165 kB gzip bundle
 
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
 2. Monitor pipeline-cron in production
-3. Frontend: wire React app to real API endpoints (replace mock data)
-4. Consider: user preferences, saved searches, email digest
+3. Consider: user preferences, saved searches, email digest
+4. Analytics page with charts (stats endpoints ready)
+5. Pagination UI controls (infinite scroll or pagination buttons)
 
 ## Development History
 
