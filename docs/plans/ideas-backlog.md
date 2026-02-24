@@ -12,12 +12,11 @@
 - [x] ~~**Design fixes (2026-02-19 plan)**~~ — Obsolete (Angular-specific, React frontend is fresh)
 - [x] ~~**Mobile bottom nav redesign**~~ — Obsolete (React uses top nav + Sheet drawer)
 - [x] **Wire React to real API** — Done (2026-02-24). Login, JWT auth, API client, 4 pages wired, SSE chat
+- [x] **Pipeline scheduling + live feeds** — Done (2026-02-25). APScheduler 3-tier jobs, pipeline sources filter, Reddit OAuth, RSS ETags, HF daily_papers, circuit breaker
 
 ## In Progress
 
-- [ ] **Pipeline scheduling + live feeds** — Milestone planned (2026-02-25-pipeline-scheduling-design.md)
-  APScheduler in FastAPI, per-source intervals (15min HN/Reddit, 1h RSS/GH/HF, daily arXiv),
-  Reddit OAuth, RSS ETags, HF daily_papers
+(nothing currently in progress)
 
 ## Frontend — Charts & Analytics
 

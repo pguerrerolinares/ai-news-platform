@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-22 | **Current milestone**: 16 (API Endpoint Expansion) | **Status**: Complete
+> **Last updated**: 2026-02-25 | **Current milestone**: Pipeline Scheduling + Live Feeds | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 802 (767 unit + 35 E2E), 92% coverage
+- **Tests**: 863 (828 unit + 35 E2E), 92% coverage
 
 ## Architecture
 
@@ -23,7 +23,7 @@ Docker Compose on Hetzner VPS
 │                                                          │
 │  ┌──────────┐  ┌──────────┐  ┌─────────────────────┐    │
 │  │  Nginx   │  │ Pipeline │  │  PostgreSQL 16       │    │
-│  │  (TLS +  │  │ (cron)   │──│  + pgvector          │    │
+│  │  (TLS +  │  │ (sched)  │──│  + pgvector          │    │
 │  │  proxy + │  └──────────┘  │                      │    │
 │  │  static) │  ┌──────────┐  │  Tables:             │    │
 │  └────┬─────┘  │ FastAPI  │──│  - news_items        │    │
@@ -107,8 +107,8 @@ ai-news-platform/
 ├── src/                           # (every package has __init__.py)
 │   ├── main.py                    # CLI entry point for pipeline
 │   ├── core/
-│   │   ├── config.py              # Pydantic Settings (all env vars)
-│   │   ├── database.py            # Async SQLAlchemy engine + session factory
+│   │   ├── config.py              # Pydantic Settings (all env vars, scheduler + Reddit OAuth)
+│   │   ├── database.py            # Async SQLAlchemy engine + session factory + get_async_session()
 │   │   ├── models.py              # ORM: NewsItem, DailyBriefing, ItemEmbedding
 │   │   ├── logging.py             # structlog + correlation IDs
 │   │   └── metrics.py             # Prometheus counters + histograms
@@ -116,10 +116,10 @@ ai-news-platform/
 │   │   ├── base.py                # BaseExtractor ABC + ExtractedItem dataclass
 │   │   ├── hackernews.py          # HackerNewsExtractor (Algolia API, async httpx)
 │   │   ├── arxiv.py               # ArxivExtractor (RSS feeds, feedparser, keyword filter)
-│   │   ├── reddit.py              # RedditExtractor (JSON API, skip stickied, dedup by ID)
-│   │   ├── rss.py                 # RSSExtractor (curated feeds, 48h lookback, HTML cleanup)
+│   │   ├── reddit.py              # RedditExtractor (OAuth client_credentials + fallback, skip stickied, dedup by ID)
+│   │   ├── rss.py                 # RSSExtractor (curated feeds, 48h lookback, HTML cleanup, ETags)
 │   │   ├── github.py              # GitHubExtractor (GitHub Search API, async httpx, star filter)
-│   │   └── huggingface.py         # HuggingFaceExtractor (HF API, download filter, trending)
+│   │   └── huggingface.py         # HuggingFaceExtractor (HF API, download filter, trending + daily_papers)
 │   ├── classifiers/
 │   │   ├── base.py                # BaseClassifier ABC + ClassifiedItem dataclass
 │   │   ├── keyword.py             # KeywordClassifier (7 topics, word-boundary regex, fallback)
@@ -133,7 +133,7 @@ ai-news-platform/
 │   │   ├── alerts.py              # AlertService (Telegram alerts for ops)
 │   │   └── telegram.py            # TelegramNotifier (daily briefing, topic blocks, HTML)
 │   ├── api/
-│   │   ├── app.py                 # FastAPI app, /health (200/503), /metrics, middleware, error handlers
+│   │   ├── app.py                 # FastAPI app, /health (200/503), /metrics, middleware, scheduler start/stop
 │   │   ├── auth.py                # JWT access+refresh tokens, require_auth, token rotation
 │   │   ├── errors.py              # APIError class, standardized error handlers
 │   │   ├── pagination.py          # set_total_count_header() helper
@@ -149,7 +149,9 @@ ai-news-platform/
 │   ├── pipeline/
 │   │   ├── dedup.py               # 2-pass dedup (content_hash + url_hash)
 │   │   ├── validation.py          # Pre-storage validation (title, URL required)
-│   │   └── pipeline.py            # Full flow: extract→dedup→classify→validate→embed→store→notify
+│   │   ├── pipeline.py            # Full flow: extract→dedup→classify→validate→embed→store→notify (sources filter)
+│   │   ├── scheduler.py           # APScheduler AsyncIOScheduler (3-tier jobs in FastAPI lifespan)
+│   │   └── circuit_breaker.py     # Per-source failure tracking (3 failures → 1h cooldown)
 │   ├── rag/
 │   │   ├── embeddings.py          # EmbeddingService (OpenAI-compatible, batch embed, text prep)
 │   │   ├── retriever.py           # Retriever (pgvector cosine similarity, topic filter)
@@ -197,17 +199,17 @@ ai-news-platform/
 │   ├── conftest.py                # Shared fixtures (DB, client, factories)
 │   ├── factories.py               # Test data factories
 │   ├── unit/                      # 767 tests
-│   │   ├── test_config.py         # Settings defaults + env overrides (27 tests)
+│   │   ├── test_config.py         # Settings defaults + env overrides + scheduler (30 tests)
 │   │   ├── test_config_embedding.py # Embedding config settings (5 tests)
 │   │   ├── test_models.py         # ORM model structure (20 tests)
 │   │   ├── test_logging.py        # structlog + correlation IDs (8 tests)
 │   │   ├── test_extractors_base.py # ExtractedItem + BaseExtractor ABC (17 tests)
 │   │   ├── test_hackernews_extractor.py # HN extractor with respx (13 tests)
 │   │   ├── test_arxiv_extractor.py # ArXiv extractor with respx (22 tests)
-│   │   ├── test_reddit_extractor.py # Reddit extractor with respx (15 tests)
-│   │   ├── test_rss_extractor.py  # RSS extractor with respx (18 tests)
+│   │   ├── test_reddit_extractor.py # Reddit extractor with respx + OAuth (18 tests)
+│   │   ├── test_rss_extractor.py  # RSS extractor with respx + ETags (20 tests)
 │   │   ├── test_github_extractor.py # GitHub extractor with respx (18 tests)
-│   │   ├── test_huggingface_extractor.py # HuggingFace extractor with respx (14 tests)
+│   │   ├── test_huggingface_extractor.py # HuggingFace extractor with respx + daily_papers (18 tests)
 │   │   ├── test_keyword_classifier.py # Keyword classifier (42 tests)
 │   │   ├── test_llm_classifier.py # LLM classifier with mocked OpenAI (25 tests)
 │   │   ├── test_event_dedup.py    # Event deduplication (22 tests)
@@ -215,7 +217,7 @@ ai-news-platform/
 │   │   ├── test_telegram_notifier.py # Telegram notifier with respx (85 tests)
 │   │   ├── test_alerts.py         # AlertService enabled/disabled (16 tests)
 │   │   ├── test_dedup.py          # Dedup service (18 tests)
-│   │   ├── test_pipeline.py       # Pipeline orchestration (32 tests)
+│   │   ├── test_pipeline.py       # Pipeline orchestration + sources filter (37 tests)
 │   │   ├── test_pipeline_embedding.py # Pipeline embedding step (5 tests)
 │   │   ├── test_api.py            # /health (200+503) + /metrics endpoints (11 tests)
 │   │   ├── test_api_routes.py     # Items + briefings API routes + pagination (30 tests)
@@ -232,7 +234,9 @@ ai-news-platform/
 │   │   ├── test_mcp_server.py     # MCP server tools (18 tests)
 │   │   ├── test_mcp_client.py     # MCP client (14 tests)
 │   │   ├── test_schemas.py        # Unit tests for M16 Pydantic schemas
-│   │   └── test_sources_api.py    # Unit tests for GET /api/sources endpoint
+│   │   ├── test_sources_api.py    # Unit tests for GET /api/sources endpoint
+│   │   ├── test_scheduler.py      # APScheduler integration tests (4 tests)
+│   │   └── test_circuit_breaker.py # Circuit breaker per-source tracking (5 tests)
 │   ├── e2e/                       # 35 Playwright tests
 │   │   ├── conftest.py            # Static server, API mocks, auth fixtures
 │   │   ├── test_login.py          # Login flow (correct, incorrect, redirect)
@@ -268,6 +272,8 @@ ai-news-platform/
 │   │   ├── 2026-02-21-milestone-14-plan.md
 │   │   ├── 2026-02-21-milestone-15-design.md
 │   │   ├── 2026-02-21-milestone-15-plan.md
+│   │   ├── 2026-02-25-pipeline-scheduling-design.md  # Pipeline scheduling design doc
+│   │   ├── 2026-02-25-pipeline-scheduling-plan.md   # Pipeline scheduling implementation plan
 │   │   └── ideas-backlog.md               # Future feature ideas and backlog
 │   └── runbooks/
 │       ├── deployment.md
@@ -397,6 +403,20 @@ All config via environment variables. See `.env.example` for full list.
 - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`: For Telegram alerts (alerts silently disabled if missing)
 - `EMBEDDING_API_KEY`: OpenAI API key (needed for RAG chat embeddings)
 
+**Scheduler settings** (pipeline scheduling):
+- `SCHEDULER_ENABLED`: `true` — enable APScheduler in FastAPI lifespan
+- `HN_POLL_INTERVAL_MINUTES`: `15` — HackerNews poll interval
+- `REDDIT_POLL_INTERVAL_MINUTES`: `15` — Reddit poll interval
+- `RSS_POLL_INTERVAL_MINUTES`: `60` — RSS feeds poll interval
+- `GITHUB_POLL_INTERVAL_MINUTES`: `60` — GitHub poll interval
+- `HF_POLL_INTERVAL_MINUTES`: `60` — HuggingFace poll interval
+- `ARXIV_CRON_HOUR`: `1` — arXiv daily cron hour (UTC)
+- `ARXIV_CRON_MINUTE`: `30` — arXiv daily cron minute
+
+**Reddit OAuth** (optional, enables higher rate limits):
+- `REDDIT_CLIENT_ID`: Reddit app client ID
+- `REDDIT_CLIENT_SECRET`: Reddit app client secret
+
 **Key defaults**:
 - `OPENAI_BASE_URL`: `https://api.moonshot.cn/v1`
 - `OPENAI_MODEL`: `kimi-latest`
@@ -427,7 +447,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (767 unit + 35 E2E = 802 total)
+**Current coverage**: 92% (828 unit + 35 E2E = 863 total)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
@@ -668,6 +688,34 @@ pytest tests/ -x --timeout=30 -q
 - All new endpoints require JWT auth, follow existing pagination + error conventions
 - `sources.py` added as a separate route module (SRP) rather than extending items.py
 
+**Pipeline Scheduling + Live Feeds**: Complete
+- [x] APScheduler AsyncIOScheduler in FastAPI lifespan (3-tier jobs)
+- [x] Pipeline refactor: `run_pipeline(session, sources=None)` for per-tier runs
+- [x] Reddit OAuth client_credentials flow with fallback to unauthenticated
+- [x] RSS ETags (If-None-Match / If-Modified-Since, 304 skip)
+- [x] HuggingFace daily_papers endpoint integration
+- [x] Circuit breaker: 3 consecutive failures → 1h cooldown per source
+- [x] Scheduler config settings (per-source intervals, Reddit OAuth creds)
+- [x] `get_async_session()` standalone context manager for scheduler jobs
+- [x] Tests: 61 new (828 unit total), all green
+
+**Scheduling tiers**:
+
+| Tier | Interval | Sources | Job |
+|------|----------|---------|-----|
+| 1 | Every 15 min | HackerNews, Reddit | `run_scheduled_pipeline(["hackernews", "reddit"])` |
+| 2 | Every 60 min | RSS, GitHub, HuggingFace | `run_scheduled_pipeline(["rss", "github", "huggingface"])` |
+| 3 | Daily 01:30 UTC | arXiv | `run_scheduled_pipeline(["arxiv"])` |
+
+**Key design decisions (Pipeline Scheduling)**:
+- APScheduler runs in-process (no external broker) — suitable for single-instance VPS
+- Pipeline `sources` filter is backward compatible: `None` runs all enabled sources
+- Reddit OAuth uses httpx (no asyncpraw dependency), caches token in memory, refreshes on expiry
+- RSS ETags stored in per-instance dict, resets on restart (first poll always fetches)
+- HF daily_papers shares `seen_urls` set with trending models to avoid duplicates
+- Circuit breaker uses `time.monotonic()` for cooldown tracking, auto-resets after cooldown
+- Docker `pipeline-cron` service kept but deprecated (scheduler runs in API process)
+
 ## Frontend Migration
 
 The Angular 21 frontend (`web/`) was replaced by a React 19 frontend (`frontend/`) in Feb 2026.
@@ -690,10 +738,10 @@ The Angular code is preserved on disk but removed from git tracking (see `.gitig
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
-2. Monitor pipeline-cron in production
-3. Consider: user preferences, saved searches, email digest
-4. Analytics page with charts (stats endpoints ready)
-5. Pagination UI controls (infinite scroll or pagination buttons)
+2. Monitor APScheduler pipeline in production
+3. Analytics page with charts (stats endpoints ready)
+4. Pagination UI controls (infinite scroll or pagination buttons)
+5. Consider: user preferences, saved searches, email digest
 
 ## Development History
 
@@ -711,3 +759,4 @@ The Angular code is preserved on disk but removed from git tracking (see `.gitig
 | 2026-02-21 | 14 | DB + Backend API Polish: 4 performance indexes, pagination on all endpoints (X-Total-Count), 4 aggregate stats endpoints, search sort_by, standardized errors (APIError), refresh tokens (30min/7d), pipeline validation, chat 30s timeout. 749 unit tests. |
 | 2026-02-21 | 15 | API Contract Polish: Chat SSE OpenAI-style events (event types + message ID), frontend auth refresh tokens + interceptor auto-refresh, news service pagination + stats, schema cleanup, OpenAPI error docs. 756 unit tests. |
 | 2026-02-22 | 16 | API Endpoint Expansion: 9 new endpoints + 1 modified, resilient briefings, chart-ready stats (by-topic-date, by-source-date, trending-timeline, score-distribution), pgvector similarity search, sources list. 767 unit tests. |
+| 2026-02-25 | Sched | Pipeline Scheduling + Live Feeds: APScheduler 3-tier jobs, pipeline sources filter, Reddit OAuth, RSS ETags, HF daily_papers, circuit breaker. 828 unit tests. |
