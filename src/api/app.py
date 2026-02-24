@@ -112,7 +112,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     logger.info("starting_application")
     await init_db()
+
+    # Start scheduler if enabled
+    from src.pipeline.scheduler import create_scheduler
+
+    scheduler = create_scheduler()
+    if scheduler is not None:
+        scheduler.start()
+        logger.info("scheduler_started")
+
     yield
+
+    # Shutdown scheduler
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+        logger.info("scheduler_stopped")
+
     logger.info("shutting_down_application")
     await close_db()
 

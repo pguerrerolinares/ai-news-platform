@@ -1,0 +1,87 @@
+"""Tests for src.pipeline.scheduler -- APScheduler integration."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+
+class TestCreateScheduler:
+    """Verify scheduler creation and job configuration."""
+
+    def test_creates_scheduler_with_jobs(self):
+        from src.core.config import Settings
+        from src.pipeline.scheduler import create_scheduler
+
+        settings = Settings(
+            scheduler_enabled=True,
+            telegram_bot_token="",
+            telegram_chat_id="",
+            telegram_alerts_enabled=False,
+        )
+        with patch("src.pipeline.scheduler.get_settings", return_value=settings):
+            scheduler = create_scheduler()
+
+        jobs = scheduler.get_jobs()
+        assert len(jobs) == 3
+        job_ids = {j.id for j in jobs}
+        assert "tier1_hn_reddit" in job_ids
+        assert "tier2_rss_gh_hf" in job_ids
+        assert "tier3_arxiv" in job_ids
+
+    def test_scheduler_not_created_when_disabled(self):
+        from src.core.config import Settings
+        from src.pipeline.scheduler import create_scheduler
+
+        settings = Settings(
+            scheduler_enabled=False,
+            telegram_bot_token="",
+            telegram_chat_id="",
+            telegram_alerts_enabled=False,
+        )
+        with patch("src.pipeline.scheduler.get_settings", return_value=settings):
+            scheduler = create_scheduler()
+
+        assert scheduler is None
+
+
+class TestRunScheduledPipeline:
+    """Verify run_scheduled_pipeline creates session and runs pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_creates_session_and_runs_pipeline(self):
+        from src.pipeline.scheduler import run_scheduled_pipeline
+
+        mock_session = AsyncMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("src.pipeline.scheduler.get_async_session", return_value=mock_session_cm),
+            patch("src.pipeline.scheduler.run_pipeline", new_callable=AsyncMock) as mock_run,
+        ):
+            await run_scheduled_pipeline(sources=["hackernews", "reddit"])
+
+        mock_run.assert_called_once_with(mock_session, sources=["hackernews", "reddit"])
+
+    @pytest.mark.asyncio
+    async def test_catches_exceptions_and_logs(self):
+        from src.pipeline.scheduler import run_scheduled_pipeline
+
+        mock_session = AsyncMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("src.pipeline.scheduler.get_async_session", return_value=mock_session_cm),
+            patch(
+                "src.pipeline.scheduler.run_pipeline",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("DB down"),
+            ),
+        ):
+            # Should NOT raise
+            await run_scheduled_pipeline(sources=["hackernews"])

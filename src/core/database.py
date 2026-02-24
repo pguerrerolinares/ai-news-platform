@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -64,3 +65,10 @@ async def close_db() -> None:
         await _engine.dispose()
         _engine = None
         _session_factory = None
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """Standalone async session context manager (for non-FastAPI use)."""
+    async with get_session_factory()() as session:
+        yield session
