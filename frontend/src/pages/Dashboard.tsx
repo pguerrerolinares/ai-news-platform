@@ -1,42 +1,78 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { MOCK_ITEMS, MOCK_TOPICS } from '@/lib/mock-data'
 import { TOPIC_LABELS } from '@/lib/constants'
 import { NewsCard } from '@/components/news-card'
 import { FeaturedCard } from '@/components/featured-card'
 import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-grid'
+import { Button } from '@/components/ui/button'
+import { apiGet } from '@/lib/api'
+import type { NewsItem } from '@/lib/types'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
+import { IconRefresh } from '@tabler/icons-react'
+
+const TOPICS = Object.keys(TOPIC_LABELS)
 
 export default function Dashboard() {
+  const [items, setItems] = useState<NewsItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [activeTopic, setActiveTopic] = useState<string>('all')
+  const reduced = useReducedMotion()
+
+  const fetchItems = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await apiGet<NewsItem[]>('/api/items/today', { limit: '50' })
+      setItems(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar noticias')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchItems() }, [fetchItems])
 
   const featured = useMemo(
-    () => [...MOCK_ITEMS].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0],
-    [],
+    () => items.length > 0 ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] : null,
+    [items],
   )
 
   const filtered = useMemo(() => {
-    const rest = MOCK_ITEMS.filter(i => i.id !== featured.id)
+    const rest = featured ? items.filter(i => i.id !== featured.id) : items
     return activeTopic !== 'all' ? rest.filter(i => i.topic === activeTopic) : rest
-  }, [activeTopic, featured.id])
+  }, [items, activeTopic, featured])
 
-  const reduced = useReducedMotion()
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <p className="text-muted-foreground">Cargando noticias...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-24">
+        <p className="text-destructive">{error}</p>
+        <Button variant="outline" onClick={fetchItems}>
+          <IconRefresh className="mr-2 size-4" /> Reintentar
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Latest</h2>
           <p className="text-sm text-muted-foreground">
-            {MOCK_ITEMS.length} noticias de {MOCK_ITEMS.filter(i => i.trending).length} trending
+            {items.length} noticias de {items.filter(i => i.trending).length} trending
           </p>
         </div>
         <Select value={activeTopic} onValueChange={setActiveTopic}>
@@ -45,7 +81,7 @@ export default function Dashboard() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los topics</SelectItem>
-            {MOCK_TOPICS.map(topic => (
+            {TOPICS.map(topic => (
               <SelectItem key={topic} value={topic}>
                 {TOPIC_LABELS[topic] ?? topic}
               </SelectItem>
@@ -54,8 +90,7 @@ export default function Dashboard() {
         </Select>
       </div>
 
-      {/* Featured */}
-      {activeTopic === 'all' && (
+      {activeTopic === 'all' && featured && (
         <motion.div
           initial={reduced ? false : { opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -65,7 +100,6 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      {/* News grid */}
       <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey={activeTopic}>
         {filtered.map(item => (
           <AnimatedCardItem key={item.id}>
