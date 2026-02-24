@@ -51,10 +51,15 @@ from src.validators.credibility import CredibilityValidator
 logger = get_logger(__name__)
 
 
-def _get_extractors() -> list[BaseExtractor]:
-    """Build list of enabled extractors."""
+def _get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
+    """Build list of enabled extractors, optionally filtered by source names."""
     settings = get_settings()
     enabled = settings.enabled_sources_list
+
+    # If sources filter is provided, intersect with enabled sources
+    if sources is not None:
+        enabled = [s for s in enabled if s in sources]
+
     extractors: list[BaseExtractor] = []
 
     if "hackernews" in enabled:
@@ -262,7 +267,7 @@ async def _embed_new_items(
         return 0
 
 
-async def run_pipeline(session: AsyncSession) -> bool:
+async def run_pipeline(session: AsyncSession, sources: list[str] | None = None) -> bool:
     """Execute the full news pipeline.
 
     Steps:
@@ -284,7 +289,7 @@ async def run_pipeline(session: AsyncSession) -> bool:
 
     try:
         # 1. Extract
-        extractors = _get_extractors()
+        extractors = _get_extractors(sources=sources)
         sources_used = [e.source_name for e in extractors]
         logger.info("pipeline_extract", sources=sources_used)
 

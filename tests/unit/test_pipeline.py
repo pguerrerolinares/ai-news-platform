@@ -1322,3 +1322,90 @@ class TestPipelineEdgeCases:
         assert result is True
         # _embed_new_items should NOT have been called
         mock_embed.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _get_extractors with sources filter (Task 3)
+# ---------------------------------------------------------------------------
+class TestGetExtractorsWithFilter:
+    """_get_extractors with sources filter parameter."""
+
+    def test_filter_to_single_source(self):
+        settings = _mock_settings(enabled_sources="hackernews,arxiv,reddit,rss")
+        with patch("src.pipeline.pipeline.get_settings", return_value=settings):
+            extractors = _get_extractors(sources=["hackernews"])
+        assert len(extractors) == 1
+        assert extractors[0].source_name == "hackernews"
+
+    def test_filter_to_multiple_sources(self):
+        settings = _mock_settings(enabled_sources="hackernews,arxiv,reddit,rss")
+        with patch("src.pipeline.pipeline.get_settings", return_value=settings):
+            extractors = _get_extractors(sources=["hackernews", "reddit"])
+        assert len(extractors) == 2
+        names = [e.source_name for e in extractors]
+        assert "hackernews" in names
+        assert "reddit" in names
+
+    def test_filter_none_returns_all_enabled(self):
+        settings = _mock_settings(enabled_sources="hackernews,arxiv,reddit,rss")
+        with patch("src.pipeline.pipeline.get_settings", return_value=settings):
+            extractors = _get_extractors(sources=None)
+        assert len(extractors) == 4
+
+    def test_filter_source_not_enabled_returns_empty(self):
+        settings = _mock_settings(enabled_sources="hackernews")
+        with patch("src.pipeline.pipeline.get_settings", return_value=settings):
+            extractors = _get_extractors(sources=["reddit"])
+        assert extractors == []
+
+
+# ---------------------------------------------------------------------------
+# run_pipeline with sources parameter (Task 3)
+# ---------------------------------------------------------------------------
+class TestRunPipelineWithSources:
+    """run_pipeline with sources parameter."""
+
+    @pytest.mark.asyncio
+    async def test_pipeline_passes_sources_to_get_extractors(self):
+        settings = _mock_settings(
+            enabled_sources="hackernews,reddit",
+            openai_api_key="",
+            enable_news_validation=False,
+            embedding_api_key="",
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch("src.pipeline.pipeline._get_extractors") as mock_get_ext,
+            patch(
+                "src.pipeline.pipeline._extract_all",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch("src.pipeline.pipeline.KeywordClassifier") as mock_kw_cls,
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_val_cls,
+            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
+        ):
+            mock_ext = MagicMock()
+            mock_ext.source_name = "hackernews"
+            mock_get_ext.return_value = [mock_ext]
+
+            mock_classifier = AsyncMock()
+            mock_classifier.classify.return_value = classified
+            mock_kw_cls.return_value = mock_classifier
+
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = classified
+            mock_val_cls.return_value = mock_validator
+
+            mock_alerts = AsyncMock()
+            mock_alerts_cls.return_value = mock_alerts
+
+            result = await run_pipeline(session, sources=["hackernews"])
+
+        assert result is True
+        mock_get_ext.assert_called_once_with(sources=["hackernews"])
