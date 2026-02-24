@@ -9,9 +9,12 @@ from apscheduler.triggers.interval import IntervalTrigger
 from src.core.config import get_settings
 from src.core.database import get_async_session
 from src.core.logging import get_logger
+from src.pipeline.circuit_breaker import CircuitBreaker
 from src.pipeline.pipeline import run_pipeline
 
 logger = get_logger(__name__)
+
+_circuit_breaker = CircuitBreaker(threshold=3, cooldown_seconds=3600)
 
 
 async def run_scheduled_pipeline(sources: list[str]) -> None:
@@ -19,13 +22,26 @@ async def run_scheduled_pipeline(sources: list[str]) -> None:
 
     Creates its own DB session and catches all exceptions
     so that one failed job does not crash the scheduler.
+    Sources with open circuits are skipped until cooldown expires.
     """
-    logger.info("scheduled_pipeline_start", sources=sources)
+    # Filter out sources with open circuits
+    active_sources = [s for s in sources if not _circuit_breaker.is_open(s)]
+    if not active_sources:
+        logger.info("scheduled_pipeline_all_sources_circuit_open", sources=sources)
+        return
+
+    logger.info("scheduled_pipeline_start", sources=active_sources)
     try:
         async with get_async_session() as session:
-            await run_pipeline(session, sources=sources)
+            result = await run_pipeline(session, sources=active_sources)
+            # Record success for all active sources
+            if result:
+                for source in active_sources:
+                    _circuit_breaker.record_success(source)
     except Exception as exc:
-        logger.error("scheduled_pipeline_failed", sources=sources, error=str(exc))
+        logger.error("scheduled_pipeline_failed", sources=active_sources, error=str(exc))
+        for source in active_sources:
+            _circuit_breaker.record_failure(source)
 
 
 def create_scheduler() -> AsyncIOScheduler | None:
