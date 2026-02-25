@@ -35,13 +35,22 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Build and deploy
+            # Build frontend
+            cd frontend
+            npm ci --prefer-offline
+            VITE_API_URL='' npm run build
+            cd ..
+
+            # Build and deploy API
             export GIT_SHA=${{ steps.sha.outputs.short }}
             docker compose build --no-cache api
             docker compose up -d api
 
             # Run migrations
             docker compose exec -T api alembic upgrade head
+
+            # Reload nginx to pick up new frontend dist
+            docker compose restart nginx
 
             # Health check with timeout
             echo "Waiting for health check..."

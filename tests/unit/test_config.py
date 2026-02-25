@@ -196,11 +196,13 @@ class TestSchedulerConfig:
 class TestAuthConfig:
     """Auth-related configuration settings for multi-user OTP."""
 
-    def test_admin_email_default_empty(self):
+    def test_admin_email_default_empty(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "")
         s = Settings()
         assert s.admin_email == ""
 
-    def test_resend_api_key_default_empty(self):
+    def test_resend_api_key_default_empty(self, monkeypatch):
+        monkeypatch.setenv("RESEND_API_KEY", "")
         s = Settings()
         assert s.resend_api_key == ""
 
