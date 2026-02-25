@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import delete
 
 from src.core.config import get_settings
 from src.core.database import get_async_session
 from src.core.logging import get_logger
+from src.core.models import OtpCode
 from src.pipeline.circuit_breaker import CircuitBreaker
 from src.pipeline.pipeline import run_pipeline
 
@@ -96,4 +100,24 @@ def create_scheduler() -> AsyncIOScheduler | None:
         tier3_cron=f"{settings.arxiv_cron_hour}:{settings.arxiv_cron_minute:02d}",
     )
 
+    # OTP cleanup: daily at 02:00 UTC
+    scheduler.add_job(
+        cleanup_expired_otps,
+        CronTrigger(hour=2, minute=0),
+        id="otp_cleanup",
+        replace_existing=True,
+    )
+
     return scheduler
+
+
+async def cleanup_expired_otps() -> None:
+    """Purge expired OTP codes older than 1 day."""
+    async with get_async_session() as session:
+        cutoff = datetime.now(tz=UTC) - timedelta(days=1)
+        result = await session.execute(
+            delete(OtpCode).where(OtpCode.expires_at < cutoff)
+        )
+        await session.commit()
+        if result.rowcount:
+            logger.info("otp_cleanup_done", deleted=result.rowcount)
