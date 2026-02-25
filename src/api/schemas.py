@@ -120,3 +120,26 @@ class ScoreDistributionResponse(BaseModel):
     min_score: int
     max_score: int
     count: int
+
+
+# --- OTP Auth ---
+class OtpRequestBody(BaseModel):
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class OtpVerifyBody(BaseModel):
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class OtpRequestResponse(BaseModel):
+    message: str
+
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str | None
+    role: str
+
+    model_config = {"from_attributes": True}

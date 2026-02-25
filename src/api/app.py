@@ -17,6 +17,7 @@ from slowapi.util import get_remote_address
 
 from src.api.errors import APIError, api_error_handler, http_exception_handler
 from src.api.routes.auth import router as auth_router
+from src.api.routes.otp import router as otp_router
 from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.items import router as items_router
@@ -166,6 +167,7 @@ app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore
 
 # Register route modules
 app.include_router(auth_router)
+app.include_router(otp_router)
 app.include_router(items_router)
 app.include_router(briefings_router)
 app.include_router(search_router)
