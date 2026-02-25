@@ -37,10 +37,14 @@ async def login(request: Request, body: TokenRequest) -> TokenResponseV2:
 async def refresh(request: Request, body: RefreshRequest) -> TokenResponseV2:
     """Exchange a refresh token for new access + refresh tokens."""
     settings = get_settings()
-    subject = validate_refresh_token(body.refresh_token)
+    claims = validate_refresh_token(body.refresh_token)
 
-    access_token = create_access_token(subject=subject)
-    new_refresh_token = create_refresh_token(subject=subject)
+    access_token = create_access_token(
+        subject=claims.sub, role=claims.role, email=claims.email,
+    )
+    new_refresh_token = create_refresh_token(
+        subject=claims.sub, role=claims.role, email=claims.email,
+    )
 
     return TokenResponseV2(
         access_token=access_token,

@@ -8,7 +8,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import require_auth
+from src.api.auth import UserClaims, require_auth
 from src.api.schemas import ChatRequest, ErrorWrapper
 from src.core.database import get_session
 from src.rag.chat import ChatService
@@ -29,7 +29,7 @@ async def chat(
     request: Request,
     body: ChatRequest,
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> StreamingResponse:
     """Chat with AI about news. Returns SSE stream."""
     service = _get_chat_service()

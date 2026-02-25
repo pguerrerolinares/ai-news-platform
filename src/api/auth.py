@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends
@@ -21,6 +22,15 @@ _refresh_tokens: dict[str, float] = {}
 _MAX_REFRESH_TOKENS = 100
 
 
+@dataclass
+class UserClaims:
+    """Decoded JWT claims for an authenticated user."""
+
+    sub: str
+    role: str
+    email: str
+
+
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -33,19 +43,37 @@ def _prune_expired() -> None:
         del _refresh_tokens[h]
 
 
-def create_access_token(subject: str = "user") -> str:
+def create_access_token(
+    subject: str = "user",
+    role: str | None = None,
+    email: str | None = None,
+) -> str:
     """Create a short-lived JWT access token."""
     settings = get_settings()
     expire = datetime.now(tz=UTC) + timedelta(minutes=settings.jwt_access_expire_minutes)
-    payload = {"sub": subject, "exp": expire, "type": "access"}
+    payload: dict[str, object] = {"sub": subject, "exp": expire, "type": "access"}
+    if role is not None:
+        payload["role"] = role
+    if email is not None:
+        payload["email"] = email
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def create_refresh_token(subject: str = "user") -> str:
+def create_refresh_token(
+    subject: str = "user",
+    role: str | None = None,
+    email: str | None = None,
+) -> str:
     """Create a long-lived JWT refresh token."""
     settings = get_settings()
     expire = datetime.now(tz=UTC) + timedelta(days=settings.jwt_refresh_expire_days)
-    payload = {"sub": subject, "exp": expire, "type": "refresh", "jti": uuid.uuid4().hex}
+    payload: dict[str, object] = {
+        "sub": subject, "exp": expire, "type": "refresh", "jti": uuid.uuid4().hex,
+    }
+    if role is not None:
+        payload["role"] = role
+    if email is not None:
+        payload["email"] = email
     token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
     _prune_expired()
@@ -56,8 +84,8 @@ def create_refresh_token(subject: str = "user") -> str:
     return token
 
 
-def validate_refresh_token(token: str) -> str:
-    """Validate a refresh token. Returns subject or raises APIError.
+def validate_refresh_token(token: str) -> UserClaims:
+    """Validate a refresh token. Returns UserClaims or raises APIError.
 
     Decodes JWT first (verifying signature/expiry), then checks the hash store.
     """
@@ -84,13 +112,17 @@ def validate_refresh_token(token: str) -> str:
 
     # 3. Rotate: invalidate old refresh token
     del _refresh_tokens[token_hash]
-    return sub
+    return UserClaims(
+        sub=sub,
+        role=payload.get("role", "reader"),
+        email=payload.get("email", ""),
+    )
 
 
 async def require_auth(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> str:
-    """Verify JWT access token. Returns subject on success, raises 401 on failure."""
+) -> UserClaims:
+    """Verify JWT access token. Returns UserClaims on success, raises 401 on failure."""
     settings = get_settings()
     try:
         payload = jwt.decode(
@@ -103,6 +135,19 @@ async def require_auth(
         sub: str | None = payload.get("sub")
         if sub is None:
             raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
-        return sub
+        return UserClaims(
+            sub=sub,
+            role=payload.get("role", "reader"),
+            email=payload.get("email", ""),
+        )
     except JWTError:
         raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None
+
+
+async def require_admin(
+    user: UserClaims = Depends(require_auth),
+) -> UserClaims:
+    """Verify user has admin role."""
+    if user.role != "admin":
+        raise APIError(403, "FORBIDDEN", "Admin access required")
+    return user

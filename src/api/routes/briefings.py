@@ -8,7 +8,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import require_auth
+from src.api.auth import UserClaims, require_auth
 from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
 from src.api.schemas import BriefingResponse, ErrorWrapper, NewsItemResponse
@@ -35,7 +35,7 @@ async def get_briefing(
     limit: int = Query(100, ge=1, le=500, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Items offset"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> BriefingResponse:
     """Get the daily briefing for a specific date, including paginated items."""
     result = await session.execute(select(DailyBriefing).where(DailyBriefing.date == briefing_date))
@@ -103,7 +103,7 @@ async def list_briefings(
     limit: int = Query(30, ge=1, le=90, description="Max briefings to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[BriefingResponse]:
     """List recent daily briefings (without items)."""
     total = (await session.execute(select(func.count(DailyBriefing.date)))).scalar_one()

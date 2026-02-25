@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from jose import jwt
 
 from src.api.app import app
+from src.api.auth import UserClaims, create_access_token
 from src.core.config import Settings
 
 # ---------------------------------------------------------------------------
@@ -317,6 +318,33 @@ class TestRefreshTokens:
         resp = await api_client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
         assert resp.status_code == 401
 
+    async def test_refresh_propagates_claims(self, api_client: AsyncClient):
+        """Refreshed tokens should carry the same role/email claims."""
+        # Create tokens with role/email claims
+        from src.api.auth import create_access_token, create_refresh_token
+
+        test_settings = _make_test_settings()
+        with (
+            patch("src.api.auth.get_settings", return_value=test_settings),
+            patch("src.api.routes.auth.get_settings", return_value=test_settings),
+        ):
+            refresh_token = create_refresh_token(
+                subject="test-uuid", role="admin", email="admin@test.com",
+            )
+
+        resp = await api_client.post(
+            "/api/auth/refresh", json={"refresh_token": refresh_token},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # Decode the new access token to verify claims propagated
+        new_payload = jwt.decode(
+            data["access_token"], TEST_SECRET, algorithms=[TEST_ALGORITHM],
+        )
+        assert new_payload["role"] == "admin"
+        assert new_payload["email"] == "admin@test.com"
+        assert new_payload["sub"] == "test-uuid"
+
     async def test_access_token_with_refresh_type_rejected(self, api_client: AsyncClient):
         """Using a refresh token as access token should fail."""
         login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
@@ -344,3 +372,73 @@ class TestRefreshTokens:
             assert resp.status_code == 401
         finally:
             app.dependency_overrides.pop(get_session, None)
+
+
+# ---------------------------------------------------------------------------
+# UserClaims + require_admin
+# ---------------------------------------------------------------------------
+class TestUserClaims:
+    """Tests for UserClaims dataclass and token claim propagation."""
+
+    def test_access_token_with_role_and_email(self):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(
+                subject="550e8400-e29b-41d4-a716-446655440000",
+                role="admin",
+                email="admin@test.com",
+            )
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert payload["sub"] == "550e8400-e29b-41d4-a716-446655440000"
+        assert payload["role"] == "admin"
+        assert payload["email"] == "admin@test.com"
+
+    def test_access_token_backward_compatible(self):
+        """Old-style tokens without role/email still work."""
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(subject="user")
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert payload["sub"] == "user"
+        assert "role" not in payload
+        assert "email" not in payload
+
+    def test_user_claims_dataclass(self):
+        claims = UserClaims(sub="uuid-123", role="admin", email="a@b.com")
+        assert claims.sub == "uuid-123"
+        assert claims.role == "admin"
+        assert claims.email == "a@b.com"
+
+
+class TestRequireAdmin:
+    """Tests for the require_admin dependency."""
+
+    async def test_admin_role_passes(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+        from src.api.auth import require_admin, require_auth
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(
+                subject="uuid-admin", role="admin", email="admin@test.com",
+            )
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user = await require_auth(creds)
+            result = await require_admin(user)
+        assert result.role == "admin"
+
+    async def test_reader_role_blocked(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+        from src.api.auth import require_admin, require_auth
+        from src.api.errors import APIError
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(
+                subject="uuid-reader", role="reader", email="reader@test.com",
+            )
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user = await require_auth(creds)
+            with pytest.raises(APIError) as exc_info:
+                await require_admin(user)
+            assert exc_info.value.status_code == 403

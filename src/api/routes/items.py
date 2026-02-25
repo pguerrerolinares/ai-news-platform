@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import require_auth
+from src.api.auth import UserClaims, require_auth
 from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
 from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
@@ -39,7 +39,7 @@ async def list_items(
     limit: int = Query(50, ge=1, le=200, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """List news items with optional filters."""
     query = select(NewsItem)
@@ -81,7 +81,7 @@ async def count_items(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> CountResponse:
     """Count items matching filters."""
     query = select(func.count(NewsItem.id))
@@ -116,7 +116,7 @@ async def list_items_by_date(
     limit: int = Query(50, ge=1, le=200, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """List news items for a specific date, sorted by score."""
     day_start = datetime.combine(item_date, time.min, tzinfo=UTC)
@@ -156,7 +156,7 @@ async def list_trending_items(
     limit: int = Query(20, ge=1, le=100, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """List trending items from the last N days, sorted by score."""
     since = datetime.combine(
@@ -197,7 +197,7 @@ async def list_today_items(
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """List today's news items, sorted by score descending."""
     today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
@@ -234,7 +234,7 @@ async def list_top_items(
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """Top items by score in the last N days."""
     since = datetime.combine(
@@ -273,7 +273,7 @@ async def get_similar_items(
     item_id: uuid_mod.UUID,
     limit: int = Query(5, ge=1, le=20, description="Number of similar items"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """Find similar items using pgvector cosine distance."""
     # Get embedding for the source item

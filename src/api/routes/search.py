@@ -8,7 +8,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import require_auth
+from src.api.auth import UserClaims, require_auth
 from src.api.pagination import set_total_count_header
 from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
@@ -37,7 +37,7 @@ async def search_items(
     limit: int = Query(50, ge=1, le=200, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
-    _user: str = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """Search news items using PostgreSQL full-text search.
 
