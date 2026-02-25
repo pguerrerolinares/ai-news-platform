@@ -110,7 +110,7 @@ class TestTokenEndpointSuccess:
         token = resp.json()["access_token"]
         payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
         assert "sub" in payload
-        assert payload["sub"] == "user"
+        assert payload["sub"] == "legacy"
 
     async def test_token_contains_exp_claim(self, api_client: AsyncClient):
         """Decoded JWT should contain an 'exp' claim."""

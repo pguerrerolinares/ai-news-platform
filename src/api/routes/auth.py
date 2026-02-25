@@ -22,8 +22,8 @@ async def login(request: Request, body: TokenRequest) -> TokenResponseV2:
     if not hmac.compare_digest(body.password, settings.shared_password):
         raise APIError(401, "INVALID_PASSWORD", "Invalid password")
 
-    access_token = create_access_token(subject="user")
-    refresh_token = create_refresh_token(subject="user")
+    access_token = create_access_token(subject="legacy", role="reader")
+    refresh_token = create_refresh_token(subject="legacy", role="reader")
 
     return TokenResponseV2(
         access_token=access_token,
