@@ -25,6 +25,9 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
+VALID_ROLES = ("admin", "reader")
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -149,4 +152,49 @@ class RawExtraction(Base):
         UniqueConstraint("source", "source_id", name="uq_raw_source_id"),
         Index("idx_raw_source", "source"),
         Index("idx_raw_batch", "backfill_batch"),
+    )
+
+
+class User(Base):
+    """Registered user account."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    name: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default=text("'reader'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'reader')", name="valid_role"),
+        Index("idx_users_email", "email"),
+    )
+
+
+class OtpCode(Base):
+    """Email OTP verification code."""
+
+    __tablename__ = "otp_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    __table_args__ = (
+        Index("idx_otp_codes_lookup", "email", "used", "expires_at"),
     )

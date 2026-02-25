@@ -9,6 +9,8 @@ from src.core.models import (
     DailyBriefing,
     ItemEmbedding,
     NewsItem,
+    OtpCode,
+    User,
 )
 
 
@@ -187,3 +189,66 @@ class TestTopicConstraint:
             assert topic in sql_text, f"Topic '{topic}' not found in constraint SQL"
         # An invalid topic should NOT appear in the constraint
         assert "invalid_topic" not in sql_text
+
+
+# ---------------------------------------------------------------------------
+# User model
+# ---------------------------------------------------------------------------
+class TestUserModel:
+    """User ORM model structure."""
+
+    def test_user_tablename(self):
+        assert User.__tablename__ == "users"
+
+    def test_user_has_expected_columns(self):
+        columns = {c.name for c in User.__table__.columns}
+        expected = {"id", "email", "name", "role", "created_at", "last_login_at"}
+        assert expected.issubset(columns)
+
+    def test_user_role_default(self):
+        role_col = User.__table__.columns["role"]
+        assert role_col.server_default.arg.text == "'reader'"
+
+    def test_user_email_is_unique(self):
+        col = User.__table__.c.email
+        assert col.unique is True
+
+    def test_user_email_not_nullable(self):
+        col = User.__table__.c.email
+        assert col.nullable is False
+
+    def test_user_inherits_from_base(self):
+        assert issubclass(User, Base)
+
+    def test_valid_role_constraint_exists(self):
+        constraints = User.__table__.constraints
+        check_constraints = [
+            c for c in constraints if hasattr(c, "sqltext") and c.name == "valid_role"
+        ]
+        assert len(check_constraints) == 1
+
+
+# ---------------------------------------------------------------------------
+# OtpCode model
+# ---------------------------------------------------------------------------
+class TestOtpCodeModel:
+    """OTP code ORM model structure."""
+
+    def test_otp_code_tablename(self):
+        assert OtpCode.__tablename__ == "otp_codes"
+
+    def test_otp_code_has_expected_columns(self):
+        columns = {c.name for c in OtpCode.__table__.columns}
+        expected = {"id", "email", "code", "expires_at", "used", "created_at"}
+        assert expected.issubset(columns)
+
+    def test_otp_code_used_default_false(self):
+        used_col = OtpCode.__table__.columns["used"]
+        assert used_col.server_default.arg.text == "false"
+
+    def test_otp_code_inherits_from_base(self):
+        assert issubclass(OtpCode, Base)
+
+    def test_otp_code_lookup_index_exists(self):
+        index_names = {idx.name for idx in OtpCode.__table__.indexes}
+        assert "idx_otp_codes_lookup" in index_names
