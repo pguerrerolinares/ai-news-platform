@@ -13,6 +13,7 @@
 - [x] ~~**Mobile bottom nav redesign**~~ — Obsolete (React uses top nav + Sheet drawer)
 - [x] **Wire React to real API** — Done (2026-02-24). Login, JWT auth, API client, 4 pages wired, SSE chat
 - [x] **Pipeline scheduling + live feeds** — Done (2026-02-25). APScheduler 3-tier jobs, pipeline sources filter, Reddit OAuth, RSS ETags, HF daily_papers, circuit breaker
+- [x] **Multi-user auth** — Done (2026-02-25). Passwordless email OTP via Resend API, users + otp_codes tables, UserClaims + require_admin, React two-step login, OTP cleanup scheduler, shared password backward compatible
 
 ## In Progress
 
@@ -135,10 +136,7 @@
 
 ## Security
 
-- [ ] **Multi-user auth** — Currently shared password for all users. For 5-10 users,
-  consider: per-user accounts with hashed passwords in DB (new `users` table),
-  or keep shared password but add user identification (username field in JWT).
-  Full RBAC is YAGNI; just user separation for chat history / preferences.
+- [x] ~~**Multi-user auth**~~ — Done (see Done section above)
 
 - [ ] **Per-user rate limiting** — Rate limiting is IP-based (`slowapi` + `get_remote_address`).
   If users share a network (VPN, office), they share limits. Switch to JWT-based

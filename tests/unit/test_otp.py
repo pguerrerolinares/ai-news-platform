@@ -74,9 +74,11 @@ class TestSendOtpEmail:
         respx_mock.post("https://api.resend.com/emails").mock(
             return_value=httpx.Response(500, text="Internal error"),
         )
-        with patch("src.api.otp.get_settings", return_value=mock_settings_with_key):
-            with pytest.raises(httpx.HTTPStatusError):
-                await send_otp_email("user@example.com", "123456")
+        with (
+            patch("src.api.otp.get_settings", return_value=mock_settings_with_key),
+            pytest.raises(httpx.HTTPStatusError),
+        ):
+            await send_otp_email("user@example.com", "123456")
 
     async def test_skips_when_no_api_key(self, mock_settings_no_key, respx_mock):
         with patch("src.api.otp.get_settings", return_value=mock_settings_no_key):

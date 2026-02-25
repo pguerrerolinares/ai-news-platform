@@ -9,11 +9,11 @@
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
 **Key facts**:
-- **Audience**: Semi-public (5-10 people), shared password auth -> JWT
+- **Audience**: Semi-public (5-10 people), passwordless email OTP auth + JWT (shared password fallback)
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 863 (828 unit + 35 E2E), 92% coverage
+- **Tests**: 907 (872 unit + 35 E2E), 92% coverage
 
 ## Architecture
 
@@ -29,6 +29,8 @@ Docker Compose on Hetzner VPS
 │  └────┬─────┘  │ FastAPI  │──│  - news_items        │    │
 │       └────────│ (REST)   │  │  - daily_briefings   │    │
 │                └──────────┘  │  - item_embeddings   │    │
+│                              │  - users             │    │
+│                              │  - otp_codes         │    │
 │                              └─────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -103,13 +105,14 @@ ai-news-platform/
 │       ├── 001_initial_schema.py  # news_items, daily_briefings, item_embeddings
 │       ├── 002_add_vector_column.py # pgvector embedding column
 │       ├── 003_raw_extractions.py # raw_extractions staging table
-│       └── 004_add_performance_indexes.py # score, source+date, topic+date, created_at
+│       ├── 004_add_performance_indexes.py # score, source+date, topic+date, created_at
+│       └── 005_users_and_otp.py   # users + otp_codes tables for multi-user auth
 ├── src/                           # (every package has __init__.py)
 │   ├── main.py                    # CLI entry point for pipeline
 │   ├── core/
 │   │   ├── config.py              # Pydantic Settings (all env vars, scheduler + Reddit OAuth)
 │   │   ├── database.py            # Async SQLAlchemy engine + session factory + get_async_session()
-│   │   ├── models.py              # ORM: NewsItem, DailyBriefing, ItemEmbedding
+│   │   ├── models.py              # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode
 │   │   ├── logging.py             # structlog + correlation IDs
 │   │   └── metrics.py             # Prometheus counters + histograms
 │   ├── extractors/
@@ -134,12 +137,14 @@ ai-news-platform/
 │   │   └── telegram.py            # TelegramNotifier (daily briefing, topic blocks, HTML)
 │   ├── api/
 │   │   ├── app.py                 # FastAPI app, /health (200/503), /metrics, middleware, scheduler start/stop
-│   │   ├── auth.py                # JWT access+refresh tokens, require_auth, token rotation
+│   │   ├── auth.py                # JWT access+refresh tokens, UserClaims, require_auth, require_admin, token rotation
+│   │   ├── otp.py                 # OTP generation (secrets.randbelow) + send via Resend API
 │   │   ├── errors.py              # APIError class, standardized error handlers
 │   │   ├── pagination.py          # set_total_count_header() helper
 │   │   ├── schemas.py             # Pydantic response models (incl. stats, auth v2, errors)
 │   │   └── routes/
-│   │       ├── auth.py            # POST /api/auth/token + POST /api/auth/refresh
+│   │       ├── auth.py            # POST /api/auth/token + POST /api/auth/refresh (legacy shared password)
+│   │       ├── otp.py             # POST /api/auth/otp/request + /verify + GET /me
 │   │       ├── items.py           # GET /api/items, /count, /today (paginated, X-Total-Count)
 │   │       ├── briefings.py       # GET /api/briefings/{date}, /briefings (paginated, X-Total-Count)
 │   │       ├── search.py          # GET /api/search (FTS, sort_by, offset, X-Total-Count)
@@ -189,7 +194,7 @@ ai-news-platform/
 │   │   │   ├── animated-card-grid.tsx # Staggered card grid wrapper
 │   │   │   └── ui/               # Shadcn UI primitives (badge, button, card, etc.)
 │   │   └── pages/
-│   │       ├── Login.tsx          # Password login form (JWT auth)
+│   │       ├── Login.tsx          # Email OTP two-step login + legacy password fallback
 │   │       ├── Dashboard.tsx      # Latest news via GET /api/items/today (topic filter, featured card)
 │   │       ├── Trending.tsx       # Trending + top scored via /api/items/trending + /api/items/top
 │   │       ├── Buscar.tsx         # Full-text search via GET /api/search
@@ -221,7 +226,9 @@ ai-news-platform/
 │   │   ├── test_pipeline_embedding.py # Pipeline embedding step (5 tests)
 │   │   ├── test_api.py            # /health (200+503) + /metrics endpoints (11 tests)
 │   │   ├── test_api_routes.py     # Items + briefings API routes + pagination (30 tests)
-│   │   ├── test_auth.py           # JWT auth + access/refresh tokens (20 tests)
+│   │   ├── test_auth.py           # JWT auth + access/refresh tokens + UserClaims + require_admin (32 tests)
+│   │   ├── test_otp.py            # OTP generation + Resend email sending (7 tests)
+│   │   ├── test_otp_routes.py     # OTP endpoints: request, verify, /me (9 tests)
 │   │   ├── test_search_api.py     # Search API with FTS + pagination + sort (20 tests)
 │   │   ├── test_stats_api.py      # Stats endpoints: summary, by-source/topic/date (11 tests)
 │   │   ├── test_error_responses.py # Standardized error format (2 tests)
@@ -235,7 +242,7 @@ ai-news-platform/
 │   │   ├── test_mcp_client.py     # MCP client (14 tests)
 │   │   ├── test_schemas.py        # Unit tests for M16 Pydantic schemas
 │   │   ├── test_sources_api.py    # Unit tests for GET /api/sources endpoint
-│   │   ├── test_scheduler.py      # APScheduler integration tests (4 tests)
+│   │   ├── test_scheduler.py      # APScheduler integration tests + OTP cleanup (6 tests)
 │   │   └── test_circuit_breaker.py # Circuit breaker per-source tracking (5 tests)
 │   ├── e2e/                       # 35 Playwright tests
 │   │   ├── conftest.py            # Static server, API mocks, auth fixtures
@@ -347,6 +354,30 @@ ai-news-platform/
 | embedding | vector(1536) | pgvector (OpenAI text-embedding-3-small) |
 | created_at | TIMESTAMPTZ | |
 
+### users
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK, gen_random_uuid() |
+| email | TEXT | NOT NULL, UNIQUE |
+| name | TEXT | Nullable |
+| role | VARCHAR(20) | 'admin' or 'reader', default 'reader' |
+| created_at | TIMESTAMPTZ | Default NOW() |
+| last_login_at | TIMESTAMPTZ | Nullable, updated on each login |
+
+**Indexes**: idx_users_email (email). **Constraints**: valid_role CHECK (role IN ('admin', 'reader'))
+
+### otp_codes
+| Column | Type | Notes |
+|--------|------|-------|
+| id | SERIAL | PK |
+| email | TEXT | NOT NULL |
+| code | VARCHAR(6) | 6-digit OTP |
+| expires_at | TIMESTAMPTZ | NOT NULL |
+| used | BOOLEAN | Default false |
+| created_at | TIMESTAMPTZ | Default NOW() |
+
+**Indexes**: idx_otp_codes_lookup (email, used, expires_at). Expired codes purged daily by scheduler.
+
 ## API Endpoints
 
 | Method | Path | Auth | Description | Milestone | Status |
@@ -355,6 +386,9 @@ ai-news-platform/
 | GET | /metrics | No | Prometheus metrics (localhost only via Nginx) | 0 | Done |
 | POST | /api/auth/token | No | Login with shared password -> access+refresh JWT | 2,14 | Done |
 | POST | /api/auth/refresh | No | Refresh access token (rotation, rate-limited 10/min) | 14 | Done |
+| POST | /api/auth/otp/request | No | Send 6-digit OTP code to email (rate-limited 3/min) | Auth | Done |
+| POST | /api/auth/otp/verify | No | Verify OTP code, return JWT tokens (rate-limited 5/min) | Auth | Done |
+| GET | /api/auth/me | JWT | Return current user info (id, email, name, role) | Auth | Done |
 | GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) + X-Total-Count | 1,14 | Done |
 | GET | /api/items/count | JWT | Count items matching filters | 1 | Done |
 | GET | /api/items/today | JWT | Today's items sorted by score (offset) + X-Total-Count | 1,14 | Done |
@@ -381,7 +415,7 @@ ai-news-platform/
 
 **Error format**: All endpoints return `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}` on error. All protected endpoints document 401 errors in OpenAPI spec.
 
-**Auth tokens**: Access token (30min) + refresh token (7d with rotation). Access token in `Authorization: Bearer`. Refresh via `POST /api/auth/refresh`.
+**Auth tokens**: Access token (30min) + refresh token (7d with rotation). Access token in `Authorization: Bearer`. Refresh via `POST /api/auth/refresh`. JWT payload includes `sub` (user UUID or "legacy"), `role` (admin/reader), `email`, `type` (access/refresh).
 
 **Chat SSE contract** (OpenAI-style events):
 ```
@@ -412,6 +446,13 @@ All config via environment variables. See `.env.example` for full list.
 - `HF_POLL_INTERVAL_MINUTES`: `60` — HuggingFace poll interval
 - `ARXIV_CRON_HOUR`: `1` — arXiv daily cron hour (UTC)
 - `ARXIV_CRON_MINUTE`: `30` — arXiv daily cron minute
+
+**Auth (multi-user)**:
+- `ADMIN_EMAIL`: Superadmin email (auto-promotes to admin on first OTP login)
+- `RESEND_API_KEY`: Resend API key for OTP emails (if empty, codes are logged instead)
+- `OTP_FROM_EMAIL`: `noreply@resend.dev` — sender email for OTP codes
+- `OTP_EXPIRE_MINUTES`: `10` — OTP code expiry
+- `OTP_MAX_ACTIVE`: `3` — max active OTP codes per email
 
 **Reddit OAuth** (optional, enables higher rate limits):
 - `REDDIT_CLIENT_ID`: Reddit app client ID
@@ -447,7 +488,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (828 unit + 35 E2E = 863 total)
+**Current coverage**: 92% (872 unit + 35 E2E = 907 total)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
@@ -735,6 +776,28 @@ The Angular code is preserved on disk but removed from git tracking (see `.gitig
 - All animations respect `prefers-reduced-motion`
 - ~165 kB gzip bundle
 
+**Multi-User Auth (Passwordless Email OTP)**: Complete
+- [x] Auth config settings: ADMIN_EMAIL, RESEND_API_KEY, OTP_FROM_EMAIL, OTP_EXPIRE_MINUTES
+- [x] Alembic migration 005: users + otp_codes tables
+- [x] User + OtpCode ORM models with check constraints and indexes
+- [x] OTP service: generate 6-digit codes (secrets.randbelow), send via Resend API (httpx)
+- [x] Auth refactor: UserClaims dataclass, require_auth returns UserClaims, require_admin dependency
+- [x] OTP endpoints: POST /api/auth/otp/request (3/min), POST /api/auth/otp/verify (5/min), GET /api/auth/me
+- [x] Auto user registration on first OTP verify, ADMIN_EMAIL auto-promotes to admin
+- [x] OTP cleanup scheduler job (daily at 02:00 UTC, purge expired codes)
+- [x] Shared password backward compatibility: subject="legacy", role="reader"
+- [x] React frontend: two-step Login (email → OTP code) + legacy password fallback
+- [x] Tests: 44 new (872 unit total), all green
+
+**Key design decisions (Multi-User Auth)**:
+- Passwordless email OTP (no passwords to store/manage), Resend API for email delivery
+- Open registration: any email auto-creates user on first OTP verify
+- ADMIN_EMAIL env var auto-promotes matching user to admin role
+- `hmac.compare_digest()` for timing-safe OTP comparison
+- `from __future__ import annotations` removed from route files (breaks FastAPI + slowapi type resolution)
+- Shared password login kept as fallback (subject="legacy", role="reader")
+- OTP codes invalidated on verify or when new code requested for same email
+
 ## Next Tasks
 
 1. Deploy to VPS and configure HTTPS (requires domain)
@@ -760,3 +823,4 @@ The Angular code is preserved on disk but removed from git tracking (see `.gitig
 | 2026-02-21 | 15 | API Contract Polish: Chat SSE OpenAI-style events (event types + message ID), frontend auth refresh tokens + interceptor auto-refresh, news service pagination + stats, schema cleanup, OpenAPI error docs. 756 unit tests. |
 | 2026-02-22 | 16 | API Endpoint Expansion: 9 new endpoints + 1 modified, resilient briefings, chart-ready stats (by-topic-date, by-source-date, trending-timeline, score-distribution), pgvector similarity search, sources list. 767 unit tests. |
 | 2026-02-25 | Sched | Pipeline Scheduling + Live Feeds: APScheduler 3-tier jobs, pipeline sources filter, Reddit OAuth, RSS ETags, HF daily_papers, circuit breaker. 828 unit tests. |
+| 2026-02-25 | Auth | Multi-User Auth: Passwordless email OTP, users + otp_codes tables, UserClaims + require_admin, Resend API, React two-step login, OTP cleanup scheduler. 872 unit tests. |

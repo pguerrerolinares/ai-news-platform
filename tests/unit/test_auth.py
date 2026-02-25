@@ -321,7 +321,7 @@ class TestRefreshTokens:
     async def test_refresh_propagates_claims(self, api_client: AsyncClient):
         """Refreshed tokens should carry the same role/email claims."""
         # Create tokens with role/email claims
-        from src.api.auth import create_access_token, create_refresh_token
+        from src.api.auth import create_refresh_token
 
         test_settings = _make_test_settings()
         with (
@@ -416,6 +416,7 @@ class TestRequireAdmin:
     async def test_admin_role_passes(self):
         test_settings = _make_test_settings()
         from fastapi.security import HTTPAuthorizationCredentials
+
         from src.api.auth import require_admin, require_auth
 
         with patch("src.api.auth.get_settings", return_value=test_settings):
@@ -430,6 +431,7 @@ class TestRequireAdmin:
     async def test_reader_role_blocked(self):
         test_settings = _make_test_settings()
         from fastapi.security import HTTPAuthorizationCredentials
+
         from src.api.auth import require_admin, require_auth
         from src.api.errors import APIError
 
