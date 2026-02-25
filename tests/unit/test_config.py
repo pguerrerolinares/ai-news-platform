@@ -188,3 +188,40 @@ class TestSchedulerConfig:
         s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
         assert s.reddit_client_id == ""
         assert s.reddit_client_secret == ""
+
+
+# ---------------------------------------------------------------------------
+# Auth (multi-user) config
+# ---------------------------------------------------------------------------
+class TestAuthConfig:
+    """Auth-related configuration settings for multi-user OTP."""
+
+    def test_admin_email_default_empty(self):
+        s = Settings()
+        assert s.admin_email == ""
+
+    def test_resend_api_key_default_empty(self):
+        s = Settings()
+        assert s.resend_api_key == ""
+
+    def test_otp_from_email_default(self):
+        s = Settings()
+        assert s.otp_from_email == "noreply@resend.dev"
+
+    def test_otp_expire_minutes_default(self):
+        s = Settings()
+        assert s.otp_expire_minutes == 10
+
+    def test_otp_max_active_default(self):
+        s = Settings()
+        assert s.otp_max_active == 3
+
+    def test_admin_email_override(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "admin@test.com")
+        s = Settings()
+        assert s.admin_email == "admin@test.com"
+
+    def test_resend_api_key_override(self, monkeypatch):
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_key_123")
+        s = Settings()
+        assert s.resend_api_key == "re_test_key_123"

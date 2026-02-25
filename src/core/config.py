@@ -123,6 +123,13 @@ class Settings(BaseSettings):
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
 
+    # --- Auth (multi-user) ---
+    admin_email: str = ""
+    resend_api_key: str = ""
+    otp_from_email: str = "noreply@resend.dev"
+    otp_expire_minutes: int = 10
+    otp_max_active: int = 3
+
     # --- Observability ---
     log_level: str = "INFO"
     log_format: str = "json"  # json or console
