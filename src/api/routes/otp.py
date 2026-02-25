@@ -1,6 +1,7 @@
 """OTP authentication endpoints."""
 
 import hmac
+import uuid as uuid_mod
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
@@ -141,8 +142,6 @@ async def get_me(user: UserClaims = Depends(require_auth)) -> UserResponse:
 
     if db_user is None:
         # Legacy token — no user in DB, return synthetic response
-        import uuid as uuid_mod
-
         try:
             user_id = uuid_mod.UUID(user.sub)
         except ValueError:

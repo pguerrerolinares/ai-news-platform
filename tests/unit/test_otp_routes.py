@@ -30,7 +30,6 @@ def _make_test_settings(**overrides) -> Settings:
         "admin_email": "admin@test.com",
         "resend_api_key": "",
         "otp_expire_minutes": 10,
-        "otp_max_active": 3,
     }
     defaults.update(overrides)
     return Settings(**defaults)

@@ -28,7 +28,7 @@ async def send_otp_email(email: str, code: str) -> None:
     settings = get_settings()
 
     if not settings.resend_api_key:
-        logger.warning("otp_email_skipped_no_api_key", email=email, code=code)
+        logger.warning("otp_email_skipped_no_api_key", email=email)
         return
 
     async with httpx.AsyncClient(timeout=10) as client:

@@ -110,6 +110,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
         if settings.shared_password == "change-me-in-production":
             raise RuntimeError("SHARED_PASSWORD must be set in production (DEBUG=false)")
+        if settings.admin_email and not settings.resend_api_key:
+            msg = "RESEND_API_KEY must be set when ADMIN_EMAIL is configured"
+            raise RuntimeError(msg)
 
     logger.info("starting_application")
     await init_db()

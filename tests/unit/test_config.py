@@ -212,10 +212,6 @@ class TestAuthConfig:
         s = Settings()
         assert s.otp_expire_minutes == 10
 
-    def test_otp_max_active_default(self):
-        s = Settings()
-        assert s.otp_max_active == 3
-
     def test_admin_email_override(self, monkeypatch):
         monkeypatch.setenv("ADMIN_EMAIL", "admin@test.com")
         s = Settings()
