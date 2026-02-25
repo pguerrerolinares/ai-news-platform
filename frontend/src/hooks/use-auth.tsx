@@ -7,7 +7,9 @@ import type { AuthTokens } from '@/lib/auth'
 
 interface AuthContextValue {
   isAuthenticated: boolean
-  login: (password: string) => Promise<void>
+  requestOtp: (email: string) => Promise<void>
+  verifyOtp: (email: string, code: string) => Promise<void>
+  loginLegacy: (password: string) => Promise<void>
   logout: () => void
 }
 
@@ -22,7 +24,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', check)
   }, [])
 
-  const login = useCallback(async (password: string) => {
+  const requestOtp = useCallback(async (email: string) => {
+    await apiPost('/api/auth/otp/request', { email })
+  }, [])
+
+  const verifyOtp = useCallback(async (email: string, code: string) => {
+    const tokens = await apiPost<AuthTokens>('/api/auth/otp/verify', { email, code })
+    storeTokens(tokens)
+    setIsAuthenticated(true)
+  }, [])
+
+  const loginLegacy = useCallback(async (password: string) => {
     const tokens = await apiPost<AuthTokens>('/api/auth/token', { password })
     storeTokens(tokens)
     setIsAuthenticated(true)
@@ -34,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext value={{ isAuthenticated, login, logout }}>
+    <AuthContext value={{ isAuthenticated, requestOtp, verifyOtp, loginLegacy, logout }}>
       {children}
     </AuthContext>
   )
