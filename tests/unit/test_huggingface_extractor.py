@@ -319,7 +319,8 @@ class TestDailyPapers:
 
     @respx.mock
     async def test_daily_papers_author_from_first_author(self):
-        papers = [_make_daily_paper("Multi Author Paper", "2401.99999", authors=["Alice", "Bob", "Charlie"])]
+        authors = ["Alice", "Bob", "Charlie"]
+        papers = [_make_daily_paper("Multi Author Paper", "2401.99999", authors=authors)]
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=[]))
         respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=papers))
 
