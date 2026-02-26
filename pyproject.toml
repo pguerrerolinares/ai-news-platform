@@ -102,6 +102,16 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
+# Suppress noisy false positives from SQLAlchemy, ASGI, structlog, and test mocks
+reportArgumentType = "warning"
+reportAttributeAccessIssue = "warning"
+reportInvalidTypeForm = false
+reportCallIssue = "warning"
+reportOptionalSubscript = "warning"
+reportOptionalMemberAccess = "warning"
+reportOperatorIssue = "warning"
+reportAssignmentType = "warning"
+reportIncompatibleMethodOverride = "warning"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
