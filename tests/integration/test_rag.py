@@ -133,18 +133,28 @@ class TestChatStream:
         async for event in service.chat_stream(db_session, "test question"):
             events.append(event)
 
-        # Should have: token event + sources + [DONE]
+        # Should have: token event + sources + done
         assert len(events) == 3
 
-        # First event has a token
-        first = json.loads(events[0].replace("data: ", "").strip())
-        assert first["token"] == "Respuesta"
+        # Helper to extract data dict from SSE frame
+        def parse_sse_data(raw: str) -> dict:
+            for line in raw.strip().split("\n"):
+                if line.startswith("data: "):
+                    return json.loads(line[len("data: "):])
+            raise ValueError(f"No data line in SSE event: {raw!r}")
 
-        # Second has sources
-        sources_event = json.loads(events[1].replace("data: ", "").strip())
-        assert "sources" in sources_event
-        assert len(sources_event["sources"]) == 1
-        assert sources_event["sources"][0]["title"] == "Chat Context Item"
+        # First event: token
+        first = parse_sse_data(events[0])
+        assert first["type"] == "token"
+        assert first["content"] == "Respuesta"
 
-        # Last is [DONE]
-        assert events[2].strip() == "data: [DONE]"
+        # Second event: sources
+        sources = parse_sse_data(events[1])
+        assert sources["type"] == "sources"
+        assert len(sources["content"]) == 1
+        assert sources["content"][0]["title"] == "Chat Context Item"
+
+        # Last event: done
+        done = parse_sse_data(events[2])
+        assert "id" in done
+        assert events[2].startswith("event: done")
