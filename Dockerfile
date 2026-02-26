@@ -13,20 +13,24 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
+# Install Python dependencies (cached layer)
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir . && \
-    pip cache purge
+RUN pip install --no-cache-dir --only-deps . 2>/dev/null || \
+    pip install --no-cache-dir . 2>/dev/null || true
 
+# Copy source and install package
+COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini ./
-COPY src/ src/
 COPY docker-entrypoint.sh ./
+RUN pip install --no-cache-dir . && \
+    pip cache purge
 
 RUN chmod +x docker-entrypoint.sh && \
     chown -R appuser:appuser /app
 USER appuser
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
