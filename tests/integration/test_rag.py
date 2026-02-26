@@ -140,7 +140,7 @@ class TestChatStream:
         def parse_sse_data(raw: str) -> dict:
             for line in raw.strip().split("\n"):
                 if line.startswith("data: "):
-                    return json.loads(line[len("data: "):])
+                    return json.loads(line[len("data: ") :])
             raise ValueError(f"No data line in SSE event: {raw!r}")
 
         # First event: token
