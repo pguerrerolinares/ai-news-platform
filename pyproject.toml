@@ -39,7 +39,7 @@ dependencies = [
     # Scheduling
     "apscheduler~=3.10",
     # MCP server
-    "mcp~=1.0",
+    "mcp~=1.6.0",
 ]
 
 [project.optional-dependencies]
