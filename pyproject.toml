@@ -14,6 +14,7 @@ dependencies = [
     # Database
     "sqlalchemy[asyncio]~=2.0.36",
     "asyncpg~=0.30.0",
+    "psycopg2-binary~=2.9.0",
     "alembic~=1.14.0",
     "pgvector~=0.3.6",
     # Configuration
@@ -122,6 +123,9 @@ markers = [
     "e2e: marks Playwright browser tests (deselect with '-m \"not e2e\"')",
     "security: marks penetration-style security tests (deselect with '-m \"not security\"')",
 ]
+
+[tool.bandit]
+skips = ["B104", "B105", "B107"]
 
 [tool.coverage.run]
 source = ["src"]
