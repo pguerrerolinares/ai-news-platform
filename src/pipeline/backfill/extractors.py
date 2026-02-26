@@ -172,7 +172,7 @@ class HistoricalGitHubExtractor:
         self,
         min_stars: int = 200,
         queries: list[str] | None = None,
-        token: str = "",
+        token: str = "",  # nosec B107
     ) -> None:
         self.min_stars = min_stars
         self.queries = queries or ["AI", "LLM", "machine-learning", "generative-AI"]

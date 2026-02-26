@@ -10,7 +10,7 @@ import httpx
 class APIClient:
     """Synchronous client that wraps the FastAPI REST API."""
 
-    def __init__(self, base_url: str = "http://localhost:8000", password: str = ""):
+    def __init__(self, base_url: str = "http://localhost:8000", password: str = ""):  # nosec B107
         self.base_url = base_url.rstrip("/")
         self._http = httpx.Client(base_url=self.base_url, timeout=30)
         self.token = self._authenticate(password)

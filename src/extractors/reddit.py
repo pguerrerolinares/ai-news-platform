@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 
 BASE_URL = "https://www.reddit.com"
 OAUTH_BASE_URL = "https://oauth.reddit.com"
-OAUTH_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
+OAUTH_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"  # nosec B105
 
 
 class RedditExtractor(BaseExtractor):

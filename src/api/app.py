@@ -106,9 +106,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Block startup with insecure defaults in production
     settings = get_settings()
     if not settings.debug:
-        if settings.jwt_secret == "change-me-in-production":
+        if settings.jwt_secret == "change-me-in-production":  # nosec B105
             raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
-        if settings.shared_password == "change-me-in-production":
+        if settings.shared_password == "change-me-in-production":  # nosec B105
             raise RuntimeError("SHARED_PASSWORD must be set in production (DEBUG=false)")
         if settings.admin_email and not settings.resend_api_key:
             msg = "RESEND_API_KEY must be set when ADMIN_EMAIL is configured"
