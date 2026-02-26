@@ -1,4 +1,5 @@
 """Unit tests for M16 Pydantic schemas."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime

@@ -453,9 +453,7 @@ class TestRSSETags:
 
         # First request: response includes ETag header
         respx.get(FEED_URL_OPENAI).mock(
-            return_value=httpx.Response(
-                200, text=feed_xml, headers={"ETag": '"abc123"'}
-            ),
+            return_value=httpx.Response(200, text=feed_xml, headers={"ETag": '"abc123"'}),
         )
 
         settings = _mock_settings()

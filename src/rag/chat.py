@@ -58,10 +58,7 @@ class ChatService:
     def _build_context(self, items: list[NewsItem]) -> str:
         """Format retrieved items as context for the LLM prompt."""
         if not items:
-            return (
-                "No se encontraron noticias relevantes en la "
-                "base de datos."
-            )
+            return "No se encontraron noticias relevantes en la " "base de datos."
 
         lines: list[str] = []
         for i, item in enumerate(items, 1):
@@ -75,9 +72,7 @@ class ChatService:
             if item.topic:
                 parts.append(f"   Tema: {item.topic}")
             if item.published_at:
-                parts.append(
-                    f"   Fecha: {item.published_at.strftime('%Y-%m-%d')}"
-                )
+                parts.append(f"   Fecha: {item.published_at.strftime('%Y-%m-%d')}")
             lines.append("\n".join(parts))
 
         return "\n\n".join(lines)
@@ -108,10 +103,13 @@ class ChatService:
 
         if not question.strip():
             msg = "La pregunta no puede estar vacia"
-            yield self._sse_event("error", {
-                "id": msg_id,
-                "error": {"code": "INVALID_INPUT", "message": msg},
-            })
+            yield self._sse_event(
+                "error",
+                {
+                    "id": msg_id,
+                    "error": {"code": "INVALID_INPUT", "message": msg},
+                },
+            )
             yield self._sse_event("done", {"id": msg_id})
             return
 
@@ -126,8 +124,7 @@ class ChatService:
 
         # 2. Build user message with context
         user_message = (
-            f"Contexto (noticias recientes):\n\n{context}\n\n"
-            f"Pregunta del usuario: {question}"
+            f"Contexto (noticias recientes):\n\n{context}\n\n" f"Pregunta del usuario: {question}"
         )
 
         # 3. Stream LLM response
@@ -146,41 +143,51 @@ class ChatService:
                 async for chunk in stream:
                     content = chunk.choices[0].delta.content
                     if content:
-                        yield self._sse_event("message", {
-                            "id": msg_id,
-                            "type": "token",
-                            "content": content,
-                        })
+                        yield self._sse_event(
+                            "message",
+                            {
+                                "id": msg_id,
+                                "type": "token",
+                                "content": content,
+                            },
+                        )
 
         except TimeoutError:
-            logger.error(
-                "chat_stream_timeout", question=question[:100]
-            )
-            yield self._sse_event("error", {
-                "id": msg_id,
-                "error": {
-                    "code": "LLM_TIMEOUT",
-                    "message": "AI response timed out",
+            logger.error("chat_stream_timeout", question=question[:100])
+            yield self._sse_event(
+                "error",
+                {
+                    "id": msg_id,
+                    "error": {
+                        "code": "LLM_TIMEOUT",
+                        "message": "AI response timed out",
+                    },
                 },
-            })
+            )
 
         except Exception as exc:
             logger.error("chat_stream_error", error=str(exc))
-            yield self._sse_event("error", {
-                "id": msg_id,
-                "error": {
-                    "code": "CHAT_ERROR",
-                    "message": "Error al generar la respuesta",
+            yield self._sse_event(
+                "error",
+                {
+                    "id": msg_id,
+                    "error": {
+                        "code": "CHAT_ERROR",
+                        "message": "Error al generar la respuesta",
+                    },
                 },
-            })
+            )
 
         # 4. Send sources
         sources = self._build_sources(items)
-        yield self._sse_event("message", {
-            "id": msg_id,
-            "type": "sources",
-            "content": sources,
-        })
+        yield self._sse_event(
+            "message",
+            {
+                "id": msg_id,
+                "type": "sources",
+                "content": sources,
+            },
+        )
 
         # 5. Done
         yield self._sse_event("done", {"id": msg_id})

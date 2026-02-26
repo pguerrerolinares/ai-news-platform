@@ -15,12 +15,8 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("CREATE INDEX idx_news_items_score ON news_items (score DESC NULLS LAST)")
-    op.execute(
-        "CREATE INDEX idx_news_items_source_date ON news_items (source, published_at DESC)"
-    )
-    op.execute(
-        "CREATE INDEX idx_news_items_topic_date ON news_items (topic, published_at DESC)"
-    )
+    op.execute("CREATE INDEX idx_news_items_source_date ON news_items (source, published_at DESC)")
+    op.execute("CREATE INDEX idx_news_items_topic_date ON news_items (topic, published_at DESC)")
     op.execute("CREATE INDEX idx_news_items_created_at ON news_items (created_at DESC)")
 
 

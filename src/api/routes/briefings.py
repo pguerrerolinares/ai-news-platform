@@ -48,9 +48,7 @@ async def get_briefing(
 
     # Count total items for this date
     items_count = (
-        await session.execute(
-            select(func.count(NewsItem.id)).where(date_filter)
-        )
+        await session.execute(select(func.count(NewsItem.id)).where(date_filter))
     ).scalar_one()
 
     # If no briefing AND no items, truly nothing exists for this date

@@ -1,4 +1,5 @@
 """Pagination utilities for API endpoints."""
+
 from __future__ import annotations
 
 from starlette.responses import Response

@@ -1,4 +1,5 @@
 """Unit tests for pipeline pre-storage validation."""
+
 from __future__ import annotations
 
 from src.pipeline.validation import validate_extracted_item

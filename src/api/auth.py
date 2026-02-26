@@ -1,4 +1,5 @@
 """JWT authentication utilities for the API."""
+
 from __future__ import annotations
 
 import hashlib
@@ -68,7 +69,10 @@ def create_refresh_token(
     settings = get_settings()
     expire = datetime.now(tz=UTC) + timedelta(days=settings.jwt_refresh_expire_days)
     payload: dict[str, object] = {
-        "sub": subject, "exp": expire, "type": "refresh", "jti": uuid.uuid4().hex,
+        "sub": subject,
+        "exp": expire,
+        "type": "refresh",
+        "jti": uuid.uuid4().hex,
     }
     if role is not None:
         payload["role"] = role
@@ -94,7 +98,9 @@ def validate_refresh_token(token: str) -> UserClaims:
     # 1. Verify JWT signature and expiry first
     try:
         payload = jwt.decode(
-            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
         )
     except JWTError:
         raise APIError(401, "INVALID_TOKEN", "Invalid or expired refresh token") from None

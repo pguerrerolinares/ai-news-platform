@@ -107,8 +107,12 @@ class RedditExtractor(BaseExtractor):
                 for subreddit in subreddits:
                     try:
                         new_items = await self._fetch_subreddit(
-                            client, subreddit, limit, seen_ids,
-                            base_url=api_base, extra_headers=auth_headers,
+                            client,
+                            subreddit,
+                            limit,
+                            seen_ids,
+                            base_url=api_base,
+                            extra_headers=auth_headers,
                         )
                         items.extend(new_items)
                     except Exception as exc:

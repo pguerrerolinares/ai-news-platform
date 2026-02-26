@@ -91,7 +91,8 @@ class TestOtpRequest:
             patch("src.api.routes.otp.generate_otp_code", return_value="123456"),
         ):
             resp = await api_client.post(
-                "/api/auth/otp/request", json={"email": "test@example.com"},
+                "/api/auth/otp/request",
+                json={"email": "test@example.com"},
             )
 
         assert resp.status_code == 200
@@ -101,7 +102,8 @@ class TestOtpRequest:
 
     async def test_request_otp_invalid_email(self, api_client: AsyncClient):
         resp = await api_client.post(
-            "/api/auth/otp/request", json={"email": "not-an-email"},
+            "/api/auth/otp/request",
+            json={"email": "not-an-email"},
         )
         assert resp.status_code == 422
 
@@ -124,7 +126,8 @@ class TestOtpRequest:
             patch("src.api.routes.otp.generate_otp_code", return_value="654321"),
         ):
             resp = await api_client.post(
-                "/api/auth/otp/request", json={"email": "Test@Example.COM"},
+                "/api/auth/otp/request",
+                json={"email": "Test@Example.COM"},
             )
 
         assert resp.status_code == 200
@@ -144,7 +147,8 @@ class TestOtpVerify:
         mock_user.role = "reader"
 
         with patch(
-            "src.api.routes.otp._verify_and_login", new_callable=AsyncMock,
+            "src.api.routes.otp._verify_and_login",
+            new_callable=AsyncMock,
         ) as mock_verify:
             mock_verify.return_value = mock_user
             resp = await api_client.post(
@@ -163,10 +167,13 @@ class TestOtpVerify:
         from src.api.errors import APIError
 
         with patch(
-            "src.api.routes.otp._verify_and_login", new_callable=AsyncMock,
+            "src.api.routes.otp._verify_and_login",
+            new_callable=AsyncMock,
         ) as mock_verify:
             mock_verify.side_effect = APIError(
-                401, "INVALID_OTP", "Invalid or expired code",
+                401,
+                "INVALID_OTP",
+                "Invalid or expired code",
             )
             resp = await api_client.post(
                 "/api/auth/otp/verify",

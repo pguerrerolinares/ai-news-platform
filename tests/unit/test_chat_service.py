@@ -53,9 +53,9 @@ def _parse_sse(raw: str) -> tuple[str | None, dict | None]:
     data_line: str | None = None
     for line in raw.strip().split("\n"):
         if line.startswith("event: "):
-            event_type = line[len("event: "):]
+            event_type = line[len("event: ") :]
         elif line.startswith("data: "):
-            data_line = line[len("data: "):]
+            data_line = line[len("data: ") :]
     if data_line is not None:
         return event_type, json.loads(data_line)
     return event_type, None
@@ -126,9 +126,7 @@ class TestSseEvent:
         assert data["error"]["code"] == "TEST"
 
     def test_done_event_format(self) -> None:
-        result = ChatService._sse_event(
-            "done", {"id": "msg_abc123def456"}
-        )
+        result = ChatService._sse_event("done", {"id": "msg_abc123def456"})
         assert result.startswith("event: done\n")
         _, data = _parse_sse(result)
         assert data is not None
@@ -178,9 +176,7 @@ class TestChatStream:
                 llm_client=mock_llm_client,
             )
             events: list[str] = []
-            async for event in service.chat_stream(
-                mock_session, "What happened?"
-            ):
+            async for event in service.chat_stream(mock_session, "What happened?"):
                 events.append(event)
 
         # All events should have the same message ID
@@ -197,8 +193,9 @@ class TestChatStream:
 
         # Check token events
         token_events = [
-            _parse_sse(e) for e in events if "event: message" in e
-            and '"type":"token"' in e.replace(" ", "")
+            _parse_sse(e)
+            for e in events
+            if "event: message" in e and '"type":"token"' in e.replace(" ", "")
         ]
         assert len(token_events) == 2
         assert token_events[0][1]["content"] == "Hello"
@@ -206,8 +203,9 @@ class TestChatStream:
 
         # Check sources event
         sources_events = [
-            _parse_sse(e) for e in events if "event: message" in e
-            and '"type":"sources"' in e.replace(" ", "")
+            _parse_sse(e)
+            for e in events
+            if "event: message" in e and '"type":"sources"' in e.replace(" ", "")
         ]
         assert len(sources_events) == 1
         assert isinstance(sources_events[0][1]["content"], list)
@@ -273,9 +271,7 @@ class TestChatStream:
         mock_session = AsyncMock()
 
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
-            service = ChatService(
-                retriever=mock_retriever, llm_client=mock_llm_client
-            )
+            service = ChatService(retriever=mock_retriever, llm_client=mock_llm_client)
             events: list[str] = []
             async for event in service.chat_stream(mock_session, "anything"):
                 events.append(event)
@@ -289,8 +285,9 @@ class TestChatStream:
 
         # Sources event should have empty content list
         sources_events = [
-            _parse_sse(e) for e in events if "event: message" in e
-            and '"type":"sources"' in e.replace(" ", "")
+            _parse_sse(e)
+            for e in events
+            if "event: message" in e and '"type":"sources"' in e.replace(" ", "")
         ]
         assert len(sources_events) == 1
         assert sources_events[0][1]["content"] == []
@@ -300,25 +297,18 @@ class TestChatStream:
         mock_retriever.retrieve.return_value = [_make_news_item()]
 
         mock_llm_client = AsyncMock()
-        mock_llm_client.chat.completions.create.side_effect = Exception(
-            "LLM error"
-        )
+        mock_llm_client.chat.completions.create.side_effect = Exception("LLM error")
 
         mock_session = AsyncMock()
 
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
-            service = ChatService(
-                retriever=mock_retriever, llm_client=mock_llm_client
-            )
+            service = ChatService(retriever=mock_retriever, llm_client=mock_llm_client)
             events: list[str] = []
             async for event in service.chat_stream(mock_session, "test"):
                 events.append(event)
 
         # Should have: error, sources, done
-        err_events = [
-            _parse_sse(e) for e in events
-            if e.startswith("event: error")
-        ]
+        err_events = [_parse_sse(e) for e in events if e.startswith("event: error")]
         assert len(err_events) == 1
         assert err_events[0][1]["error"]["code"] == "CHAT_ERROR"
 
@@ -332,9 +322,7 @@ class TestChatStream:
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
             service = ChatService()
             events: list[str] = []
-            async for event in service.chat_stream(
-                mock_session, "   \n\t  "
-            ):
+            async for event in service.chat_stream(mock_session, "   \n\t  "):
                 events.append(event)
 
         assert len(events) == 2
@@ -359,17 +347,12 @@ class TestChatStream:
         mock_session = AsyncMock()
 
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
-            service = ChatService(
-                retriever=mock_retriever, llm_client=mock_llm_client
-            )
+            service = ChatService(retriever=mock_retriever, llm_client=mock_llm_client)
             events: list[str] = []
             async for event in service.chat_stream(mock_session, "test"):
                 events.append(event)
 
-        err_events = [
-            _parse_sse(e) for e in events
-            if e.startswith("event: error")
-        ]
+        err_events = [_parse_sse(e) for e in events if e.startswith("event: error")]
         assert len(err_events) == 1
         assert err_events[0][1]["error"]["code"] == "LLM_TIMEOUT"
 
@@ -406,9 +389,7 @@ class TestChatStream:
         mock_session = AsyncMock()
 
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
-            service = ChatService(
-                retriever=mock_retriever, llm_client=mock_llm_client
-            )
+            service = ChatService(retriever=mock_retriever, llm_client=mock_llm_client)
             events: list[str] = []
             async for event in service.chat_stream(mock_session, "q?"):
                 events.append(event)

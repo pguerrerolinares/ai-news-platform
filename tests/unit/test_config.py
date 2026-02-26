@@ -169,11 +169,13 @@ class TestSchedulerConfig:
 
     def test_scheduler_enabled_default(self):
         from src.core.config import Settings
+
         s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
         assert s.scheduler_enabled is True
 
     def test_poll_interval_defaults(self):
         from src.core.config import Settings
+
         s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
         assert s.hn_poll_interval_minutes == 15
         assert s.reddit_poll_interval_minutes == 15
@@ -185,6 +187,7 @@ class TestSchedulerConfig:
 
     def test_reddit_oauth_defaults_empty(self):
         from src.core.config import Settings
+
         s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
         assert s.reddit_client_id == ""
         assert s.reddit_client_secret == ""

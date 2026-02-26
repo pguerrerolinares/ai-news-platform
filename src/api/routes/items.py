@@ -133,9 +133,11 @@ async def list_items_by_date(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(
-        NewsItem.score.desc().nulls_last(), NewsItem.created_at.desc()
-    ).offset(offset).limit(limit)
+    query = (
+        query.order_by(NewsItem.score.desc().nulls_last(), NewsItem.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
@@ -162,9 +164,7 @@ async def list_trending_items(
     since = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    query = select(NewsItem).where(
-        NewsItem.trending.is_(True) & (NewsItem.created_at >= since)
-    )
+    query = select(NewsItem).where(NewsItem.trending.is_(True) & (NewsItem.created_at >= since))
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
@@ -240,9 +240,7 @@ async def list_top_items(
     since = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    query = select(NewsItem).where(
-        (NewsItem.created_at >= since) & NewsItem.score.isnot(None)
-    )
+    query = select(NewsItem).where((NewsItem.created_at >= since) & NewsItem.score.isnot(None))
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:

@@ -276,7 +276,6 @@ def _make_daily_paper(
 
 
 class TestDailyPapers:
-
     @respx.mock
     async def test_daily_papers_included_in_results(self):
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=[]))

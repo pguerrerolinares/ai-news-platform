@@ -46,12 +46,12 @@ async def stats_summary(
             func.count(NewsItem.id).label("total"),
             func.count(case((is_today, NewsItem.id))).label("items_today"),
             func.count(func.distinct(NewsItem.source)).label("sources"),
-            func.count(
-                func.distinct(case((NewsItem.topic.isnot(None), NewsItem.topic)))
-            ).label("topics"),
-            func.count(
-                case((NewsItem.trending.is_(True) & is_today, NewsItem.id))
-            ).label("trending"),
+            func.count(func.distinct(case((NewsItem.topic.isnot(None), NewsItem.topic)))).label(
+                "topics"
+            ),
+            func.count(case((NewsItem.trending.is_(True) & is_today, NewsItem.id))).label(
+                "trending"
+            ),
         )
     )
     row = result.one()

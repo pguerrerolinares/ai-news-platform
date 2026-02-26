@@ -1,4 +1,5 @@
 """Standardized error responses for the API."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, Request

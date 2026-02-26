@@ -81,9 +81,7 @@ async def _verify_and_login(email: str, code: str) -> User:
         otp.used = True
 
         # Upsert user
-        user_result = await session.execute(
-            select(User).where(User.email == email)
-        )
+        user_result = await session.execute(select(User).where(User.email == email))
         user = user_result.scalar_one_or_none()
 
         if user is None:
@@ -118,10 +116,14 @@ async def verify_otp(request: Request, body: OtpVerifyBody) -> TokenResponseV2:
     user = await _verify_and_login(body.email, body.code)
 
     access_token = create_access_token(
-        subject=str(user.id), role=user.role, email=user.email,
+        subject=str(user.id),
+        role=user.role,
+        email=user.email,
     )
     refresh_token = create_refresh_token(
-        subject=str(user.id), role=user.role, email=user.email,
+        subject=str(user.id),
+        role=user.role,
+        email=user.email,
     )
 
     return TokenResponseV2(
@@ -135,9 +137,7 @@ async def verify_otp(request: Request, body: OtpVerifyBody) -> TokenResponseV2:
 async def get_me(user: UserClaims = Depends(require_auth)) -> UserResponse:
     """Return current authenticated user info."""
     async with get_async_session() as session:
-        result = await session.execute(
-            select(User).where(User.email == user.email)
-        )
+        result = await session.execute(select(User).where(User.email == user.email))
         db_user = result.scalar_one_or_none()
 
     if db_user is None:

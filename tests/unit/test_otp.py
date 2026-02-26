@@ -34,19 +34,27 @@ class TestGenerateOtpCode:
 class TestSendOtpEmail:
     @pytest.fixture()
     def mock_settings_with_key(self):
-        return type("S", (), {
-            "resend_api_key": "re_test_key",
-            "otp_from_email": "test@resend.dev",
-            "otp_expire_minutes": 10,
-        })()
+        return type(
+            "S",
+            (),
+            {
+                "resend_api_key": "re_test_key",
+                "otp_from_email": "test@resend.dev",
+                "otp_expire_minutes": 10,
+            },
+        )()
 
     @pytest.fixture()
     def mock_settings_no_key(self):
-        return type("S", (), {
-            "resend_api_key": "",
-            "otp_from_email": "test@resend.dev",
-            "otp_expire_minutes": 10,
-        })()
+        return type(
+            "S",
+            (),
+            {
+                "resend_api_key": "",
+                "otp_from_email": "test@resend.dev",
+                "otp_expire_minutes": 10,
+            },
+        )()
 
     async def test_sends_email_via_resend(self, mock_settings_with_key, respx_mock):
         respx_mock.post("https://api.resend.com/emails").mock(

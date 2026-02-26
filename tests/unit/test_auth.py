@@ -329,17 +329,22 @@ class TestRefreshTokens:
             patch("src.api.routes.auth.get_settings", return_value=test_settings),
         ):
             refresh_token = create_refresh_token(
-                subject="test-uuid", role="admin", email="admin@test.com",
+                subject="test-uuid",
+                role="admin",
+                email="admin@test.com",
             )
 
         resp = await api_client.post(
-            "/api/auth/refresh", json={"refresh_token": refresh_token},
+            "/api/auth/refresh",
+            json={"refresh_token": refresh_token},
         )
         assert resp.status_code == 200
         data = resp.json()
         # Decode the new access token to verify claims propagated
         new_payload = jwt.decode(
-            data["access_token"], TEST_SECRET, algorithms=[TEST_ALGORITHM],
+            data["access_token"],
+            TEST_SECRET,
+            algorithms=[TEST_ALGORITHM],
         )
         assert new_payload["role"] == "admin"
         assert new_payload["email"] == "admin@test.com"
@@ -421,7 +426,9 @@ class TestRequireAdmin:
 
         with patch("src.api.auth.get_settings", return_value=test_settings):
             token = create_access_token(
-                subject="uuid-admin", role="admin", email="admin@test.com",
+                subject="uuid-admin",
+                role="admin",
+                email="admin@test.com",
             )
             creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
             user = await require_auth(creds)
@@ -437,7 +444,9 @@ class TestRequireAdmin:
 
         with patch("src.api.auth.get_settings", return_value=test_settings):
             token = create_access_token(
-                subject="uuid-reader", role="reader", email="reader@test.com",
+                subject="uuid-reader",
+                role="reader",
+                email="reader@test.com",
             )
             creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
             user = await require_auth(creds)

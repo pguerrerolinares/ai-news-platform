@@ -273,8 +273,11 @@ async def phase_classify(
     completed = 0
     stopped = False
 
-    print(f"  Classifying {len(filtered)} items in {total_batches} batches "
-          f"(concurrency={concurrency})...", flush=True)
+    print(
+        f"  Classifying {len(filtered)} items in {total_batches} batches "
+        f"(concurrency={concurrency})...",
+        flush=True,
+    )
 
     sem = asyncio.Semaphore(concurrency)
 

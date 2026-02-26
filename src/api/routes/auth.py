@@ -1,4 +1,5 @@
 """API routes for authentication."""
+
 import hmac
 
 from fastapi import APIRouter, Request
@@ -40,10 +41,14 @@ async def refresh(request: Request, body: RefreshRequest) -> TokenResponseV2:
     claims = validate_refresh_token(body.refresh_token)
 
     access_token = create_access_token(
-        subject=claims.sub, role=claims.role, email=claims.email,
+        subject=claims.sub,
+        role=claims.role,
+        email=claims.email,
     )
     new_refresh_token = create_refresh_token(
-        subject=claims.sub, role=claims.role, email=claims.email,
+        subject=claims.sub,
+        role=claims.role,
+        email=claims.email,
     )
 
     return TokenResponseV2(

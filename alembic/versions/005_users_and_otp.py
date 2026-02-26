@@ -56,9 +56,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index(
-        "idx_otp_codes_lookup", "otp_codes", ["email", "used", "expires_at"]
-    )
+    op.create_index("idx_otp_codes_lookup", "otp_codes", ["email", "used", "expires_at"])
 
 
 def downgrade() -> None:

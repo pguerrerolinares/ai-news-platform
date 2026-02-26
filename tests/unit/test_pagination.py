@@ -1,4 +1,5 @@
 """Unit tests for pagination utilities."""
+
 from __future__ import annotations
 
 from starlette.responses import Response

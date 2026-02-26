@@ -52,9 +52,7 @@ class HuggingFaceExtractor(BaseExtractor):
 
                 published_str = paper.get("publishedAt", "")
                 try:
-                    published = datetime.fromisoformat(
-                        published_str.replace("Z", "+00:00")
-                    )
+                    published = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
                 except (ValueError, AttributeError):
                     published = datetime.now(tz=UTC)
 

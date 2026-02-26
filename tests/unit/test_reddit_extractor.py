@@ -471,16 +471,24 @@ class TestRedditOAuth:
     @respx.mock
     async def test_uses_oauth_when_credentials_set(self):
         respx.post(OAUTH_TOKEN_URL).mock(
-            return_value=httpx.Response(200, json={
-                "access_token": "test-bearer-token",
-                "token_type": "bearer",
-                "expires_in": 7200,
-            }),
+            return_value=httpx.Response(
+                200,
+                json={
+                    "access_token": "test-bearer-token",
+                    "token_type": "bearer",
+                    "expires_in": 7200,
+                },
+            ),
         )
         respx.get(f"{OAUTH_BASE_URL}/r/MachineLearning/top/.json").mock(
-            return_value=httpx.Response(200, json=_reddit_response([
-                _make_post("oauth1", "OAuth Post", score=100),
-            ])),
+            return_value=httpx.Response(
+                200,
+                json=_reddit_response(
+                    [
+                        _make_post("oauth1", "OAuth Post", score=100),
+                    ]
+                ),
+            ),
         )
 
         settings = _mock_settings(
@@ -533,16 +541,24 @@ class TestRedditOAuth:
     async def test_oauth_token_cached_across_calls(self):
         """Second extract() reuses cached token instead of requesting a new one."""
         token_route = respx.post(OAUTH_TOKEN_URL).mock(
-            return_value=httpx.Response(200, json={
-                "access_token": "cached-token",
-                "token_type": "bearer",
-                "expires_in": 7200,
-            }),
+            return_value=httpx.Response(
+                200,
+                json={
+                    "access_token": "cached-token",
+                    "token_type": "bearer",
+                    "expires_in": 7200,
+                },
+            ),
         )
         respx.get(f"{OAUTH_BASE_URL}/r/MachineLearning/top/.json").mock(
-            return_value=httpx.Response(200, json=_reddit_response([
-                _make_post("c1", "Cached Post", score=100),
-            ])),
+            return_value=httpx.Response(
+                200,
+                json=_reddit_response(
+                    [
+                        _make_post("c1", "Cached Post", score=100),
+                    ]
+                ),
+            ),
         )
 
         settings = _mock_settings(

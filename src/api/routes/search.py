@@ -31,9 +31,7 @@ async def search_items(
     topic: str | None = Query(None, description="Filter by topic"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),
     date_to: date | None = Query(None, description="End date (inclusive)"),
-    sort_by: str = Query(
-        "relevance", pattern="^(relevance|date|score)$", description="Sort order"
-    ),
+    sort_by: str = Query("relevance", pattern="^(relevance|date|score)$", description="Sort order"),
     limit: int = Query(50, ge=1, le=200, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
@@ -61,9 +59,7 @@ async def search_items(
         query = query.where(func.date(NewsItem.published_at) <= date_to)
 
     # Count total matching results (before limit/offset)
-    count_query = select(func.count()).select_from(
-        query.with_only_columns(NewsItem.id).subquery()
-    )
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 

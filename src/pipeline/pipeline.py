@@ -261,6 +261,7 @@ async def _embed_new_items(
 
     except Exception as exc:
         from src.core.metrics import embedding_failures_total
+
         embedding_failures_total.inc()
         logger.error("embed_items_failed", error=str(exc), item_count=len(items))
         await session.rollback()
@@ -386,6 +387,7 @@ async def run_pipeline(session: AsyncSession, sources: list[str] | None = None) 
                 logger.info("pipeline_embeddings", count=embedded_count)
             except Exception as exc:
                 from src.core.metrics import embedding_failures_total
+
                 embedding_failures_total.inc()
                 logger.error("pipeline_embedding_failed", error=str(exc))
 

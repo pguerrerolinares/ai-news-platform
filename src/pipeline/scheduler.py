@@ -115,9 +115,7 @@ async def cleanup_expired_otps() -> None:
     """Purge expired OTP codes older than 1 day."""
     async with get_async_session() as session:
         cutoff = datetime.now(tz=UTC) - timedelta(days=1)
-        result = await session.execute(
-            delete(OtpCode).where(OtpCode.expires_at < cutoff)
-        )
+        result = await session.execute(delete(OtpCode).where(OtpCode.expires_at < cutoff))
         await session.commit()
         if result.rowcount:
             logger.info("otp_cleanup_done", deleted=result.rowcount)

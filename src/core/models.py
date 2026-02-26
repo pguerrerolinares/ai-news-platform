@@ -167,10 +167,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     name: Mapped[str | None] = mapped_column(Text)
     role: Mapped[str] = mapped_column(
-        String(20), nullable=False, server_default=text("'reader'"),
+        String(20),
+        nullable=False,
+        server_default=text("'reader'"),
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(),
+        DateTime(timezone=True),
+        server_default=func.now(),
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -191,9 +194,8 @@ class OtpCode(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(),
+        DateTime(timezone=True),
+        server_default=func.now(),
     )
 
-    __table_args__ = (
-        Index("idx_otp_codes_lookup", "email", "used", "expires_at"),
-    )
+    __table_args__ = (Index("idx_otp_codes_lookup", "email", "used", "expires_at"),)
