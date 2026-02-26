@@ -73,6 +73,13 @@ data/
 frontend/node_modules/
 frontend/dist/
 
+# Mock/design images (local only)
+*-mock.png
+*-mock-*.png
+
+# Design docs (local drafts)
+docs/DESIGN_SYSTEM.md
+
 # Misc
 *.bak
 *.tmp

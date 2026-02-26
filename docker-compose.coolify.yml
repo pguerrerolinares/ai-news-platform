@@ -3,7 +3,7 @@
 # Frontend nginx proxies /api/* to the api service internally.
 #
 # In Coolify: set the "frontend" service as the public-facing service,
-# point ainews.pguerrero.me to port 80 of the frontend container.
+# point your domain to port 80 of the frontend container.
 
 services:
   db:
