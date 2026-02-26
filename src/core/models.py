@@ -83,7 +83,7 @@ class NewsItem(Base):
             f"topic IS NULL OR topic IN ({','.join(repr(t) for t in VALID_TOPICS)})",
             name="valid_topic",
         ),
-        Index("idx_news_items_date", "published_at", postgresql_ops={"published_at": "DESC"}),
+        Index("idx_news_items_date", "published_at"),
         Index("idx_news_items_topic", "topic"),
         Index("idx_news_items_source", "source"),
         Index("idx_news_items_content_hash", "content_hash"),
@@ -125,8 +125,6 @@ class ItemEmbedding(Base):
     model: Mapped[str] = mapped_column(Text, primary_key=True, nullable=False)
     embedding = mapped_column(Vector(1536))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (UniqueConstraint("item_id", "model", name="pk_item_embeddings"),)
 
 
 class RawExtraction(Base):
