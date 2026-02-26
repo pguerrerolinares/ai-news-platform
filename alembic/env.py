@@ -28,9 +28,7 @@ def include_object(obj, name, type_, reflected, compare_to):
     GIN (FTS) and HNSW (pgvector) indexes are created via raw SQL in
     migrations and have no SQLAlchemy ORM representation.
     """
-    if type_ == "index" and name in _EXCLUDED_INDEXES:
-        return False
-    return True
+    return not (type_ == "index" and name in _EXCLUDED_INDEXES)
 
 
 def run_migrations_offline() -> None:

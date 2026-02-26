@@ -43,7 +43,7 @@ _INDEX_REWRITES = [
 
 def upgrade() -> None:
     # 1. Fix nullable on columns with server_default
-    for table, column, col_type in _NULLABLE_FIXES:
+    for table, column, _col_type in _NULLABLE_FIXES:
         op.execute(f"ALTER TABLE {table} ALTER COLUMN {column} SET NOT NULL")
 
     # 2. Recreate DESC indexes as simple indexes (match ORM model)
@@ -66,5 +66,5 @@ def downgrade() -> None:
         op.execute(f"CREATE INDEX {idx_name} ON {table} ({columns})")
 
     # Restore nullable
-    for table, column, col_type in _NULLABLE_FIXES:
+    for table, column, _col_type in _NULLABLE_FIXES:
         op.execute(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL")
