@@ -22,10 +22,9 @@ COPY alembic.ini ./
 COPY src/ src/
 COPY docker-entrypoint.sh ./
 
-RUN chown -R appuser:appuser /app
+RUN chmod +x docker-entrypoint.sh && \
+    chown -R appuser:appuser /app
 USER appuser
-
-RUN chmod +x docker-entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
