@@ -116,3 +116,18 @@ jobs:
         run: pytest tests/integration/ -v -m integration --timeout=60
       - name: Security tests
         run: pytest tests/security/ -v -m security --timeout=30
+
+  # ── Stage 4: Deploy (only on main, after all tests pass) ──────
+  deploy:
+    name: Deploy to Coolify
+    needs: [integration]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Coolify deploy
+        run: |
+          curl -f -X POST "${{ secrets.COOLIFY_WEBHOOK }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --max-time 10
+          echo "Deploy triggered successfully"
