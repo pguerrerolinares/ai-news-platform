@@ -7,7 +7,7 @@ from httpx import AsyncClient
 
 pytestmark = [pytest.mark.security, pytest.mark.asyncio(loop_scope="session")]
 
-_ORIGIN = "http://localhost:4200"
+_ORIGIN = "http://localhost:5173"
 
 
 class TestCORS:
