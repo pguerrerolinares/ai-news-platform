@@ -124,9 +124,7 @@ async def list_items_by_date(
     """List news items for a specific date, sorted by score."""
     day_start = datetime.combine(item_date, time.min, tzinfo=UTC)
     day_end = day_start + timedelta(days=1)
-    query = select(NewsItem).where(
-        (_effective_date >= day_start) & (_effective_date < day_end)
-    )
+    query = select(NewsItem).where((_effective_date >= day_start) & (_effective_date < day_end))
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
@@ -205,9 +203,7 @@ async def list_today_items(
     """List today's news items, sorted chronologically (newest first)."""
     today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
     today_end = today_start + timedelta(days=1)
-    query = select(NewsItem).where(
-        (_effective_date >= today_start) & (_effective_date < today_end)
-    )
+    query = select(NewsItem).where((_effective_date >= today_start) & (_effective_date < today_end))
     if topic:
         query = query.where(NewsItem.topic == topic)
 
@@ -283,9 +279,7 @@ async def list_latest_items(
     if source:
         query = query.where(NewsItem.source == source)
 
-    count_query = select(func.count()).select_from(
-        query.with_only_columns(NewsItem.id).subquery()
-    )
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
