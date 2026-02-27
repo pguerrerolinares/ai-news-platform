@@ -4,7 +4,7 @@ import hmac
 
 from fastapi import APIRouter, Request
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+from src.api.ratelimit import get_client_ip
 
 from src.api.auth import create_access_token, create_refresh_token, validate_refresh_token
 from src.api.errors import APIError
@@ -12,7 +12,7 @@ from src.api.schemas import ErrorWrapper, RefreshRequest, TokenRequest, TokenRes
 from src.core.config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip)
 
 
 @router.post("/token", response_model=TokenResponseV2, responses={401: {"model": ErrorWrapper}})

@@ -5,7 +5,7 @@ from functools import lru_cache
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+from src.api.ratelimit import get_client_ip
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth
@@ -15,7 +15,7 @@ from src.rag.chat import ChatService
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip)
 
 
 @lru_cache

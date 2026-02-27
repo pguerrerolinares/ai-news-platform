@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+from src.api.ratelimit import get_client_ip
 from sqlalchemy import select, update
 
 from src.api.auth import UserClaims, create_access_token, create_refresh_token, require_auth
@@ -27,7 +27,7 @@ from src.core.models import OtpCode, User
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip)
 
 
 @router.post("/otp/request", response_model=OtpRequestResponse)

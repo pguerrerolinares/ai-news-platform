@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from src.api.ratelimit import get_client_ip
 
 from src.api.errors import APIError, api_error_handler, http_exception_handler
 from src.api.routes.auth import router as auth_router
@@ -162,7 +162,7 @@ app.add_middleware(
 )
 
 # Rate limiting
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(APIError, api_error_handler)  # type: ignore[arg-type]
