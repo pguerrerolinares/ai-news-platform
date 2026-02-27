@@ -34,14 +34,14 @@ export default function Dashboard() {
     error,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ['items-today', { topic: topicParam }],
+    queryKey: ['items-latest', { topic: topicParam }],
     queryFn: async ({ pageParam, signal }) => {
       const params: Record<string, string> = {
         limit: String(PAGE_SIZE),
         offset: String(pageParam),
       }
       if (topicParam) params.topic = topicParam
-      return apiGet<NewsItem[]>('/api/items/today', params, signal)
+      return apiGet<NewsItem[]>('/api/items/latest', params, signal)
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
