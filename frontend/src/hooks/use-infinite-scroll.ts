@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet } from '@/lib/api'
 import type { NewsItem } from '@/lib/types'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 interface UseInfiniteScrollOptions {
   endpoint: string

@@ -29,7 +29,7 @@ class AlertService:
     async def _send(self, text: str) -> bool:
         """Send a message via Telegram Bot API."""
         if not self.enabled:
-            logger.warning("telegram_alerts_disabled", reason="missing credentials or disabled")
+            logger.debug("telegram_alerts_disabled", reason="missing credentials or disabled")
             return False
 
         try:

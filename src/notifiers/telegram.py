@@ -340,7 +340,7 @@ class TelegramNotifier(BaseNotifier):
     async def _send(self, text: str) -> bool:
         """Send a single message, splitting if it exceeds MAX_MSG_LEN."""
         if not self.enabled:
-            logger.warning("telegram_notifier_disabled", reason="missing credentials or disabled")
+            logger.debug("telegram_notifier_disabled", reason="missing credentials or disabled")
             return False
 
         chunks = _split_text(text, MAX_MSG_LEN)

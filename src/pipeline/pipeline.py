@@ -246,15 +246,14 @@ async def _embed_new_items(
         texts = [embed_service.prepare_text(item.title, item.summary) for item in items]
         embeddings = await embed_service.embed_batch(texts)
 
-        for item, embedding in zip(items, embeddings, strict=True):
-            session.add(
-                ItemEmbedding(
-                    item_id=item.id,
-                    model=model_name,
-                    embedding=embedding,
-                )
-            )
-
+        rows = [
+            {"item_id": item.id, "model": model_name, "embedding": embedding}
+            for item, embedding in zip(items, embeddings, strict=True)
+        ]
+        stmt = insert(ItemEmbedding).values(rows).on_conflict_do_nothing(
+            index_elements=["item_id", "model"],
+        )
+        await session.execute(stmt)
         await session.commit()
         logger.info("embed_items_stored", count=len(items))
         return len(items)

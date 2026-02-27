@@ -5,7 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth
@@ -42,14 +42,25 @@ async def search_items(
     Searches across title and full_text columns. Results are ranked by
     relevance and can be filtered by topic and date range.
     """
-    ts_query = func.plainto_tsquery("english", q)
+    ts_query = func.plainto_tsquery("simple", q)
     ts_vector = func.to_tsvector(
-        "english",
-        func.coalesce(NewsItem.title, "") + " " + func.coalesce(NewsItem.full_text, ""),
+        "simple",
+        func.coalesce(NewsItem.title, "")
+        + " "
+        + func.coalesce(NewsItem.full_text, "")
+        + " "
+        + func.coalesce(NewsItem.source, ""),
     )
 
-    base_filter = ts_vector.bool_op("@@")(ts_query)
-    query = select(NewsItem).where(base_filter)
+    fts_match = ts_vector.bool_op("@@")(ts_query)
+    like_pattern = f"%{q}%"
+    ilike_match = or_(
+        NewsItem.title.ilike(like_pattern),
+        NewsItem.source.ilike(like_pattern),
+        NewsItem.summary.ilike(like_pattern),
+    )
+
+    query = select(NewsItem).where(or_(fts_match, ilike_match))
 
     if topic:
         query = query.where(NewsItem.topic == topic)

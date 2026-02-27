@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/sheet'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useScrollDirection } from '@/hooks/use-scroll-direction'
 import { IconMenu2, IconLogout } from '@tabler/icons-react'
 import { motion } from 'motion/react'
 import { useAuth } from '@/hooks/use-auth'
@@ -32,9 +33,14 @@ export function AppNav() {
   const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const { logout } = useAuth()
+  const scrollDir = useScrollDirection()
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
+    <header
+      className={`sticky z-50 border-b bg-background/80 backdrop-blur-sm transition-[top] duration-300 ${
+        scrollDir === 'down' ? '-top-16' : 'top-0'
+      }`}
+    >
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 lg:px-6">
         <NavLink to="/" className="text-lg font-bold tracking-tight">
           AI News

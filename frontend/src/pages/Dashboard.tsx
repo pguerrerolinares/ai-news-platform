@@ -20,7 +20,7 @@ export default function Dashboard() {
 
   const {
     items, loading, loadingMore, error, hasMore, sentinelRef, refresh,
-  } = useInfiniteScroll({ endpoint: '/api/items/today', pageSize: 20 })
+  } = useInfiniteScroll({ endpoint: '/api/items/today', pageSize: 10 })
 
   const featured = useMemo(
     () => items.length > 0 ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] : null,
