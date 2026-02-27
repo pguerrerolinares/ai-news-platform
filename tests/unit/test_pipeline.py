@@ -361,7 +361,7 @@ class TestSaveBriefing:
 
     @pytest.mark.asyncio
     async def test_saves_trending_count_existing_briefing(self):
-        """Existing briefing should accumulate trending_count."""
+        """Existing briefing replaces per-run stats; only total_items accumulates."""
         session = _mock_session()
         # Simulate existing briefing with proper integer fields
         from src.core.models import DailyBriefing
@@ -387,11 +387,51 @@ class TestSaveBriefing:
             trending_count=2,
         )
 
-        # All fields should accumulate across runs
-        assert existing_briefing.trending_count == 3  # 1 + 2
+        # Only total_items accumulates; per-run stats are replaced
         assert existing_briefing.total_items == 10  # 5 + 5
-        assert existing_briefing.items_filtered == 10  # 5 + 5
-        assert existing_briefing.duration_seconds == 45.0  # 15 + 30
+        assert existing_briefing.items_filtered == 5  # replaced, not accumulated
+        assert existing_briefing.trending_count == 2  # replaced, not accumulated
+        assert existing_briefing.duration_seconds == 30.0  # replaced, not accumulated
+
+    @pytest.mark.asyncio
+    async def test_save_briefing_replaces_extraction_stats_on_existing(self):
+        """When a briefing already exists, extraction stats are replaced, not accumulated."""
+        from src.core.models import DailyBriefing
+
+        # Simulate existing briefing with prior stats
+        existing_briefing = MagicMock(spec=DailyBriefing)
+        existing_briefing.total_items = 50
+        existing_briefing.items_extracted = 100  # old extraction count
+        existing_briefing.items_after_dedup = 80
+        existing_briefing.items_filtered = 50
+        existing_briefing.trending_count = 5
+        existing_briefing.duration_seconds = 30.0
+
+        mock_select_result = MagicMock()
+        mock_select_result.scalar_one_or_none.return_value = existing_briefing
+
+        session = AsyncMock()
+        session.execute = AsyncMock(return_value=mock_select_result)
+        session.commit = AsyncMock()
+
+        await _save_briefing(
+            session,
+            items_extracted=20,
+            items_after_dedup=15,
+            items_stored=5,
+            sources_used=["hackernews"],
+            duration_seconds=10.0,
+            trending_count=2,
+        )
+
+        # total_items (= items_stored) should ACCUMULATE: 50 + 5 = 55
+        assert existing_briefing.total_items == 55
+        # Extraction stats should be REPLACED, not accumulated
+        assert existing_briefing.items_extracted == 20
+        assert existing_briefing.items_after_dedup == 15
+        assert existing_briefing.items_filtered == 5
+        assert existing_briefing.trending_count == 2
+        assert existing_briefing.duration_seconds == 10.0
 
     @pytest.mark.asyncio
     async def test_trending_count_defaults_to_zero(self):

@@ -192,13 +192,14 @@ async def _save_briefing(
     briefing = existing.scalar_one_or_none()
 
     if briefing:
-        # Accumulate totals across multiple pipeline runs per day
+        # Accumulate only items_stored (actual new DB inserts)
         briefing.total_items = (briefing.total_items or 0) + items_stored
-        briefing.items_extracted = (briefing.items_extracted or 0) + items_extracted
-        briefing.items_after_dedup = (briefing.items_after_dedup or 0) + items_after_dedup
-        briefing.items_filtered = (briefing.items_filtered or 0) + items_stored
-        briefing.trending_count = (briefing.trending_count or 0) + trending_count
-        briefing.duration_seconds = (briefing.duration_seconds or 0) + duration_seconds
+        # Replace per-run stats (these reflect the latest run, not cumulative)
+        briefing.items_extracted = items_extracted
+        briefing.items_after_dedup = items_after_dedup
+        briefing.items_filtered = items_stored
+        briefing.trending_count = trending_count
+        briefing.duration_seconds = duration_seconds
         briefing.sources_used = {"sources": sources_used}
     else:
         session.add(
