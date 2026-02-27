@@ -201,7 +201,11 @@ async def _save_briefing(
         briefing.items_filtered = items_stored
         briefing.trending_count = trending_count
         briefing.duration_seconds = duration_seconds
-        briefing.sources_used = {"sources": sources_used}
+        existing_sources = set(
+            briefing.sources_used.get("sources", []) if briefing.sources_used else []
+        )
+        existing_sources.update(sources_used)
+        briefing.sources_used = {"sources": sorted(existing_sources)}
     else:
         session.add(
             DailyBriefing(

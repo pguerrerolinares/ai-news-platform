@@ -373,6 +373,7 @@ class TestSaveBriefing:
         existing_briefing.items_filtered = 5
         existing_briefing.trending_count = 1
         existing_briefing.duration_seconds = 15.0
+        existing_briefing.sources_used = {"sources": ["hackernews"]}
         mock_select_result = MagicMock()
         mock_select_result.scalar_one_or_none.return_value = existing_briefing
         session.execute = AsyncMock(return_value=mock_select_result)
@@ -406,6 +407,7 @@ class TestSaveBriefing:
         existing_briefing.items_filtered = 50
         existing_briefing.trending_count = 5
         existing_briefing.duration_seconds = 30.0
+        existing_briefing.sources_used = {"sources": ["hackernews"]}
 
         mock_select_result = MagicMock()
         mock_select_result.scalar_one_or_none.return_value = existing_briefing
@@ -452,6 +454,40 @@ class TestSaveBriefing:
 
         briefing = session.add.call_args[0][0]
         assert briefing.trending_count == 0
+
+    @pytest.mark.asyncio
+    async def test_save_briefing_merges_sources_used(self):
+        """When a briefing already exists, sources_used should merge, not replace."""
+        from src.core.models import DailyBriefing
+
+        existing_briefing = MagicMock(spec=DailyBriefing)
+        existing_briefing.total_items = 10
+        existing_briefing.items_extracted = 20
+        existing_briefing.items_after_dedup = 15
+        existing_briefing.items_filtered = 10
+        existing_briefing.trending_count = 2
+        existing_briefing.duration_seconds = 15.0
+        existing_briefing.sources_used = {"sources": ["arxiv", "hackernews"]}
+
+        mock_select_result = MagicMock()
+        mock_select_result.scalar_one_or_none.return_value = existing_briefing
+
+        session = AsyncMock()
+        session.execute = AsyncMock(return_value=mock_select_result)
+        session.commit = AsyncMock()
+
+        await _save_briefing(
+            session,
+            items_extracted=10,
+            items_after_dedup=8,
+            items_stored=5,
+            sources_used=["hackernews", "reddit"],
+            duration_seconds=20.0,
+            trending_count=1,
+        )
+
+        # sources_used should be merged: arxiv + hackernews + reddit (sorted)
+        assert existing_briefing.sources_used == {"sources": ["arxiv", "hackernews", "reddit"]}
 
 
 # ---------------------------------------------------------------------------

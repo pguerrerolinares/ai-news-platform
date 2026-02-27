@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    column,
     func,
     text,
 )
@@ -93,6 +94,10 @@ class NewsItem(Base):
         Index("idx_news_items_source_date", "source", "published_at"),
         Index("idx_news_items_topic_date", "topic", "published_at"),
         Index("idx_news_items_created_at", "created_at"),
+        Index(
+            "idx_news_items_effective_date",
+            func.coalesce(column("published_at"), column("created_at")).desc(),
+        ),
     )
 
 
