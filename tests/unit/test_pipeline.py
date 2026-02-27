@@ -1449,3 +1449,34 @@ class TestRunPipelineWithSources:
 
         assert result is True
         mock_get_ext.assert_called_once_with(sources=["hackernews"])
+
+
+# ---------------------------------------------------------------------------
+# since_hours override (Task 3 — per-tier extraction windows)
+# ---------------------------------------------------------------------------
+class TestPipelineSinceHoursOverride:
+    """Verify _extract_all uses custom since_hours when provided."""
+
+    @pytest.mark.asyncio
+    async def test_extract_all_uses_custom_since_hours(self):
+        mock_extractor = AsyncMock()
+        mock_extractor.source_name = "hackernews"
+        mock_extractor.extract = AsyncMock(return_value=[])
+
+        settings = _mock_settings(extraction_since_hours=24)
+        with patch("src.pipeline.pipeline.get_settings", return_value=settings):
+            await _extract_all([mock_extractor], since_hours=1)
+
+        mock_extractor.extract.assert_called_once_with(since_hours=1)
+
+    @pytest.mark.asyncio
+    async def test_extract_all_uses_settings_default_when_no_override(self):
+        mock_extractor = AsyncMock()
+        mock_extractor.source_name = "hackernews"
+        mock_extractor.extract = AsyncMock(return_value=[])
+
+        settings = _mock_settings(extraction_since_hours=24)
+        with patch("src.pipeline.pipeline.get_settings", return_value=settings):
+            await _extract_all([mock_extractor])
+
+        mock_extractor.extract.assert_called_once_with(since_hours=24)

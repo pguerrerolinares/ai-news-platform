@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 _circuit_breaker = CircuitBreaker(threshold=3, cooldown_seconds=3600)
 
 
-async def run_scheduled_pipeline(sources: list[str]) -> None:
+async def run_scheduled_pipeline(sources: list[str], since_hours: int | None = None) -> None:
     """Run the pipeline for a specific set of sources.
 
     Creates its own DB session and catches all exceptions
@@ -39,7 +39,7 @@ async def run_scheduled_pipeline(sources: list[str]) -> None:
     logger.info("scheduled_pipeline_start", sources=active_sources)
     try:
         async with get_async_session() as session:
-            result = await run_pipeline(session, sources=active_sources)
+            result = await run_pipeline(session, sources=active_sources, since_hours=since_hours)
             # Record success for all active sources
             if result:
                 for source in active_sources:
@@ -66,30 +66,30 @@ def create_scheduler() -> AsyncIOScheduler | None:
 
     scheduler = AsyncIOScheduler()
 
-    # Tier 1: HackerNews + Reddit (every 15 min)
+    # Tier 1: HackerNews + Reddit (every 15 min, extract last 1h)
     scheduler.add_job(
         run_scheduled_pipeline,
         IntervalTrigger(minutes=settings.hn_poll_interval_minutes),
         id="tier1_hn_reddit",
-        kwargs={"sources": ["hackernews", "reddit"]},
+        kwargs={"sources": ["hackernews", "reddit"], "since_hours": 1},
         replace_existing=True,
     )
 
-    # Tier 2: RSS + GitHub + HuggingFace (every 60 min)
+    # Tier 2: RSS + GitHub + HuggingFace (every 60 min, extract last 3h)
     scheduler.add_job(
         run_scheduled_pipeline,
         IntervalTrigger(minutes=settings.rss_poll_interval_minutes),
         id="tier2_rss_gh_hf",
-        kwargs={"sources": ["rss", "github", "huggingface"]},
+        kwargs={"sources": ["rss", "github", "huggingface"], "since_hours": 3},
         replace_existing=True,
     )
 
-    # Tier 3: arXiv (daily at configured hour)
+    # Tier 3: arXiv (daily, extract last 24h)
     scheduler.add_job(
         run_scheduled_pipeline,
         CronTrigger(hour=settings.arxiv_cron_hour, minute=settings.arxiv_cron_minute),
         id="tier3_arxiv",
-        kwargs={"sources": ["arxiv"]},
+        kwargs={"sources": ["arxiv"], "since_hours": 24},
         replace_existing=True,
     )
 

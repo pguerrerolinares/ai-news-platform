@@ -109,7 +109,9 @@ class TestRunScheduledPipeline:
         ):
             await run_scheduled_pipeline(sources=["hackernews", "reddit"])
 
-        mock_run.assert_called_once_with(mock_session, sources=["hackernews", "reddit"])
+        mock_run.assert_called_once_with(
+            mock_session, sources=["hackernews", "reddit"], since_hours=None
+        )
 
     @pytest.mark.asyncio
     async def test_catches_exceptions_and_logs(self):
@@ -130,3 +132,26 @@ class TestRunScheduledPipeline:
         ):
             # Should NOT raise
             await run_scheduled_pipeline(sources=["hackernews"])
+
+
+class TestSchedulerSinceHours:
+    """Verify scheduler passes per-tier since_hours to run_pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_run_scheduled_pipeline_passes_since_hours(self):
+        from src.pipeline.scheduler import run_scheduled_pipeline
+
+        mock_session = AsyncMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("src.pipeline.scheduler.get_async_session", return_value=mock_session_cm),
+            patch("src.pipeline.scheduler.run_pipeline", new_callable=AsyncMock) as mock_run,
+        ):
+            await run_scheduled_pipeline(sources=["hackernews", "reddit"], since_hours=1)
+
+        mock_run.assert_called_once_with(
+            mock_session, sources=["hackernews", "reddit"], since_hours=1
+        )

@@ -86,16 +86,17 @@ def _get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
 async def _extract_all(
     extractors: list[BaseExtractor],
     alerts: AlertService | None = None,
+    since_hours: int | None = None,
 ) -> list[ExtractedItem]:
     """Run all extractors concurrently and collect results."""
     settings = get_settings()
     if alerts is None:
         alerts = AlertService()
+    effective_since = since_hours if since_hours is not None else settings.extraction_since_hours
 
     async def _run_one(extractor: BaseExtractor) -> list[ExtractedItem]:
         try:
-            since = settings.extraction_since_hours
-            items = await extractor.extract(since_hours=since)
+            items = await extractor.extract(since_hours=effective_since)
             logger.info(
                 "extractor_result",
                 source=extractor.source_name,
@@ -272,7 +273,11 @@ async def _embed_new_items(
         return 0
 
 
-async def run_pipeline(session: AsyncSession, sources: list[str] | None = None) -> bool:
+async def run_pipeline(
+    session: AsyncSession,
+    sources: list[str] | None = None,
+    since_hours: int | None = None,
+) -> bool:
     """Execute the full news pipeline.
 
     Steps:
@@ -298,7 +303,7 @@ async def run_pipeline(session: AsyncSession, sources: list[str] | None = None) 
         sources_used = [e.source_name for e in extractors]
         logger.info("pipeline_extract", sources=sources_used)
 
-        all_items = await _extract_all(extractors, alerts=alerts)
+        all_items = await _extract_all(extractors, alerts=alerts, since_hours=since_hours)
         items_extracted = len(all_items)
 
         if not all_items:
