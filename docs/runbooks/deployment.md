@@ -35,7 +35,7 @@ cp .env.example .env
 # Edit .env with production values
 ```
 
-### 3. Domain + SSL
+### 3. Domain + SSL (direct docker-compose.yml)
 ```bash
 # Point domain A record to VPS IP first, then:
 docker compose --profile certbot run certbot certonly \
@@ -46,6 +46,28 @@ docker compose --profile certbot run certbot certonly \
 # Update YOUR_DOMAIN placeholders
 docker compose restart nginx
 ```
+
+### 3b. Domain + SSL (Coolify deployment)
+
+If deploying via Coolify (`docker-compose.coolify.yml`), Traefik handles SSL automatically:
+
+1. In Coolify UI → your service → **Domains** → enter `https://pguerrero.me`
+2. In Coolify UI → **Environment Variables** → set `CORS_ORIGINS=https://pguerrero.me`
+3. Click **Redeploy**
+4. Verify:
+   ```bash
+   # Should return 200 with Strict-Transport-Security header
+   curl -I https://pguerrero.me
+
+   # Should return 301 redirect to HTTPS
+   curl -I http://pguerrero.me
+
+   # SSE chat endpoint (requires auth token)
+   curl -N -H "Authorization: Bearer <token>" https://pguerrero.me/api/chat
+
+   # Certificate check
+   openssl s_client -connect pguerrero.me:443 -brief
+   ```
 
 ### 4. Start Services
 ```bash
