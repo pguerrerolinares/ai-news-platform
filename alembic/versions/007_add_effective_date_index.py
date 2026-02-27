@@ -15,7 +15,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute(
-        "CREATE INDEX idx_news_items_effective_date "
+        "CREATE INDEX IF NOT EXISTS idx_news_items_effective_date "
         "ON news_items (COALESCE(published_at, created_at) DESC)"
     )
 
