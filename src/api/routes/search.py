@@ -4,12 +4,12 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
-from src.api.ratelimit import get_client_ip
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth
 from src.api.pagination import set_total_count_header
+from src.api.ratelimit import get_client_ip
 from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem

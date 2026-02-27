@@ -5,10 +5,10 @@ from functools import lru_cache
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from slowapi import Limiter
-from src.api.ratelimit import get_client_ip
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth
+from src.api.ratelimit import get_client_ip
 from src.api.schemas import ChatRequest, ErrorWrapper
 from src.core.database import get_session
 from src.rag.chat import ChatService

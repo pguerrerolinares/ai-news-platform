@@ -6,12 +6,12 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
-from src.api.ratelimit import get_client_ip
 from sqlalchemy import select, update
 
 from src.api.auth import UserClaims, create_access_token, create_refresh_token, require_auth
 from src.api.errors import APIError
 from src.api.otp import generate_otp_code, send_otp_email
+from src.api.ratelimit import get_client_ip
 from src.api.schemas import (
     ErrorWrapper,
     OtpRequestBody,

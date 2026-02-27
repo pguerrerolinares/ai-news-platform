@@ -250,8 +250,12 @@ async def _embed_new_items(
             {"item_id": item.id, "model": model_name, "embedding": embedding}
             for item, embedding in zip(items, embeddings, strict=True)
         ]
-        stmt = insert(ItemEmbedding).values(rows).on_conflict_do_nothing(
-            index_elements=["item_id", "model"],
+        stmt = (
+            insert(ItemEmbedding)
+            .values(rows)
+            .on_conflict_do_nothing(
+                index_elements=["item_id", "model"],
+            )
         )
         await session.execute(stmt)
         await session.commit()

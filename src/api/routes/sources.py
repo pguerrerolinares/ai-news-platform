@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
-from src.api.ratelimit import get_client_ip
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.ratelimit import get_client_ip
 from src.api.schemas import SourceInfo, SourcesResponse
 from src.core.database import get_session
 from src.core.models import NewsItem

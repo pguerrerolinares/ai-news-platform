@@ -4,11 +4,11 @@ from datetime import UTC, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
 from slowapi import Limiter
-from src.api.ratelimit import get_client_ip
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth
+from src.api.ratelimit import get_client_ip
 from src.api.schemas import (
     ErrorWrapper,
     ScoreDistributionResponse,

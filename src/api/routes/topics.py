@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Request
 from slowapi import Limiter
-from src.api.ratelimit import get_client_ip
 
+from src.api.ratelimit import get_client_ip
 from src.core.config import get_settings
 
 router = APIRouter(prefix="/api/topics", tags=["topics"])
