@@ -75,6 +75,27 @@ class TestTodayEndpoint:
         assert "x-total-count" in resp.headers
 
 
+class TestLatestEndpoint:
+    async def test_latest_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/latest")
+        assert resp.status_code == 200
+
+    async def test_latest_returns_list(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/latest")
+        assert isinstance(resp.json(), list)
+
+    async def test_latest_accepts_filters(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/items/latest",
+            params={"topic": "modelos", "source": "hackernews", "limit": "10"},
+        )
+        assert resp.status_code == 200
+
+    async def test_latest_has_total_count_header(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/latest")
+        assert "x-total-count" in resp.headers
+
+
 class TestTopEndpoint:
     async def test_top_returns_200(self, api_client: AsyncClient):
         resp = await api_client.get("/api/items/top")
