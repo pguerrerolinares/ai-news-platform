@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [activeTopic, setActiveTopic] = useState<string>('all')
   const reduced = useReducedMotion()
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const fetchingRef = useRef(false)
 
   const topicParam = activeTopic !== 'all' ? activeTopic : undefined
 
@@ -57,15 +58,17 @@ export default function Dashboard() {
   )
 
   const featured = useMemo(
-    () => items.length > 0
+    () => activeTopic === 'all' && items.length > 0
       ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
       : null,
-    [items],
+    [items, activeTopic],
   )
 
   const filtered = useMemo(() => {
     return featured ? items.filter(i => i.id !== featured.id) : items
   }, [items, featured])
+
+  fetchingRef.current = isFetchingNextPage
 
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -74,7 +77,7 @@ export default function Dashboard() {
 
       observerRef.current = new IntersectionObserver(
         (entries) => {
-          if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          if (entries[0].isIntersecting && !fetchingRef.current) {
             fetchNextPage()
           }
         },
@@ -82,7 +85,7 @@ export default function Dashboard() {
       )
       observerRef.current.observe(node)
     },
-    [hasNextPage, isFetchingNextPage, fetchNextPage],
+    [fetchNextPage],
   )
 
   // Cleanup observer on unmount
@@ -173,7 +176,7 @@ export default function Dashboard() {
       {error && items.length > 0 && (
         <div className="flex flex-col items-center gap-2 py-4">
           <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : 'Error al cargar mas noticias'}
+            {error instanceof Error ? error.message : 'Error al cargar más noticias'}
           </p>
           <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
             <IconRefresh className="mr-2 size-4" /> Reintentar
@@ -184,7 +187,7 @@ export default function Dashboard() {
       {isFetchingNextPage && (
         <div className="flex items-center justify-center py-8">
           <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Cargando mas...</span>
+          <span className="ml-2 text-sm text-muted-foreground">Cargando más...</span>
         </div>
       )}
 
