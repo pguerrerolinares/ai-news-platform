@@ -23,6 +23,9 @@ from src.core.models import NewsItem
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 limiter = Limiter(key_func=get_client_ip)
 
+# Effective date: prefer published_at, fall back to created_at for items without it
+_effective_date = func.coalesce(NewsItem.published_at, NewsItem.created_at)
+
 
 @router.get(
     "/summary",
@@ -39,7 +42,7 @@ async def stats_summary(
     today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
     today_end = today_start + timedelta(days=1)
 
-    is_today = (NewsItem.created_at >= today_start) & (NewsItem.created_at < today_end)
+    is_today = (_effective_date >= today_start) & (_effective_date < today_end)
 
     result = await session.execute(
         select(
@@ -121,15 +124,15 @@ async def stats_by_date(
     """Get item count grouped by date for the last N days."""
     since_date = datetime.now(tz=UTC).date() - timedelta(days=days)
     since_dt = datetime.combine(since_date, time.min, tzinfo=UTC)
-    created_date = func.date(NewsItem.created_at)
+    effective_date = func.date(_effective_date)
     result = await session.execute(
         select(
-            created_date.label("date"),
+            effective_date.label("date"),
             func.count(NewsItem.id).label("count"),
         )
-        .where(NewsItem.created_at >= since_dt)
-        .group_by(created_date)
-        .order_by(created_date.desc())
+        .where(_effective_date >= since_dt)
+        .group_by(effective_date)
+        .order_by(effective_date.desc())
     )
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
 
@@ -150,16 +153,16 @@ async def stats_by_topic_date(
     since_dt = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    created_date = func.date(NewsItem.created_at)
+    effective_date = func.date(_effective_date)
     result = await session.execute(
         select(
-            created_date.label("date"),
+            effective_date.label("date"),
             NewsItem.topic.label("group"),
             func.count(NewsItem.id).label("count"),
         )
-        .where((NewsItem.created_at >= since_dt) & NewsItem.topic.isnot(None))
-        .group_by(created_date, NewsItem.topic)
-        .order_by(created_date.asc(), NewsItem.topic.asc())
+        .where((_effective_date >= since_dt) & NewsItem.topic.isnot(None))
+        .group_by(effective_date, NewsItem.topic)
+        .order_by(effective_date.asc(), NewsItem.topic.asc())
     )
     return [
         StatsGroupDateResponse(date=row.date, group=row.group, count=row.count)
@@ -183,16 +186,16 @@ async def stats_by_source_date(
     since_dt = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    created_date = func.date(NewsItem.created_at)
+    effective_date = func.date(_effective_date)
     result = await session.execute(
         select(
-            created_date.label("date"),
+            effective_date.label("date"),
             NewsItem.source.label("group"),
             func.count(NewsItem.id).label("count"),
         )
-        .where(NewsItem.created_at >= since_dt)
-        .group_by(created_date, NewsItem.source)
-        .order_by(created_date.asc(), NewsItem.source.asc())
+        .where(_effective_date >= since_dt)
+        .group_by(effective_date, NewsItem.source)
+        .order_by(effective_date.asc(), NewsItem.source.asc())
     )
     return [
         StatsGroupDateResponse(date=row.date, group=row.group, count=row.count)
@@ -216,15 +219,15 @@ async def stats_trending_timeline(
     since_dt = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    created_date = func.date(NewsItem.created_at)
+    effective_date = func.date(_effective_date)
     result = await session.execute(
         select(
-            created_date.label("date"),
+            effective_date.label("date"),
             func.count(NewsItem.id).label("count"),
         )
-        .where((NewsItem.created_at >= since_dt) & NewsItem.trending.is_(True))
-        .group_by(created_date)
-        .order_by(created_date.asc())
+        .where((_effective_date >= since_dt) & NewsItem.trending.is_(True))
+        .group_by(effective_date)
+        .order_by(effective_date.asc())
     )
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
 
@@ -261,7 +264,7 @@ async def stats_score_distribution(
 
     for label, min_score, max_score in _SCORE_BUCKETS:
         query = select(func.count(NewsItem.id)).where(
-            (NewsItem.created_at >= since_dt) & NewsItem.score.isnot(None)
+            (_effective_date >= since_dt) & NewsItem.score.isnot(None)
         )
         query = query.where(NewsItem.score >= min_score)
         if max_score is not None:

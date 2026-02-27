@@ -18,6 +18,9 @@ from src.core.models import DailyBriefing, NewsItem
 router = APIRouter(prefix="/api/briefings", tags=["briefings"])
 limiter = Limiter(key_func=get_client_ip)
 
+# Effective date: prefer published_at, fall back to created_at for items without it
+_effective_date = func.coalesce(NewsItem.published_at, NewsItem.created_at)
+
 
 @router.get(
     "/{briefing_date}",
@@ -44,7 +47,7 @@ async def get_briefing(
     # Use timestamp range for index-friendly queries
     day_start = datetime.combine(briefing_date, time.min, tzinfo=UTC)
     day_end = day_start + timedelta(days=1)
-    date_filter = (NewsItem.created_at >= day_start) & (NewsItem.created_at < day_end)
+    date_filter = (_effective_date >= day_start) & (_effective_date < day_end)
 
     # Count total items for this date
     items_count = (
