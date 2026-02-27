@@ -250,7 +250,7 @@ async def list_top_items(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
+    query = query.order_by(NewsItem.published_at.desc()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]

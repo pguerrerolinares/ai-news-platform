@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -7,35 +7,20 @@ import { NewsCard } from '@/components/news-card'
 import { FeaturedCard } from '@/components/featured-card'
 import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-grid'
 import { Button } from '@/components/ui/button'
-import { apiGet } from '@/lib/api'
-import type { NewsItem } from '@/lib/types'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
-import { IconRefresh } from '@tabler/icons-react'
+import { useInfiniteScroll } from '@/hooks/use-infinite-scroll'
+import { IconRefresh, IconLoader2 } from '@tabler/icons-react'
 
 const TOPICS = Object.keys(TOPIC_LABELS)
 
 export default function Dashboard() {
-  const [items, setItems] = useState<NewsItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [activeTopic, setActiveTopic] = useState<string>('all')
   const reduced = useReducedMotion()
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const { data } = await apiGet<NewsItem[]>('/api/items/today', { limit: '50' })
-      setItems(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar noticias')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchItems() }, [fetchItems])
+  const {
+    items, loading, loadingMore, error, hasMore, sentinelRef, refresh,
+  } = useInfiniteScroll({ endpoint: '/api/items/today', pageSize: 20 })
 
   const featured = useMemo(
     () => items.length > 0 ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] : null,
@@ -59,7 +44,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
         <p className="text-destructive">{error}</p>
-        <Button variant="outline" onClick={fetchItems}>
+        <Button variant="outline" onClick={refresh}>
           <IconRefresh className="mr-2 size-4" /> Reintentar
         </Button>
       </div>
@@ -75,19 +60,24 @@ export default function Dashboard() {
             {items.length} noticias de {items.filter(i => i.trending).length} trending
           </p>
         </div>
-        <Select value={activeTopic} onValueChange={setActiveTopic}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar por topic" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los topics</SelectItem>
-            {TOPICS.map(topic => (
-              <SelectItem key={topic} value={topic}>
-                {TOPIC_LABELS[topic] ?? topic}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={refresh} title="Refrescar">
+            <IconRefresh className="size-4" />
+          </Button>
+          <Select value={activeTopic} onValueChange={setActiveTopic}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filtrar por topic" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los topics</SelectItem>
+              {TOPICS.map(topic => (
+                <SelectItem key={topic} value={topic}>
+                  {TOPIC_LABELS[topic] ?? topic}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {activeTopic === 'all' && featured && (
@@ -108,11 +98,20 @@ export default function Dashboard() {
         ))}
       </AnimatedCardGrid>
 
-      {filtered.length === 0 && (
+      {filtered.length === 0 && !loadingMore && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
           <p>No hay noticias para este topic</p>
         </div>
       )}
+
+      {loadingMore && (
+        <div className="flex items-center justify-center py-8">
+          <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Cargando mas...</span>
+        </div>
+      )}
+
+      {hasMore && <div ref={sentinelRef} className="h-1" />}
     </div>
   )
 }
