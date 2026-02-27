@@ -199,7 +199,7 @@ async def list_today_items(
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
-    """List today's news items, sorted by score descending."""
+    """List today's news items, sorted chronologically (newest first)."""
     today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
     today_end = today_start + timedelta(days=1)
     query = select(NewsItem).where(
@@ -213,7 +213,7 @@ async def list_today_items(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
+    query = query.order_by(NewsItem.published_at.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
@@ -250,7 +250,7 @@ async def list_top_items(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(NewsItem.published_at.desc()).offset(offset).limit(limit)
+    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
