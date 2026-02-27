@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -9,42 +10,104 @@ import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-g
 import { Button } from '@/components/ui/button'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
-import { useInfiniteScroll } from '@/hooks/use-infinite-scroll'
+import { apiGet } from '@/lib/api'
+import type { NewsItem } from '@/lib/types'
 import { IconRefresh, IconLoader2 } from '@tabler/icons-react'
 
 const TOPICS = Object.keys(TOPIC_LABELS)
+const PAGE_SIZE = 10
 
 export default function Dashboard() {
   const [activeTopic, setActiveTopic] = useState<string>('all')
   const reduced = useReducedMotion()
+  const observerRef = useRef<IntersectionObserver | null>(null)
+
+  const topicParam = activeTopic !== 'all' ? activeTopic : undefined
 
   const {
-    items, loading, loadingMore, error, hasMore, sentinelRef, refresh,
-  } = useInfiniteScroll({ endpoint: '/api/items/today', pageSize: 10 })
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    error,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ['items-today', { topic: topicParam }],
+    queryFn: async ({ pageParam, signal }) => {
+      const params: Record<string, string> = {
+        limit: String(PAGE_SIZE),
+        offset: String(pageParam),
+      }
+      if (topicParam) params.topic = topicParam
+      return apiGet<NewsItem[]>('/api/items/today', params, signal)
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((n, p) => n + p.data.length, 0)
+      const total = lastPage.totalCount ?? Infinity
+      if (loaded >= total || lastPage.data.length < PAGE_SIZE) return undefined
+      return loaded
+    },
+  })
+
+  const items = useMemo(
+    () => data?.pages.flatMap(p => p.data) ?? [],
+    [data],
+  )
 
   const featured = useMemo(
-    () => items.length > 0 ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] : null,
+    () => items.length > 0
+      ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
+      : null,
     [items],
   )
 
   const filtered = useMemo(() => {
-    const rest = featured ? items.filter(i => i.id !== featured.id) : items
-    return activeTopic !== 'all' ? rest.filter(i => i.topic === activeTopic) : rest
-  }, [items, activeTopic, featured])
+    return featured ? items.filter(i => i.id !== featured.id) : items
+  }, [items, featured])
 
-  if (loading) {
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) observerRef.current.disconnect()
+      if (!node) return
+
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage()
+          }
+        },
+        { rootMargin: '200px' },
+      )
+      observerRef.current.observe(node)
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  )
+
+  // Cleanup observer on unmount
+  useEffect(() => {
+    return () => { observerRef.current?.disconnect() }
+  }, [])
+
+  const isInitialLoad = isFetching && !isFetchingNextPage && items.length === 0
+
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-muted-foreground">Cargando noticias...</p>
+        <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Cargando noticias...</span>
       </div>
     )
   }
 
-  if (error) {
+  if (error && items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
-        <p className="text-destructive">{error}</p>
-        <Button variant="outline" onClick={refresh}>
+        <p className="text-destructive">
+          {error instanceof Error ? error.message : 'Error al cargar noticias'}
+        </p>
+        <Button variant="outline" onClick={() => refetch()}>
           <IconRefresh className="mr-2 size-4" /> Reintentar
         </Button>
       </div>
@@ -61,7 +124,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={refresh} title="Refrescar">
+          <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refrescar">
             <IconRefresh className="size-4" />
           </Button>
           <Select value={activeTopic} onValueChange={setActiveTopic}>
@@ -90,7 +153,10 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey={activeTopic}>
+      <AnimatedCardGrid
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        animationKey={activeTopic}
+      >
         {filtered.map(item => (
           <AnimatedCardItem key={item.id}>
             <NewsCard item={item} />
@@ -98,20 +164,31 @@ export default function Dashboard() {
         ))}
       </AnimatedCardGrid>
 
-      {filtered.length === 0 && !loadingMore && (
+      {filtered.length === 0 && !isFetchingNextPage && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
           <p>No hay noticias para este topic</p>
         </div>
       )}
 
-      {loadingMore && (
+      {error && items.length > 0 && (
+        <div className="flex flex-col items-center gap-2 py-4">
+          <p className="text-sm text-destructive">
+            {error instanceof Error ? error.message : 'Error al cargar mas noticias'}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
+            <IconRefresh className="mr-2 size-4" /> Reintentar
+          </Button>
+        </div>
+      )}
+
+      {isFetchingNextPage && (
         <div className="flex items-center justify-center py-8">
           <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
           <span className="ml-2 text-sm text-muted-foreground">Cargando mas...</span>
         </div>
       )}
 
-      {hasMore && <div ref={sentinelRef} className="h-1" />}
+      {hasNextPage && <div ref={sentinelRef} className="h-1" />}
     </div>
   )
 }
