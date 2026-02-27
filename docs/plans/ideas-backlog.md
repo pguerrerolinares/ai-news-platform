@@ -112,12 +112,9 @@
 
 ## Infrastructure & Ops
 
-- [ ] **Migrate local DB to production** — Restore the 6,374 news items, 6,374 embeddings,
-  and 21,526 raw extractions from the local development database to production.
-  Steps: `pg_dump -Fc` on local → upload to server → stop API → `pg_restore --clean --if-exists`
-  → `alembic stamp head` → restart API. Key gotchas: ensure alembic_version matches
-  head after restore, use `--no-owner --no-privileges` to avoid role mismatches,
-  verify pgvector extension exists before restore. Deferred from 2026-02-27 deploy session.
+- [x] **Migrate local DB to production** — Done (2026-02-27). Restored 6,374 news items,
+  6,374 embeddings, and 21,526 raw extractions via `pg_dump -Fc` + `pg_restore --data-only`.
+  See `docs/plans/2026-02-27-data-migration-design.md` for full procedure and lessons learned.
 
 - [ ] **Reddit extractor** — Disabled via `ENABLED_SOURCES` env var (Reddit changed API terms,
   requires paid API key). Keep the code in place, re-enable when API access is resolved.
