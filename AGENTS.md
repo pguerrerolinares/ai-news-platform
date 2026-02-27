@@ -109,7 +109,7 @@ ai-news-platform/
 │   │   └── routes/                   # auth, otp, items, briefings, search, chat, stats, sources
 │   ├── pipeline/
 │   │   ├── pipeline.py               # extract→dedup→classify→validate→embed→store→notify
-│   │   ├── scheduler.py              # APScheduler 3-tier (15m/60m/daily)
+│   │   ├── scheduler.py              # APScheduler 3-tier (15m/1h window, 60m/3h window, daily/24h)
 │   │   └── circuit_breaker.py        # Per-source failure tracking
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
 │   └── mcp/                          # MCP server + client
@@ -119,7 +119,7 @@ ai-news-platform/
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
 │       └── pages/                    # Login, Dashboard, Trending, Buscar, Chat
-├── tests/                            # 872 unit + 35 E2E (Playwright)
+├── tests/                            # 914 unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, pipeline scheduler
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
@@ -148,7 +148,8 @@ ai-news-platform/
 | GET | /api/auth/me | JWT | Current user info |
 | GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) |
 | GET | /api/items/count | JWT | Count matching items |
-| GET | /api/items/today | JWT | Today's items by score |
+| GET | /api/items/latest | JWT | Latest items (date-unbounded, sorted by effective date) |
+| GET | /api/items/today | JWT | Today's items by effective date |
 | GET | /api/items/by-date/{date} | JWT | Items for specific date |
 | GET | /api/items/trending | JWT | Trending items |
 | GET | /api/items/top | JWT | Top items by score |
