@@ -89,9 +89,10 @@ async function request<T>(
 export async function apiGet<T>(
   path: string,
   params?: Record<string, string>,
+  signal?: AbortSignal,
 ): Promise<{ data: T; totalCount: number | null }> {
   const query = params ? '?' + new URLSearchParams(params).toString() : ''
-  const { data, totalCount } = await request<T>(`${path}${query}`)
+  const { data, totalCount } = await request<T>(`${path}${query}`, { signal })
   return { data, totalCount }
 }
 
