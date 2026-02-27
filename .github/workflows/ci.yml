@@ -121,7 +121,7 @@ jobs:
   deploy:
     name: Deploy to Coolify
     needs: [integration]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.COOLIFY_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Coolify deploy
