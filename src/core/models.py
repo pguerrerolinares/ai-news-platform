@@ -99,6 +99,12 @@ class NewsItem(Base):
             "idx_news_items_effective_date",
             func.coalesce(column("published_at"), column("created_at")).desc(),
         ),
+        Index("idx_news_items_search", "search_vector", postgresql_using="gin"),
+        Index(
+            "idx_news_items_trending_date",
+            func.coalesce(column("published_at"), column("created_at")).desc(),
+            postgresql_where=text("trending = true"),
+        ),
     )
 
 
@@ -131,6 +137,15 @@ class ItemEmbedding(Base):
     model: Mapped[str] = mapped_column(Text, primary_key=True, nullable=False)
     embedding = mapped_column(Vector(1536))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index(
+            "idx_embeddings_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
 
 
 class RawExtraction(Base):
