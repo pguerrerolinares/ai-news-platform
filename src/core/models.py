@@ -22,7 +22,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 VALID_ROLES = ("admin", "reader")
@@ -33,13 +33,13 @@ class Base(DeclarativeBase):
 
 
 VALID_TOPICS = (
-    "modelos",
+    "models",
     "papers",
-    "agentes",
-    "productos",
-    "herramientas",
+    "agents",
+    "products",
+    "tools",
     "open_source",
-    "regulacion",
+    "regulation",
 )
 
 VALID_SOURCES = (
@@ -78,6 +78,10 @@ class NewsItem(Base):
     author: Mapped[str | None] = mapped_column(Text)
     score: Mapped[int | None] = mapped_column(Integer)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    language: Mapped[str] = mapped_column(String(5), server_default=text("'en'"))
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR, deferred=True
+    )
 
     __table_args__ = (
         CheckConstraint(
@@ -87,7 +91,6 @@ class NewsItem(Base):
         Index("idx_news_items_date", "published_at"),
         Index("idx_news_items_topic", "topic"),
         Index("idx_news_items_source", "source"),
-        Index("idx_news_items_content_hash", "content_hash"),
         Index("idx_news_items_url_hash", "url_hash"),
         # M14: Performance indexes
         Index("idx_news_items_score", "score"),

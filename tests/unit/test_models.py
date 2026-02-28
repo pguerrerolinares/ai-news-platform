@@ -25,13 +25,13 @@ class TestValidTopics:
 
     def test_valid_topics_contains_expected(self):
         expected = {
-            "modelos",
+            "models",
             "papers",
-            "agentes",
-            "productos",
-            "herramientas",
+            "agents",
+            "products",
+            "tools",
             "open_source",
-            "regulacion",
+            "regulation",
         }
         assert set(VALID_TOPICS) == expected
 
@@ -91,6 +91,8 @@ class TestNewsItemModel:
             "author",
             "score",
             "metadata",
+            "language",
+            "search_vector",
         }
         assert expected_columns.issubset(column_names)
 
