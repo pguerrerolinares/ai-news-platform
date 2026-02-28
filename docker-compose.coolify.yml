@@ -9,10 +9,8 @@ services:
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: '${POSTGRES_DB:-ainews}'
-      POSTGRES_USER: '${POSTGRES_USER:-ainews}'
-      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+    env_file:
+      - .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,9 +25,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: 'postgresql+asyncpg://${POSTGRES_USER:-ainews}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ainews}'
-      DATABASE_URL_SYNC: 'postgresql://${POSTGRES_USER:-ainews}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ainews}'
     env_file:
       - .env
     expose:
@@ -46,22 +41,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    expose:
-      - "80"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend-https.rule=Host(`pguerrero.me`)"
-      - "traefik.http.routers.frontend-https.entryPoints=https"
-      - "traefik.http.routers.frontend-https.tls=true"
-      - "traefik.http.routers.frontend-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.frontend-http.rule=Host(`pguerrero.me`)"
-      - "traefik.http.routers.frontend-http.entryPoints=http"
-      - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
-    networks:
-      - coolify
-      - default
+    ports:
+      - "80:80"
     depends_on:
       api:
         condition: service_healthy
@@ -72,16 +53,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: 'postgresql+asyncpg://${POSTGRES_USER:-ainews}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ainews}'
-      DATABASE_URL_SYNC: 'postgresql://${POSTGRES_USER:-ainews}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ainews}'
     env_file:
       - .env
     command: ["bash", "scripts/pipeline-scheduler.sh"]
 
 volumes:
   pgdata:
-
-networks:
-  coolify:
-    external: true
