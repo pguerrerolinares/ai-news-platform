@@ -1,6 +1,6 @@
 """LLM-based classifier using OpenAI-compatible API (Kimi/Moonshot).
 
-Batches items into groups of BATCH_SIZE, sends Spanish prompts for
+Batches items into groups of BATCH_SIZE, sends English prompts for
 classification, and falls back to KeywordClassifier on failure.
 """
 
@@ -29,8 +29,8 @@ MAX_RETRIES = 3
 RETRY_BACKOFF = [1, 2, 4]
 
 SYSTEM_MESSAGE = (
-    "Eres un clasificador de noticias de IA. "
-    "Responde SOLO con un JSON array valido, sin texto adicional."
+    "You are an AI news classifier. "
+    "Respond ONLY with a valid JSON array, no additional text."
 )
 
 # Retry-eligible exceptions
@@ -132,51 +132,51 @@ def _build_prompt(batch: list[ExtractedItem], topics_info: str) -> str:
         )
     items_text = "".join(items_lines)
 
-    return f"""Clasifica estos {len(batch)} items. SE ESTRICTO con is_news.
+    return f"""Classify these {len(batch)} items. BE STRICT with is_news.
 
-DESCARTA (is_news=false):
-- Opiniones, quejas, desahogos personales, discusiones de carrera/empleo
-- Tips genericos, tutoriales basicos, preguntas de principiantes
-- Contenido no relacionado con IA/ML/LLM (seguridad infantil, fotografia, etc.)
-- Memes, spam, contenido trivial sin sustancia tecnica
+REJECT (is_news=false):
+- Opinions, rants, personal stories, career/job discussions
+- Generic tips, basic tutorials, beginner questions
+- Content unrelated to AI/ML/LLM (child safety, photography, etc.)
+- Memes, spam, trivial content without technical substance
 
-ACEPTA (is_news=true):
-- Lanzamientos de modelos, herramientas, productos de IA
-- Papers con contribucion tecnica clara
-- Noticias de empresas de IA (OpenAI, Google, Meta, Anthropic, etc.)
-- Avances tecnicos, benchmarks, releases open source
+ACCEPT (is_news=true):
+- Model launches, AI tools, AI products
+- Papers with clear technical contribution
+- AI company news (OpenAI, Google, Meta, Anthropic, etc.)
+- Technical advances, benchmarks, open source releases
 
-ESCALA DE RELEVANCIA (usa todo el rango, NO pongas 0.9 a todo):
-- 1.0: Lanzamiento mayor de empresa top o breakthrough con impacto masivo
-- 0.95: Release importante con metricas verificables que supera SOTA
-- 0.9: Noticia significativa con impacto claro en la industria
-- 0.85: Paper o release interesante pero incremental
-- 0.8: Contenido relevante pero rutinario
-- 0.75: Minimamente relevante, nicho
-- <0.75: Descarta (is_news=false)
+RELEVANCE SCALE (use the full range, do NOT put 0.9 on everything):
+- 1.0: Major launch from top company or breakthrough with massive impact
+- 0.95: Important release with verifiable metrics surpassing SOTA
+- 0.9: Significant news with clear industry impact
+- 0.85: Interesting paper or release but incremental
+- 0.8: Relevant but routine content
+- 0.75: Minimally relevant, niche
+- <0.75: Reject (is_news=false)
 
-REGLAS DE DESAMBIGUACION:
-- arXiv preprint sin release de codigo/pesos -> "papers" (NO "modelos")
-- Modelo con pesos publicados en HuggingFace/GitHub -> "modelos"
-- Paper sobre agentes/tool-use -> "agentes" (NO "papers")
-- Producto consumer (ChatGPT feature, Claude update) -> "productos" (NO "modelos")
+DISAMBIGUATION RULES:
+- arXiv preprint without code/weights release -> "papers" (NOT "models")
+- Model with published weights on HuggingFace/GitHub -> "models"
+- Paper about agents/tool-use -> "agents" (NOT "papers")
+- Consumer product (ChatGPT feature, Claude update) -> "products" (NOT "models")
 
-Temas:
+Topics:
 {topics_info}
 
 Items:{items_text}
 
-RESUMEN - MAX 25 palabras en espanol:
-- NO repitas el titulo: anade contexto
-- Si es paper: menciona resultado principal
-- Si es release: menciona mejora clave
-BUENOS: "Nuevo MoE 397B params, 17B activos; supera Llama 3.1 en MMLU y codigo"
-MALOS: "Lanzamiento de nuevo modelo" (demasiado vago)
+SUMMARY - MAX 25 words in English:
+- Do NOT repeat the title: add context
+- If paper: mention main result
+- If release: mention key improvement
+GOOD: "New MoE 397B params, 17B active; surpasses Llama 3.1 on MMLU and code"
+BAD: "New model release" (too vague)
 
-JSON array. relevance: 0.75-1.0 segun escala anterior.
+JSON array. relevance: 0.75-1.0 per scale above.
 [
-  {{"idx": 0, "is_news": true, "topic": "modelos",
-    "relevance": 0.85, "summary": "Frase corta en espanol max 25 palabras"}},
+  {{"idx": 0, "is_news": true, "topic": "models",
+    "relevance": 0.85, "summary": "Short phrase in English max 25 words"}},
   {{"idx": 1, "is_news": false}},
   ...
 ]"""
@@ -185,7 +185,7 @@ JSON array. relevance: 0.75-1.0 segun escala anterior.
 class LLMClassifier(BaseClassifier):
     """LLM-based content classifier using OpenAI-compatible API.
 
-    Batches items for classification, uses Spanish prompts with exact
+    Batches items for classification, uses English prompts with exact
     topic definitions and relevance scale. Falls back to KeywordClassifier
     on failure.
     """
