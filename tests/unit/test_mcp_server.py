@@ -42,7 +42,7 @@ class TestFormatItems:
             {
                 "source": "hackernews",
                 "title": "AI News",
-                "topic": "modelos",
+                "topic": "models",
                 "score": 100,
                 "summary": "Big news",
                 "url": "https://example.com",
@@ -52,7 +52,7 @@ class TestFormatItems:
         assert "[hackernews]" in result
         assert "AI News" in result
         assert "100 pts" in result
-        assert "[modelos]" in result
+        assert "[models]" in result
         assert "Big news" in result
         assert "https://example.com" in result
 
@@ -119,8 +119,8 @@ class TestGetLatest:
         client = _mock_client()
         client.get_latest.return_value = []
         mock_get.return_value = client
-        get_latest(topic="modelos")
-        client.get_latest.assert_called_once_with(topic="modelos", limit=10)
+        get_latest(topic="models")
+        client.get_latest.assert_called_once_with(topic="models", limit=10)
 
 
 class TestGetTrending:

@@ -133,7 +133,7 @@ async def seed_news_item(session: AsyncSession, **overrides: Any) -> NewsItem:
     defaults: dict = {
         "title": "Test AI Breakthrough",
         "source": "hackernews",
-        "topic": "modelos",
+        "topic": "models",
         "url": f"https://example.com/{uuid4().hex[:8]}",
         "content_hash": uuid4().hex,
         "full_text": "Article about AI and machine learning advances.",

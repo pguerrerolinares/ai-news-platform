@@ -288,7 +288,7 @@ class TestBuildHeader:
     def test_header_shows_trending_count(self, sample_items):
         grouped = TelegramNotifier._group_by_topic(sample_items)
         header = TelegramNotifier._build_header(sample_items, grouped)
-        # modelos has 1 trending item
+        # models has 1 trending item
         assert "\U0001f525" in header
 
     def test_header_with_single_item(self):

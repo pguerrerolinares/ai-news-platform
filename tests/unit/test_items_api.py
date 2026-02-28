@@ -55,7 +55,7 @@ class TestTodayEndpoint:
         assert isinstance(resp.json(), list)
 
     async def test_today_accepts_topic_filter(self, api_client: AsyncClient):
-        resp = await api_client.get("/api/items/today", params={"topic": "modelos"})
+        resp = await api_client.get("/api/items/today", params={"topic": "models"})
         assert resp.status_code == 200
 
     async def test_today_accepts_limit_param(self, api_client: AsyncClient):
@@ -87,7 +87,7 @@ class TestLatestEndpoint:
     async def test_latest_accepts_filters(self, api_client: AsyncClient):
         resp = await api_client.get(
             "/api/items/latest",
-            params={"topic": "modelos", "source": "hackernews", "limit": "10"},
+            params={"topic": "models", "source": "hackernews", "limit": "10"},
         )
         assert resp.status_code == 200
 
@@ -110,7 +110,7 @@ class TestTopEndpoint:
         assert resp.status_code == 200
 
     async def test_top_accepts_topic_filter(self, api_client: AsyncClient):
-        resp = await api_client.get("/api/items/top", params={"topic": "modelos"})
+        resp = await api_client.get("/api/items/top", params={"topic": "models"})
         assert resp.status_code == 200
 
     async def test_top_accepts_source_filter(self, api_client: AsyncClient):

@@ -29,7 +29,7 @@ def test_send_button_disabled_when_empty(authed_page: Page, base_url: str):
 
 def test_send_message_shows_response(authed_page: Page, base_url: str):
     authed_page.goto(base_url + "/chat")
-    authed_page.fill(".chat-input", "Que modelos se lanzaron?")
+    authed_page.fill(".chat-input", "What models were released?")
     authed_page.click(".send-btn")
     expect(authed_page.locator(".message.user")).to_be_visible()
     expect(authed_page.locator(".message.assistant")).to_be_visible(timeout=5000)

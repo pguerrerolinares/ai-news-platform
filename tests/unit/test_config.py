@@ -78,9 +78,9 @@ class TestCSVListProperties:
         assert s.enabled_sources_list == []
 
     def test_topics_list(self):
-        s = Settings(topics="modelos,herramientas,papers")
+        s = Settings(topics="models,tools,papers")
         result = s.topics_list
-        assert result == ["modelos", "herramientas", "papers"]
+        assert result == ["models", "tools", "papers"]
 
     def test_hn_search_queries_list(self):
         s = Settings(hn_search_queries="AI,LLM,GPT")

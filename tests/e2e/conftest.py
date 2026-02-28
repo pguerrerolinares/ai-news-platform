@@ -47,7 +47,7 @@ MOCK_NEWS_ITEMS = [
         "summary": "A revolutionary AI model was released today.",
         "url": "https://example.com/news/1",
         "source": "hackernews",
-        "topic": "modelos",
+        "topic": "models",
         "relevance_score": 0.95,
         "dev_value_score": 0.88,
         "credibility_score": 0.92,
@@ -64,7 +64,7 @@ MOCK_NEWS_ITEMS = [
         "summary": "A new open source developer tool.",
         "url": "https://example.com/news/2",
         "source": "reddit",
-        "topic": "herramientas",
+        "topic": "tools",
         "relevance_score": 0.80,
         "dev_value_score": 0.75,
         "credibility_score": 0.85,
@@ -217,11 +217,11 @@ def setup_mock_routes(
 
     def handle_chat(route):
         body = (
-            'data: {"token": "Esta semana "}\n\n'
-            'data: {"token": "se lanzaron "}\n\n'
-            'data: {"token": "varios modelos."}\n\n'
+            'data: {"token": "This week "}\n\n'
+            'data: {"token": "several models "}\n\n'
+            'data: {"token": "were released."}\n\n'
             'data: {"sources": [{"id": "1", "title": "New AI Model Released", '
-            '"url": "https://example.com/news/1", "topic": "modelos"}]}\n\n'
+            '"url": "https://example.com/news/1", "topic": "models"}]}\n\n'
             "data: [DONE]\n\n"
         )
         route.fulfill(
@@ -241,13 +241,13 @@ def setup_mock_routes(
             body=json.dumps(
                 {
                     "topics": [
-                        "modelos",
-                        "herramientas",
+                        "models",
+                        "tools",
                         "papers",
-                        "productos",
+                        "products",
                         "open_source",
-                        "agentes",
-                        "regulacion",
+                        "agents",
+                        "regulation",
                     ]
                 }
             ),

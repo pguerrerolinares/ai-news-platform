@@ -83,11 +83,11 @@ class TestSQLInjection:
     ):
         """Topic filter with SQL injection must match zero results (exact match)."""
         await seed_news_item(
-            db_session, title="Legit Item", topic="modelos", url="https://example.com/filter-sql"
+            db_session, title="Legit Item", topic="models", url="https://example.com/filter-sql"
         )
 
         resp = await db_client.get(
-            "/api/items", params={"topic": "modelos' OR '1'='1"}, headers=_auth_headers
+            "/api/items", params={"topic": "models' OR '1'='1"}, headers=_auth_headers
         )
         assert resp.status_code == 200
         data = resp.json()

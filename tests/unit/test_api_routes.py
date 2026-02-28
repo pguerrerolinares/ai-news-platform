@@ -302,7 +302,7 @@ class TestItemsByDate:
     async def test_by_date_accepts_filters(self, api_client: AsyncClient):
         resp = await api_client.get(
             "/api/items/by-date/2026-02-22",
-            params={"topic": "modelos", "source": "hackernews", "limit": 10, "offset": 5},
+            params={"topic": "models", "source": "hackernews", "limit": 10, "offset": 5},
         )
         assert resp.status_code == 200
 
@@ -380,7 +380,7 @@ class TestTrendingItems:
     async def test_trending_accepts_filters(self, api_client: AsyncClient):
         resp = await api_client.get(
             "/api/items/trending",
-            params={"topic": "modelos", "source": "hackernews", "days": 14, "limit": 5},
+            params={"topic": "models", "source": "hackernews", "days": 14, "limit": 5},
         )
         assert resp.status_code == 200
 

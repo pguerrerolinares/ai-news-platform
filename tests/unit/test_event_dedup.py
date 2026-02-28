@@ -23,7 +23,7 @@ from tests.factories import make_classified_item, make_extracted_item
 # ---------------------------------------------------------------------------
 def _make_settings(**overrides) -> Settings:
     defaults = {
-        "topics": "modelos,herramientas,papers,productos,open_source,agentes,regulacion",
+        "topics": "models,tools,papers,products,open_source,agents,regulation",
         "min_relevance_score": 0.8,
         "openai_api_key": "test-key",
         "openai_base_url": "https://api.test.com/v1",
@@ -177,7 +177,7 @@ class TestDeduplicateEvents:
         assert results == []
 
     async def test_single_item_no_dedup(self):
-        item = make_classified_item(topic="modelos")
+        item = make_classified_item(topic="models")
         client = _make_mock_client("[[0]]")
         results = await deduplicate_events([item], client=client)
         assert len(results) == 1
@@ -189,14 +189,14 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="GPT-5 Released by OpenAI",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9,
                 priority=2,
                 item=make_extracted_item(title="GPT-5 Released by OpenAI", score=300),
             ),
             make_classified_item(
                 title="OpenAI Launches GPT-5",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.85,
                 priority=3,
                 item=make_extracted_item(
@@ -218,13 +218,13 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="GPT-5 Released",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9,
                 item=make_extracted_item(title="GPT-5 Released", score=300),
             ),
             make_classified_item(
                 title="Llama 4 Released",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.85,
                 item=make_extracted_item(
                     title="Llama 4 Released",
@@ -242,13 +242,13 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="GPT-5 Released",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9,
                 item=make_extracted_item(title="GPT-5 Released", score=300),
             ),
             make_classified_item(
                 title="GPT-5 also here",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.85,
                 item=make_extracted_item(
                     title="GPT-5 also here",
@@ -258,7 +258,7 @@ class TestDeduplicateEvents:
             ),
             make_classified_item(
                 title="EU AI Act Update",
-                topic="regulacion",
+                topic="regulation",
                 relevance_score=0.8,
                 item=make_extracted_item(
                     title="EU AI Act Update",
@@ -267,25 +267,25 @@ class TestDeduplicateEvents:
                 ),
             ),
         ]
-        # For modelos: group [0,1]; for regulacion: single item, no LLM call
+        # For models: group [0,1]; for regulation: single item, no LLM call
         client = _make_mock_client("[[0, 1]]")
         results = await deduplicate_events(items, client=client)
-        assert len(results) == 2  # 1 from modelos dedup + 1 from regulacion
+        assert len(results) == 2  # 1 from models dedup + 1 from regulation
         topics = {r.topic for r in results}
-        assert topics == {"modelos", "regulacion"}
+        assert topics == {"models", "regulation"}
 
     async def test_graceful_fallback_on_llm_failure(self):
         """On LLM failure, keep all items as-is."""
         items = [
             make_classified_item(
                 title="GPT-5 Released",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9,
                 item=make_extracted_item(title="GPT-5 Released", score=300),
             ),
             make_classified_item(
                 title="GPT-5 Launch",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.85,
                 item=make_extracted_item(
                     title="GPT-5 Launch",
@@ -313,12 +313,12 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="Item 1",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(title="Item 1", score=100),
             ),
             make_classified_item(
                 title="Item 2",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(
                     title="Item 2",
                     score=50,
@@ -335,12 +335,12 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="Item 0",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(title="Item 0", score=100),
             ),
             make_classified_item(
                 title="Item 1",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(
                     title="Item 1",
                     score=200,
@@ -349,7 +349,7 @@ class TestDeduplicateEvents:
             ),
             make_classified_item(
                 title="Item 2",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(
                     title="Item 2",
                     score=50,
@@ -370,12 +370,12 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="Item 0",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(title="Item 0", score=100),
             ),
             make_classified_item(
                 title="Item 1",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(
                     title="Item 1",
                     score=200,
@@ -393,7 +393,7 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title=f"GPT-5 article {i}",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.85 + i * 0.02,
                 priority=3,
                 item=make_extracted_item(
@@ -415,7 +415,7 @@ class TestDeduplicateEvents:
         items = [
             make_classified_item(
                 title="Item A",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(
                     title="Item A",
                     score=100,
@@ -423,7 +423,7 @@ class TestDeduplicateEvents:
             ),
             make_classified_item(
                 title="Item B",
-                topic="modelos",
+                topic="models",
                 item=make_extracted_item(
                     title="Item B",
                     score=200,

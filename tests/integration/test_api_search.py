@@ -58,21 +58,21 @@ class TestSearch:
         await seed_news_item(
             db_session,
             title="Reinforcement Learning Training Techniques",
-            topic="modelos",
-            url="https://example.com/rl-modelos",
+            topic="models",
+            url="https://example.com/rl-models",
         )
         await seed_news_item(
             db_session,
             title="Reinforcement Learning Development Tools",
-            topic="herramientas",
+            topic="tools",
             url="https://example.com/rl-tools",
         )
 
         resp = await client.get(
-            "/api/search?q=reinforcement+learning&topic=modelos", headers=auth_headers
+            "/api/search?q=reinforcement+learning&topic=models", headers=auth_headers
         )
 
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
-        assert data[0]["topic"] == "modelos"
+        assert data[0]["topic"] == "models"

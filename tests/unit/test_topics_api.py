@@ -32,8 +32,8 @@ class TestTopicsEndpoint:
     async def test_contains_known_topics(self, api_client: AsyncClient):
         resp = await api_client.get("/api/topics")
         topics = resp.json()["topics"]
-        assert "modelos" in topics
-        assert "herramientas" in topics
+        assert "models" in topics
+        assert "tools" in topics
         assert "papers" in topics
 
     async def test_no_auth_required(self, api_client: AsyncClient):

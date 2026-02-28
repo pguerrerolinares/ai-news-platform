@@ -45,13 +45,13 @@ def _mock_topics(page: Page):
             body=json.dumps(
                 {
                     "topics": [
-                        "modelos",
-                        "herramientas",
+                        "models",
+                        "tools",
                         "papers",
-                        "productos",
+                        "products",
                         "open_source",
-                        "agentes",
-                        "regulacion",
+                        "agents",
+                        "regulation",
                     ]
                 }
             ),
@@ -87,8 +87,8 @@ def test_topic_filter_sends_parameter(page: Page, base_url: str):
     _mock_topics(page)
     page.add_init_script(f"localStorage.setItem('ainews_token', '{MOCK_TOKEN}')")
     page.goto(base_url + "/search")
-    page.select_option("#topic-select", "modelos")
+    page.select_option("#topic-select", "models")
     page.fill(".search-input", "test query")
     page.click(".search-btn")
     expect(page.locator("text=resultados para")).to_be_visible()
-    assert any("topic=modelos" in url for url in captured_urls)
+    assert any("topic=models" in url for url in captured_urls)

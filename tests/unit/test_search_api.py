@@ -25,7 +25,7 @@ def _make_mock_news_item(**overrides):
         "summary": "A summary of the article",
         "url": "https://example.com/article",
         "source": "hackernews",
-        "topic": "modelos",
+        "topic": "models",
         "relevance_score": 0.9,
         "dev_value_score": 0.8,
         "credibility_score": 0.95,
@@ -67,8 +67,8 @@ async def _mock_get_session_empty():
 async def _mock_get_session_with_items():
     """Dependency override that yields a mock session with sample items."""
     items = [
-        _make_mock_news_item(title="GPT-5 Released", topic="modelos", score=100),
-        _make_mock_news_item(title="New AI Framework", topic="herramientas", score=80),
+        _make_mock_news_item(title="GPT-5 Released", topic="models", score=100),
+        _make_mock_news_item(title="New AI Framework", topic="tools", score=80),
         _make_mock_news_item(title="LLM Research Paper", topic="papers", score=60),
     ]
     yield _make_mock_session(items)
@@ -198,7 +198,7 @@ class TestSearchFilters:
 
     async def test_topic_filter_accepted(self, api_client: AsyncClient):
         """The ?topic= parameter should be accepted."""
-        resp = await api_client.get("/api/search", params={"q": "test", "topic": "modelos"})
+        resp = await api_client.get("/api/search", params={"q": "test", "topic": "models"})
         assert resp.status_code == 200
 
     async def test_date_from_filter_accepted(self, api_client: AsyncClient):

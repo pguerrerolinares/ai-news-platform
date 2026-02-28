@@ -54,7 +54,7 @@ def _make_classified_item(
     source="hackernews",
     url="https://example.com",
     score=100,
-    topic="modelos",
+    topic="models",
     relevance_score=0.9,
     credibility_score=0.8,
     summary="Test summary",
@@ -270,10 +270,10 @@ class TestStoreClassifiedItems:
         session = _mock_session()
         ci = _make_classified_item(
             title="GPT-5 Released",
-            topic="modelos",
+            topic="models",
             relevance_score=0.95,
             credibility_score=0.85,
-            summary="Nuevo modelo GPT-5",
+            summary="New GPT-5 model",
             priority=1,
             trending=True,
             dev_value_score=0.9,
@@ -522,17 +522,17 @@ class TestRunPipeline:
         return [
             ClassifiedItem(
                 item=_extracted_items[0],
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9,
-                summary="Nuevo modelo LLM",
+                summary="New LLM model",
                 priority=2,
                 trending=True,
             ),
             ClassifiedItem(
                 item=_extracted_items[1],
-                topic="agentes",
+                topic="agents",
                 relevance_score=0.85,
-                summary="Framework de agentes",
+                summary="Agent framework",
                 priority=3,
             ),
         ]
@@ -949,14 +949,14 @@ class TestRunPipeline:
         classified_items = [
             ClassifiedItem(
                 item=_extracted_items[0],
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9,
                 priority=1,
                 trending=True,
             ),
             ClassifiedItem(
                 item=_extracted_items[1],
-                topic="agentes",
+                topic="agents",
                 relevance_score=0.85,
                 priority=3,
                 trending=False,

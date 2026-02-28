@@ -132,11 +132,11 @@ class TestChatStreaming:
         with patch("src.api.routes.chat._get_chat_service", return_value=mock_service):
             resp = await api_client.post(
                 "/api/chat",
-                json={"question": "Tell me about GPT", "topic": "modelos", "limit": 10},
+                json={"question": "Tell me about GPT", "topic": "models", "limit": 10},
             )
 
         assert resp.status_code == 200
-        assert captured_kwargs.get("topic") == "modelos"
+        assert captured_kwargs.get("topic") == "models"
         assert captured_kwargs.get("limit") == 10
 
 

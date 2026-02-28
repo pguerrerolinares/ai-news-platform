@@ -13,7 +13,7 @@ def _fake_embedding(dims: int = 1536) -> list[float]:
     return [0.1] * dims
 
 
-def _make_news_item(title: str = "Test News", topic: str = "modelos"):
+def _make_news_item(title: str = "Test News", topic: str = "models"):
     item = MagicMock()
     item.id = uuid.uuid4()
     item.title = title
@@ -75,7 +75,7 @@ class TestRetrieve:
         mock_session = _mock_session_returning(items)
 
         retriever = Retriever(embedding_service=mock_embed)
-        result = await retriever.retrieve(mock_session, "test", topic="modelos", limit=3)
+        result = await retriever.retrieve(mock_session, "test", topic="models", limit=3)
         assert len(result) == 3
         mock_session.execute.assert_called_once()
 

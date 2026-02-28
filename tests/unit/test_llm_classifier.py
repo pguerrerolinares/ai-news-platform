@@ -107,7 +107,7 @@ class TestBuildPrompt:
             make_extracted_item(title="GPT-5 Released", source="hackernews", score=100),
             make_extracted_item(title="New Paper on ArXiv", source="arxiv", score=0),
         ]
-        prompt = _build_prompt(items, "- modelos: description")
+        prompt = _build_prompt(items, "- models: description")
         assert "GPT-5 Released" in prompt
         assert "New Paper on ArXiv" in prompt
         assert "[0]" in prompt
@@ -324,7 +324,7 @@ class TestLLMClassifier:
             classifier, _ = self._make_classifier(response)
             items = [make_extracted_item(title="GPT-5")]
             results = await classifier.classify(items)
-            assert len(results) == 0  # modelos not in enabled topics
+            assert len(results) == 0  # models not in enabled topics
 
     async def test_classify_empty_list(self):
         classifier, _ = self._make_classifier("[]")

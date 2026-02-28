@@ -26,8 +26,8 @@ class TestSourceSchemas:
 
 class TestStatsGroupDateResponse:
     def test_fields(self):
-        r = StatsGroupDateResponse(date=date(2026, 2, 22), group="modelos", count=5)
-        assert r.group == "modelos"
+        r = StatsGroupDateResponse(date=date(2026, 2, 22), group="models", count=5)
+        assert r.group == "models"
         assert r.count == 5
 
 

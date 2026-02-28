@@ -163,6 +163,6 @@ class TestScoreDistribution:
     async def test_accepts_filters(self, api_client: AsyncClient):
         resp = await api_client.get(
             "/api/stats/score-distribution",
-            params={"days": 7, "source": "hackernews", "topic": "modelos"},
+            params={"days": 7, "source": "hackernews", "topic": "models"},
         )
         assert resp.status_code == 200

@@ -46,14 +46,14 @@ class TestEmbeddingStorage:
         """Retriever respects topic filter."""
         item_a = await seed_news_item(
             db_session,
-            title="Modelos Item",
-            topic="modelos",
+            title="Models Item",
+            topic="models",
             url="https://x.com/topic-a",
         )
         item_b = await seed_news_item(
             db_session,
             title="Tools Item",
-            topic="herramientas",
+            topic="tools",
             url="https://x.com/topic-b",
         )
 
@@ -65,10 +65,10 @@ class TestEmbeddingStorage:
         mock_embed.embed_text.return_value = vec
 
         retriever = Retriever(embedding_service=mock_embed)
-        results = await retriever.retrieve(db_session, "test", limit=10, topic="modelos")
+        results = await retriever.retrieve(db_session, "test", limit=10, topic="models")
 
         assert len(results) == 1
-        assert results[0].topic == "modelos"
+        assert results[0].topic == "models"
 
     async def test_retrieve_empty_table(self, db_session):
         """Retriever returns [] when no embeddings exist."""

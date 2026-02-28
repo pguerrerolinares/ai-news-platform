@@ -24,16 +24,16 @@ class TestListItems:
         assert len(data) == 5
 
     async def test_filter_by_topic(self, client, db_session, auth_headers):
-        """?topic=modelos returns only items with that topic."""
-        await seed_news_item(db_session, title="Modelos A", topic="modelos")
-        await seed_news_item(db_session, title="Tools B", topic="herramientas")
+        """?topic=models returns only items with that topic."""
+        await seed_news_item(db_session, title="Models A", topic="models")
+        await seed_news_item(db_session, title="Tools B", topic="tools")
 
-        resp = await client.get("/api/items?topic=modelos", headers=auth_headers)
+        resp = await client.get("/api/items?topic=models", headers=auth_headers)
 
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
-        assert data[0]["topic"] == "modelos"
+        assert data[0]["topic"] == "models"
 
     async def test_filter_by_source(self, client, db_session, auth_headers):
         """?source=arxiv returns only items from that source."""

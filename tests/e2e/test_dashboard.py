@@ -22,7 +22,7 @@ def test_shows_news_items(authed_page: Page, base_url: str):
     # Score
     expect(authed_page.locator("text=150 pts")).to_be_visible()
     # Topic badge
-    expect(authed_page.locator(".topic-badge", has_text="modelos").first).to_be_visible()
+    expect(authed_page.locator(".topic-badge", has_text="models").first).to_be_visible()
     # Summary
     expect(authed_page.locator("text=A revolutionary AI model")).to_be_visible()
 
@@ -44,8 +44,8 @@ def test_shows_stats_bar(authed_page: Page, base_url: str):
 def test_shows_topic_distribution(authed_page: Page, base_url: str):
     authed_page.goto(base_url + "/dashboard")
     expect(authed_page.locator("text=Distribucion por tema")).to_be_visible()
-    expect(authed_page.locator(".topic-chip", has_text="modelos")).to_be_visible()
-    expect(authed_page.locator(".topic-chip", has_text="herramientas")).to_be_visible()
+    expect(authed_page.locator(".topic-chip", has_text="models")).to_be_visible()
+    expect(authed_page.locator(".topic-chip", has_text="tools")).to_be_visible()
     expect(authed_page.locator(".topic-chip", has_text="papers")).to_be_visible()
 
 
@@ -74,10 +74,10 @@ def test_topic_chips_filter_items(authed_page: Page, base_url: str):
     authed_page.goto(base_url + "/dashboard")
     # All 3 items visible initially
     expect(authed_page.locator("app-news-item-card")).to_have_count(3)
-    # Click "modelos" chip to filter
-    authed_page.locator(".topic-chip", has_text="modelos").click()
+    # Click "models" chip to filter
+    authed_page.locator(".topic-chip", has_text="models").click()
     expect(authed_page.locator("app-news-item-card")).to_have_count(1)
     expect(authed_page.locator("text=New AI Model Released")).to_be_visible()
     # Click again to clear filter
-    authed_page.locator(".topic-chip", has_text="modelos").click()
+    authed_page.locator(".topic-chip", has_text="models").click()
     expect(authed_page.locator("app-news-item-card")).to_have_count(3)

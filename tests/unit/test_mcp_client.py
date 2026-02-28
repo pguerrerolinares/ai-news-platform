@@ -78,8 +78,8 @@ class TestSearch:
         )
         respx.get(f"{BASE}/api/search").mock(return_value=httpx.Response(200, json=[]))
         client = APIClient(base_url=BASE, password="p")
-        client.search(q="AI", topic="modelos")
-        assert "topic=modelos" in str(respx.calls.last.request.url)
+        client.search(q="AI", topic="models")
+        assert "topic=models" in str(respx.calls.last.request.url)
 
     @respx.mock
     def test_search_with_date_range(self):
@@ -114,8 +114,8 @@ class TestGetLatest:
         )
         respx.get(f"{BASE}/api/items/today").mock(return_value=httpx.Response(200, json=[]))
         client = APIClient(base_url=BASE, password="p")
-        client.get_latest(topic="modelos")
-        assert "topic=modelos" in str(respx.calls.last.request.url)
+        client.get_latest(topic="models")
+        assert "topic=models" in str(respx.calls.last.request.url)
 
 
 class TestGetTrending:

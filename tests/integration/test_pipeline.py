@@ -66,7 +66,7 @@ class TestStoreClassifiedItems:
         item = make_classified_item(
             title="Field Test",
             url="https://example.com/fields",
-            topic="herramientas",
+            topic="tools",
             relevance_score=0.88,
             priority=3,
             trending=True,
@@ -81,7 +81,7 @@ class TestStoreClassifiedItems:
 
         assert row.title == "Field Test"
         assert row.source == "hackernews"
-        assert row.topic == "herramientas"
+        assert row.topic == "tools"
         assert row.relevance_score == pytest.approx(0.88)
         assert row.priority == 3
         assert row.trending is True
