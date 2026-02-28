@@ -46,8 +46,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "80:80"
+    environment:
+      - SERVICE_FQDN_FRONTEND=https://pguerrero.me
+    expose:
+      - "80"
     depends_on:
       api:
         condition: service_healthy
