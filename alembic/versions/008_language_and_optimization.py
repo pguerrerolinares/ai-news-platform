@@ -15,7 +15,10 @@ depends_on = None
 
 def upgrade() -> None:
     # 1. New columns
-    op.execute("ALTER TABLE news_items ADD COLUMN IF NOT EXISTS language VARCHAR(5) NOT NULL DEFAULT 'en'")
+    op.execute(
+        "ALTER TABLE news_items ADD COLUMN IF NOT EXISTS"
+        " language VARCHAR(5) NOT NULL DEFAULT 'en'"
+    )
     op.execute("ALTER TABLE news_items ADD COLUMN IF NOT EXISTS search_vector tsvector")
 
     # 2. search_vector auto-update trigger
@@ -35,8 +38,7 @@ def upgrade() -> None:
 
     # 3. GIN index on search_vector
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_news_items_search "
-        "ON news_items USING gin(search_vector)"
+        "CREATE INDEX IF NOT EXISTS idx_news_items_search " "ON news_items USING gin(search_vector)"
     )
 
     # 4. HNSW index on embeddings
@@ -82,8 +84,7 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS idx_embeddings_hnsw")
     op.execute("DROP INDEX IF EXISTS idx_news_items_trending_date")
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_news_items_content_hash "
-        "ON news_items (content_hash)"
+        "CREATE INDEX IF NOT EXISTS idx_news_items_content_hash " "ON news_items (content_hash)"
     )
     op.execute("ALTER TABLE news_items DROP COLUMN IF EXISTS search_vector")
     op.execute("ALTER TABLE news_items DROP COLUMN IF EXISTS language")

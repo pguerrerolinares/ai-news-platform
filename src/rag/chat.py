@@ -18,11 +18,11 @@ from src.rag.retriever import Retriever
 logger = get_logger(__name__)
 
 SYSTEM_PROMPT = (
-    "Eres un asistente experto en noticias de IA y tecnologia. "
-    "Responde basandote SOLO en las noticias proporcionadas como contexto. "
-    "Si no hay informacion relevante, dilo claramente. "
-    "Incluye las fuentes (titulos y URLs) en tu respuesta. "
-    "Responde en espanol."
+    "You are an expert AI and technology news assistant. "
+    "Respond based ONLY on the news provided as context. "
+    "If there is no relevant information, say so clearly. "
+    "Include sources (titles and URLs) in your response. "
+    "Respond in English."
 )
 
 
@@ -58,21 +58,21 @@ class ChatService:
     def _build_context(self, items: list[NewsItem]) -> str:
         """Format retrieved items as context for the LLM prompt."""
         if not items:
-            return "No se encontraron noticias relevantes en la " "base de datos."
+            return "No relevant news found in the database."
 
         lines: list[str] = []
         for i, item in enumerate(items, 1):
             parts = [f"[{i}] {item.title}"]
             if item.summary:
-                parts.append(f"   Resumen: {item.summary}")
+                parts.append(f"   Summary: {item.summary}")
             if item.url:
                 parts.append(f"   URL: {item.url}")
             if item.source:
-                parts.append(f"   Fuente: {item.source}")
+                parts.append(f"   Source: {item.source}")
             if item.topic:
-                parts.append(f"   Tema: {item.topic}")
+                parts.append(f"   Topic: {item.topic}")
             if item.published_at:
-                parts.append(f"   Fecha: {item.published_at.strftime('%Y-%m-%d')}")
+                parts.append(f"   Date: {item.published_at.strftime('%Y-%m-%d')}")
             lines.append("\n".join(parts))
 
         return "\n\n".join(lines)
@@ -102,7 +102,7 @@ class ChatService:
         msg_id = self._generate_msg_id()
 
         if not question.strip():
-            msg = "La pregunta no puede estar vacia"
+            msg = "Question cannot be empty"
             yield self._sse_event(
                 "error",
                 {
@@ -123,9 +123,7 @@ class ChatService:
         context = self._build_context(items)
 
         # 2. Build user message with context
-        user_message = (
-            f"Contexto (noticias recientes):\n\n{context}\n\n" f"Pregunta del usuario: {question}"
-        )
+        user_message = f"Context (recent news):\n\n{context}\n\n" f"User question: {question}"
 
         # 3. Stream LLM response
         try:
@@ -173,7 +171,7 @@ class ChatService:
                     "id": msg_id,
                     "error": {
                         "code": "CHAT_ERROR",
-                        "message": "Error al generar la respuesta",
+                        "message": "Error generating response",
                     },
                 },
             )

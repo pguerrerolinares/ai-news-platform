@@ -1,4 +1,5 @@
 """Test that extractors decode HTML entities in titles."""
+
 import html
 
 

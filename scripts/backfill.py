@@ -402,7 +402,8 @@ def _raw_to_extracted(raw: RawExtraction) -> ExtractedItem:
             url=j.get("html_url", ""),
             text=desc,
             author=j.get("owner", {}).get("login", "unknown"),
-            published_at=_parse_iso_date(j.get("pushed_at") or j.get("created_at")) or raw.extracted_at,
+            published_at=_parse_iso_date(j.get("pushed_at") or j.get("created_at"))
+            or raw.extracted_at,
             score=j.get("stargazers_count", 0),
             metadata={
                 "stars": j.get("stargazers_count", 0),

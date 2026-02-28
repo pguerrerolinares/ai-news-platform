@@ -29,8 +29,7 @@ MAX_RETRIES = 3
 RETRY_BACKOFF = [1, 2, 4]
 
 SYSTEM_MESSAGE = (
-    "You are an AI news classifier. "
-    "Respond ONLY with a valid JSON array, no additional text."
+    "You are an AI news classifier. " "Respond ONLY with a valid JSON array, no additional text."
 )
 
 # Retry-eligible exceptions

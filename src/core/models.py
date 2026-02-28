@@ -79,9 +79,7 @@ class NewsItem(Base):
     score: Mapped[int | None] = mapped_column(Integer)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     language: Mapped[str] = mapped_column(String(5), server_default=text("'en'"))
-    search_vector: Mapped[str | None] = mapped_column(
-        TSVECTOR, deferred=True
-    )
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR, deferred=True)
 
     __table_args__ = (
         CheckConstraint(
