@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.logging import get_logger
 from src.core.models import ItemEmbedding, NewsItem
+from src.core.queries import effective_date
 from src.rag.embeddings import EmbeddingService
 
 logger = get_logger(__name__)
@@ -85,7 +86,7 @@ class Retriever:
         if topic:
             stmt = stmt.where(NewsItem.topic == topic)
         if since:
-            stmt = stmt.where(NewsItem.published_at >= since)
+            stmt = stmt.where(effective_date >= since)
 
         result = await session.execute(stmt)
         return list(result.scalars().all())
