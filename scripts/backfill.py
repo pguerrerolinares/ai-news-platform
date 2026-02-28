@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import html
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,7 +47,7 @@ _STORE_BATCH_SIZE = 500  # commit every N items in _store_raw_items
 
 # Estimated tokens per item for LLM classification cost tracking.
 # Prompt is ~900 tokens fixed overhead + ~80 tokens per item in a batch of 10.
-# Output is ~45 tokens per item (JSON entry + Spanish summary for accepted items).
+# Output is ~45 tokens per item (JSON entry + English summary for accepted items).
 EST_INPUT_TOKENS_PER_ITEM = 170
 EST_OUTPUT_TOKENS_PER_ITEM = 45
 
@@ -361,18 +362,30 @@ async def phase_classify(
     return stored
 
 
+def _parse_iso_date(value: str | None) -> datetime | None:
+    """Parse an ISO-8601 date string, returning None on failure."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+    except (ValueError, TypeError):
+        return None
+
+
 def _raw_to_extracted(raw: RawExtraction) -> ExtractedItem:
     """Convert a RawExtraction record to an ExtractedItem."""
     j = raw.raw_json
     if raw.source == "hackernews":
         url = j.get("url") or f"https://news.ycombinator.com/item?id={raw.source_id}"
+        title = html.unescape(j.get("title", ""))
         return ExtractedItem(
-            title=j.get("title", ""),
+            title=title,
             source="hackernews",
             url=url,
-            text=j.get("title", ""),
+            text=title,
             author=j.get("author", "unknown"),
-            published_at=raw.extracted_at,
+            published_at=_parse_iso_date(j.get("created_at")) or raw.extracted_at,
             score=j.get("points", 0),
             metadata={
                 "story_id": raw.source_id,
@@ -380,15 +393,16 @@ def _raw_to_extracted(raw: RawExtraction) -> ExtractedItem:
             },
         )
     if raw.source == "github":
-        desc = j.get("description") or ""
-        name = j.get("name", "")
+        desc = html.unescape(j.get("description") or "")
+        name = html.unescape(j.get("name", ""))
+        title = f"{name}: {desc}" if desc else name
         return ExtractedItem(
-            title=f"{name}: {desc}" if desc else name,
+            title=title,
             source="github",
             url=j.get("html_url", ""),
             text=desc,
             author=j.get("owner", {}).get("login", "unknown"),
-            published_at=raw.extracted_at,
+            published_at=_parse_iso_date(j.get("pushed_at") or j.get("created_at")) or raw.extracted_at,
             score=j.get("stargazers_count", 0),
             metadata={
                 "stars": j.get("stargazers_count", 0),
@@ -402,7 +416,7 @@ def _raw_to_extracted(raw: RawExtraction) -> ExtractedItem:
         url=f"https://huggingface.co/{raw.source_id}",
         text=raw.source_id,
         author=raw.source_id.split("/")[0] if "/" in raw.source_id else "unknown",
-        published_at=raw.extracted_at,
+        published_at=_parse_iso_date(j.get("lastModified")) or raw.extracted_at,
         score=j.get("downloads", 0),
         metadata={"downloads": j.get("downloads", 0), "likes": j.get("likes", 0)},
     )
