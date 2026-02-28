@@ -57,15 +57,17 @@ def upgrade() -> None:
     # 6. Drop duplicate index (unique constraint already covers this)
     op.execute("DROP INDEX IF EXISTS idx_news_items_content_hash")
 
-    # 7. Translate existing Spanish topic values to English
+    # 7. Drop old Spanish topic constraint first
+    op.execute("ALTER TABLE news_items DROP CONSTRAINT IF EXISTS valid_topic")
+
+    # 8. Translate existing Spanish topic values to English
     op.execute("UPDATE news_items SET topic = 'models' WHERE topic = 'modelos'")
     op.execute("UPDATE news_items SET topic = 'tools' WHERE topic = 'herramientas'")
     op.execute("UPDATE news_items SET topic = 'agents' WHERE topic = 'agentes'")
     op.execute("UPDATE news_items SET topic = 'products' WHERE topic = 'productos'")
     op.execute("UPDATE news_items SET topic = 'regulation' WHERE topic = 'regulacion'")
 
-    # 8. Update topic check constraint to English names
-    op.execute("ALTER TABLE news_items DROP CONSTRAINT IF EXISTS valid_topic")
+    # 9. Add new English topic constraint
     op.execute("""
         ALTER TABLE news_items ADD CONSTRAINT valid_topic
         CHECK (topic IS NULL OR topic IN (
