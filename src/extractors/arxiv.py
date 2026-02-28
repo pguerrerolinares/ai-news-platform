@@ -9,6 +9,7 @@ RSS endpoint: https://rss.arxiv.org/rss/{category}
 
 from __future__ import annotations
 
+import html
 import re
 from datetime import UTC, datetime
 
@@ -119,7 +120,7 @@ class ArxivExtractor(BaseExtractor):
             seen_ids.add(arxiv_id)
 
             # Stage 2: Keyword filtering
-            title = entry.get("title", "")
+            title = html.unescape(entry.get("title", ""))
             description = self._clean_description(entry.get("summary", ""))
             if keyword_pattern and not keyword_pattern.search(f"{title} {description}"):
                 continue

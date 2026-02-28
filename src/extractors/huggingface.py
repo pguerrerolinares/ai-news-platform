@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -58,7 +59,7 @@ class HuggingFaceExtractor(BaseExtractor):
 
                 items.append(
                     ExtractedItem(
-                        title=paper.get("title", paper_id),
+                        title=html.unescape(paper.get("title", paper_id)),
                         source=self.source_name,
                         url=url,
                         text=paper.get("title", ""),

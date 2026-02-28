@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -96,8 +97,8 @@ class GitHubExtractor(BaseExtractor):
                 continue
             seen_urls.add(url)
 
-            name = repo.get("name", "")
-            description = repo.get("description") or ""
+            name = html.unescape(repo.get("name", ""))
+            description = html.unescape(repo.get("description") or "")
             title = f"{name}: {description}" if description else name
 
             try:

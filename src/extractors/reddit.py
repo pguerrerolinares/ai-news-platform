@@ -9,6 +9,7 @@ API endpoint: https://www.reddit.com/r/{subreddit}/top/.json?t=day&limit=25
 
 from __future__ import annotations
 
+import html
 from datetime import UTC, datetime
 
 import httpx
@@ -198,10 +199,10 @@ class RedditExtractor(BaseExtractor):
 
             items.append(
                 ExtractedItem(
-                    title=post.get("title", ""),
+                    title=html.unescape(post.get("title", "")),
                     source=self.source_name,
                     url=url,
-                    text=text,
+                    text=html.unescape(text),
                     author=post.get("author", "unknown"),
                     published_at=published,
                     score=post.get("score", 0),

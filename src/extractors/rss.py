@@ -10,6 +10,7 @@ No keyword filtering is applied since these are trusted sources.
 from __future__ import annotations
 
 import hashlib
+import html
 import re
 from datetime import UTC, datetime, timedelta
 from time import mktime
@@ -143,7 +144,7 @@ class RSSExtractor(BaseExtractor):
             if published and published < cutoff:
                 continue
 
-            title = entry.get("title", "")
+            title = html.unescape(entry.get("title", ""))
             text = self._extract_text(entry)
             author = self._extract_author(entry)
             tags = self._extract_tags(entry)

@@ -8,6 +8,7 @@ API docs: https://hn.algolia.com/api
 
 from __future__ import annotations
 
+import html
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -121,10 +122,10 @@ class HackerNewsExtractor(BaseExtractor):
 
             items.append(
                 ExtractedItem(
-                    title=hit.get("title") or "",
+                    title=html.unescape(hit.get("title") or ""),
                     source=self.source_name,
                     url=url,
-                    text=hit.get("title") or "",
+                    text=html.unescape(hit.get("title") or ""),
                     author=hit.get("author", "unknown"),
                     published_at=created_at,
                     score=hit.get("points", 0),
