@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-25 | **Current milestone**: Pipeline Scheduling + Live Feeds | **Status**: Complete
+> **Last updated**: 2026-02-28 | **Current milestone**: Language Standardization | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 907 (872 unit + 35 E2E), 92% coverage
+- **Tests**: 997 passed + 35 skipped, 92% coverage
 
 ## Architecture
 
@@ -88,13 +88,13 @@ ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
 ├── Dockerfile / docker-compose.yml / nginx.conf
-├── alembic/                          # DB migrations (5 versions)
+├── alembic/                          # DB migrations (8 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
 │   ├── core/
 │   │   ├── config.py                 # Pydantic Settings (all env vars)
 │   │   ├── database.py               # Async SQLAlchemy engine + get_async_session()
-│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode
+│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   └── metrics.py                # Prometheus counters + histograms
 │   ├── extractors/                   # 6 extractors (HN, arXiv, Reddit, RSS, GitHub, HF)
@@ -118,7 +118,7 @@ ai-news-platform/
 │       ├── lib/                      # api.ts, auth.ts, constants.ts, types.ts
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
-│       └── pages/                    # Login, Dashboard, Trending, Buscar, Chat
+│       └── pages/                    # Login, Dashboard, Trending, Search, Chat
 ├── tests/                            # 914 unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, pipeline scheduler
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
@@ -127,11 +127,13 @@ ai-news-platform/
 ## Database Schema
 
 ### Tables
-- **news_items**: id(UUID PK), title, summary, url, source, topic, relevance_score, dev_value_score, credibility_score, priority, trending, published_at, created_at, content_hash(UNIQUE), url_hash, full_text, author, score, metadata(JSONB)
-  Indexes: published_at DESC, topic, source, content_hash, url_hash, FTS(title+summary+full_text), score, created_at
+- **news_items**: id(UUID PK), title, summary, url, source, topic, relevance_score, dev_value_score, credibility_score, priority, trending, published_at, created_at, content_hash(UNIQUE), url_hash, full_text, author, score, metadata(JSONB), language(VARCHAR DEFAULT 'en'), search_vector(tsvector)
+  Indexes: published_at DESC, topic, source, content_hash, url_hash, FTS(title+summary+full_text), score, created_at, GIN(search_vector), partial(trending+date)
+  Constraint: valid_topic CHECK (models, papers, agents, products, tools, open_source, regulation)
 - **raw_extractions**: id(SERIAL PK), title, url, source, extracted_at, data(JSONB) — staging table
 - **daily_briefings**: date(DATE PK), total_items, items_extracted, items_after_dedup, items_filtered, trending_count, duration_seconds, sources_used(JSONB), generated_at
 - **item_embeddings**: item_id(UUID FK→news_items PK), model(TEXT PK), embedding(vector(1536)), created_at
+  Indexes: HNSW(embedding vector_cosine_ops)
 - **users**: id(UUID PK), email(UNIQUE), name, role(admin|reader), created_at, last_login_at
 - **otp_codes**: id(SERIAL PK), email, code(6-digit), expires_at, used, created_at — purged daily by scheduler
 
@@ -194,7 +196,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (872 unit + 35 E2E = 907 total)
+**Current coverage**: 92% (997 passed + 35 skipped)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
