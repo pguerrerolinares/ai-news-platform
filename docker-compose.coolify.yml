@@ -59,6 +59,9 @@ services:
       - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    networks:
+      - coolify
+      - default
     depends_on:
       api:
         condition: service_healthy
@@ -78,3 +81,7 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  coolify:
+    external: true
