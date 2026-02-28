@@ -23,7 +23,7 @@ export default function Trending() {
       setTrendingItems(trending.data)
       setTopScored(top.data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar datos')
+      setError(err instanceof Error ? err.message : 'Error loading data')
     } finally {
       setLoading(false)
     }
@@ -34,7 +34,7 @@ export default function Trending() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-muted-foreground">Cargando trending...</p>
+        <p className="text-muted-foreground">Loading trending...</p>
       </div>
     )
   }
@@ -44,7 +44,7 @@ export default function Trending() {
       <div className="flex flex-col items-center gap-4 py-24">
         <p className="text-destructive">{error}</p>
         <Button variant="outline" onClick={fetchData}>
-          <IconRefresh className="mr-2 size-4" /> Reintentar
+          <IconRefresh className="mr-2 size-4" /> Retry
         </Button>
       </div>
     )
@@ -54,9 +54,9 @@ export default function Trending() {
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">En movimiento</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Gaining Traction</h2>
           <p className="text-sm text-muted-foreground">
-            {trendingItems.length} noticias generando traccion ahora
+            {trendingItems.length} news gaining traction now
           </p>
         </div>
         <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey="trending">
@@ -67,14 +67,14 @@ export default function Trending() {
           ))}
         </AnimatedCardGrid>
         {trendingItems.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No hay noticias trending</p>
+          <p className="py-8 text-center text-muted-foreground">No trending news</p>
         )}
       </section>
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Top puntuados</h2>
-          <p className="text-sm text-muted-foreground">Las noticias con mayor puntuacion</p>
+          <h2 className="text-2xl font-bold tracking-tight">Top Scored</h2>
+          <p className="text-sm text-muted-foreground">The highest scoring news</p>
         </div>
         <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey="top">
           {topScored.map(item => (

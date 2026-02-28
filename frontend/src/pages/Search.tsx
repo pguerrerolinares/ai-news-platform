@@ -13,15 +13,15 @@ import { IconSearch, IconRefresh } from '@tabler/icons-react'
 
 const TOPICS = Object.keys(TOPIC_LABELS)
 const SORT_MAP: Record<string, string> = {
-  relevancia: 'relevance',
-  fecha: 'date',
+  relevance: 'relevance',
+  date: 'date',
   score: 'score',
 }
 
-export default function Buscar() {
+export default function Search() {
   const [query, setQuery] = useState('')
   const [topic, setTopic] = useState('all')
-  const [sortBy, setSortBy] = useState('relevancia')
+  const [sortBy, setSortBy] = useState('relevance')
   const [results, setResults] = useState<NewsItem[]>([])
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
@@ -44,7 +44,7 @@ export default function Buscar() {
       setResults(data)
       setTotalCount(count)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error en la busqueda')
+      setError(err instanceof Error ? err.message : 'Search failed')
       setResults([])
       setTotalCount(null)
     } finally {
@@ -59,20 +59,20 @@ export default function Buscar() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Buscar</h2>
-        <p className="text-sm text-muted-foreground">Busca entre las noticias de IA</p>
+        <h2 className="text-2xl font-bold tracking-tight">Search</h2>
+        <p className="text-sm text-muted-foreground">Search through AI news</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar noticias..."
+            placeholder="Search news..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             className="pl-9"
-            aria-label="Buscar noticias"
+            aria-label="Search news"
           />
         </div>
         <Select value={topic} onValueChange={setTopic}>
@@ -80,7 +80,7 @@ export default function Buscar() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="all">All topics</SelectItem>
             {TOPICS.map(t => (
               <SelectItem key={t} value={t}>{TOPIC_LABELS[t] ?? t}</SelectItem>
             ))}
@@ -91,14 +91,14 @@ export default function Buscar() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="relevancia">Relevancia</SelectItem>
-            <SelectItem value="fecha">Fecha</SelectItem>
+            <SelectItem value="relevance">Relevance</SelectItem>
+            <SelectItem value="date">Date</SelectItem>
             <SelectItem value="score">Score</SelectItem>
           </SelectContent>
         </Select>
         <Button onClick={search} disabled={loading || !query.trim()}>
           <IconSearch className="mr-2 size-4" />
-          Buscar
+          Search
         </Button>
       </div>
 
@@ -106,20 +106,20 @@ export default function Buscar() {
         <div className="flex flex-col items-center gap-4 py-8">
           <p className="text-destructive">{error}</p>
           <Button variant="outline" onClick={search}>
-            <IconRefresh className="mr-2 size-4" /> Reintentar
+            <IconRefresh className="mr-2 size-4" /> Retry
           </Button>
         </div>
       )}
 
       {searched && !loading && !error && (
         <p className="text-sm text-muted-foreground">
-          {totalCount ?? results.length} resultado{(totalCount ?? results.length) !== 1 ? 's' : ''} para &quot;{query}&quot;
+          {totalCount ?? results.length} result{(totalCount ?? results.length) !== 1 ? 's' : ''} for &quot;{query}&quot;
         </p>
       )}
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Buscando...</p>
+          <p className="text-muted-foreground">Searching...</p>
         </div>
       )}
 
@@ -135,14 +135,14 @@ export default function Buscar() {
 
       {searched && !loading && !error && results.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-          <p>No se encontraron resultados para &quot;{query}&quot;</p>
+          <p>No results found for &quot;{query}&quot;</p>
         </div>
       )}
 
       {!searched && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
           <IconSearch className="size-8" />
-          <p>Escribe y pulsa Enter o Buscar</p>
+          <p>Type and press Enter or Search</p>
         </div>
       )}
     </div>

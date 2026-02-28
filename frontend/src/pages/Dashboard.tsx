@@ -99,7 +99,7 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center py-24">
         <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Cargando noticias...</span>
+        <span className="ml-2 text-muted-foreground">Loading news...</span>
       </div>
     )
   }
@@ -108,10 +108,10 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
         <p className="text-destructive">
-          {error instanceof Error ? error.message : 'Error al cargar noticias'}
+          {error instanceof Error ? error.message : 'Error loading news'}
         </p>
         <Button variant="outline" onClick={() => refetch()}>
-          <IconRefresh className="mr-2 size-4" /> Reintentar
+          <IconRefresh className="mr-2 size-4" /> Retry
         </Button>
       </div>
     )
@@ -123,19 +123,19 @@ export default function Dashboard() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Latest</h2>
           <p className="text-sm text-muted-foreground">
-            {items.length} noticias de {items.filter(i => i.trending).length} trending
+            {items.length} news from {items.filter(i => i.trending).length} trending
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refrescar">
+          <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refresh">
             <IconRefresh className="size-4" />
           </Button>
           <Select value={activeTopic} onValueChange={setActiveTopic}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por topic" />
+              <SelectValue placeholder="Filter by topic" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los topics</SelectItem>
+              <SelectItem value="all">All topics</SelectItem>
               {TOPICS.map(topic => (
                 <SelectItem key={topic} value={topic}>
                   {TOPIC_LABELS[topic] ?? topic}
@@ -169,17 +169,17 @@ export default function Dashboard() {
 
       {filtered.length === 0 && !isFetchingNextPage && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-          <p>No hay noticias para este topic</p>
+          <p>No news for this topic</p>
         </div>
       )}
 
       {error && items.length > 0 && (
         <div className="flex flex-col items-center gap-2 py-4">
           <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : 'Error al cargar más noticias'}
+            {error instanceof Error ? error.message : 'Error loading more news'}
           </p>
           <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
-            <IconRefresh className="mr-2 size-4" /> Reintentar
+            <IconRefresh className="mr-2 size-4" /> Retry
           </Button>
         </div>
       )}
@@ -187,7 +187,7 @@ export default function Dashboard() {
       {isFetchingNextPage && (
         <div className="flex items-center justify-center py-8">
           <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Cargando más...</span>
+          <span className="ml-2 text-sm text-muted-foreground">Loading more...</span>
         </div>
       )}
 

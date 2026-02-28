@@ -19,9 +19,9 @@ function msgId() {
 }
 
 const SUGGESTIONS = [
-  'Que noticias hay de LLMs?',
-  'Resume el trending de hoy',
-  'Que herramientas nuevas hay?',
+  'What LLM news is there?',
+  'Summarize today\'s trending',
+  'What new tools are there?',
 ]
 
 const chipContainer = {
@@ -102,7 +102,7 @@ async function parseSSE(
               onToken(parsed.content)
             }
           } else if (currentEvent === 'error') {
-            onError(parsed.error?.message ?? 'Error del servidor')
+            onError(parsed.error?.message ?? 'Server error')
           } else if (currentEvent === 'done') {
             if (!finished) { finished = true; onDone() }
           }
@@ -167,7 +167,7 @@ export default function Chat() {
     } catch (err) {
       setMessages(prev =>
         prev.map(m => m.id === assistantId
-          ? { ...m, content: `Error: ${err instanceof Error ? err.message : 'No se pudo conectar'}` }
+          ? { ...m, content: `Error: ${err instanceof Error ? err.message : 'Could not connect'}` }
           : m
         )
       )
@@ -196,9 +196,9 @@ export default function Chat() {
                 className="flex flex-col items-center gap-6 pt-24 text-center"
               >
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Chat IA</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">AI Chat</h2>
                   <p className="text-sm text-muted-foreground">
-                    Pregunta sobre las noticias de IA de hoy
+                    Ask about today's AI news
                   </p>
                 </div>
                 <motion.div
@@ -253,13 +253,13 @@ export default function Chat() {
       <div className="border-t bg-background p-4">
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           <Textarea
-            placeholder="Escribe tu pregunta..."
+            placeholder="Type your question..."
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
             className="min-h-10 max-h-32 resize-none"
-            aria-label="Escribe tu pregunta"
+            aria-label="Type your question"
           />
           <Button
             size="icon"
@@ -267,7 +267,7 @@ export default function Chat() {
             disabled={!input.trim() || isStreaming}
           >
             <IconSend className="size-4" />
-            <span className="sr-only">Enviar</span>
+            <span className="sr-only">Send</span>
           </Button>
         </div>
       </div>

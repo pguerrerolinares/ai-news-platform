@@ -3,7 +3,7 @@ import { AuthProvider, RequireAuth } from '@/hooks/use-auth'
 import { Layout } from '@/components/layout'
 import Dashboard from '@/pages/Dashboard'
 import Trending from '@/pages/Trending'
-import Buscar from '@/pages/Buscar'
+import Search from '@/pages/Search'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 
@@ -16,7 +16,7 @@ function App() {
           <Route element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="trending" element={<Trending />} />
-            <Route path="buscar" element={<Buscar />} />
+            <Route path="search" element={<Search />} />
             <Route path="chat" element={<Chat />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
