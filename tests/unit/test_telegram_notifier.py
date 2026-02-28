@@ -57,21 +57,21 @@ def sample_items():
             title="GPT-5 Released",
             source="hackernews",
             url="https://example.com/gpt5",
-            topic="modelos",
+            topic="models",
             relevance_score=0.98,
             priority=1,
             trending=True,
-            summary="OpenAI lanza GPT-5 con mejoras significativas.",
+            summary="OpenAI releases GPT-5 with significant improvements.",
         ),
         make_classified_item(
             title="New LangChain Update",
             source="reddit",
             url="https://example.com/langchain",
-            topic="herramientas",
+            topic="tools",
             relevance_score=0.85,
             priority=2,
             trending=False,
-            summary="LangChain v0.3 con soporte para agentes.",
+            summary="LangChain v0.3 with agent support.",
         ),
         make_classified_item(
             title="Attention Is Still All You Need",
@@ -81,17 +81,17 @@ def sample_items():
             relevance_score=0.92,
             priority=1,
             trending=True,
-            summary="Nuevo paper demuestra mejoras en mecanismo de atenci\u00f3n.",
+            summary="New paper demonstrates attention mechanism improvements.",
         ),
         make_classified_item(
             title="Claude 4 Released",
             source="rss",
             url="https://example.com/claude4",
-            topic="modelos",
+            topic="models",
             relevance_score=0.95,
             priority=2,
             trending=False,
-            summary="Anthropic presenta Claude 4.",
+            summary="Anthropic presents Claude 4.",
         ),
         make_classified_item(
             title="Open Source LLM Benchmark",
@@ -101,7 +101,7 @@ def sample_items():
             relevance_score=0.80,
             priority=3,
             trending=False,
-            summary="Benchmark comparativo de modelos open source.",
+            summary="Comparative benchmark of open source models.",
         ),
     ]
 
@@ -274,15 +274,15 @@ class TestBuildHeader:
     def test_header_contains_topic_counts(self, sample_items):
         grouped = TelegramNotifier._group_by_topic(sample_items)
         header = TelegramNotifier._build_header(sample_items, grouped)
-        assert "Modelos: 2" in header
-        assert "Herramientas: 1" in header
+        assert "Models: 2" in header
+        assert "Tools: 1" in header
         assert "Papers: 1" in header
         assert "Open source: 1" in header
 
     def test_header_contains_source_counts(self, sample_items):
         grouped = TelegramNotifier._group_by_topic(sample_items)
         header = TelegramNotifier._build_header(sample_items, grouped)
-        assert "5 noticias" in header
+        assert "5 items" in header
         assert "HN" in header
 
     def test_header_shows_trending_count(self, sample_items):
@@ -292,11 +292,11 @@ class TestBuildHeader:
         assert "\U0001f525" in header
 
     def test_header_with_single_item(self):
-        items = [make_classified_item(topic="modelos", source="hackernews")]
+        items = [make_classified_item(topic="models", source="hackernews")]
         grouped = TelegramNotifier._group_by_topic(items)
         header = TelegramNotifier._build_header(items, grouped)
-        assert "1 noticias" in header
-        assert "Modelos: 1" in header
+        assert "1 items" in header
+        assert "Models: 1" in header
 
 
 class TestBuildTop3:
@@ -307,7 +307,7 @@ class TestBuildTop3:
 
         sorted_items = _sort_items(sample_items)
         top3 = TelegramNotifier._build_top3(sorted_items)
-        assert "TOP 3 DEL DIA" in top3
+        assert "TOP 3 OF THE DAY" in top3
         assert "GPT-5 Released" in top3
 
     def test_top3_contains_urls(self, sample_items):
@@ -324,7 +324,7 @@ class TestBuildTop3:
         sorted_items = _sort_items(sample_items)
         top3 = TelegramNotifier._build_top3(sorted_items)
         # At least one summary should appear
-        assert "OpenAI lanza" in top3 or "Nuevo paper" in top3
+        assert "OpenAI releases" in top3 or "New paper" in top3
 
     def test_top3_shows_source_labels(self, sample_items):
         sorted_items = _sort_items(sample_items)
@@ -356,10 +356,10 @@ class TestBuildTopicBlock:
     """Test topic block building."""
 
     def test_topic_block_has_emoji_and_label(self):
-        items = [make_classified_item(topic="modelos")]
-        block = TelegramNotifier._build_topic_block("modelos", items)
+        items = [make_classified_item(topic="models")]
+        block = TelegramNotifier._build_topic_block("models", items)
         assert "\U0001f9e0" in block
-        assert "MODELOS" in block
+        assert "MODELS" in block
 
     def test_topic_block_lists_all_items(self):
         items = [
@@ -475,11 +475,11 @@ class TestBuildFooter:
 
     def test_footer_contains_item_count(self, sample_items):
         footer = TelegramNotifier._build_footer(sample_items, 120.0)
-        assert "5 analizados" in footer
+        assert "5 analyzed" in footer
 
     def test_footer_contains_source_count(self, sample_items):
         footer = TelegramNotifier._build_footer(sample_items, 120.0)
-        assert "4 fuentes" in footer  # hackernews, reddit, arxiv, rss
+        assert "4 sources" in footer  # hackernews, reddit, arxiv, rss
 
     def test_footer_contains_duration(self, sample_items):
         footer = TelegramNotifier._build_footer(sample_items, 138.0)
@@ -666,7 +666,7 @@ class TestSendBriefing:
         import json
 
         body = json.loads(route.calls[0].request.content)
-        assert "No hay noticias" in body["text"]
+        assert "No relevant news" in body["text"]
 
     @respx.mock
     async def test_send_briefing_includes_header(self, notifier, sample_items):
@@ -697,7 +697,7 @@ class TestSendBriefing:
             body = json.loads(call.request.content)
             all_text += body["text"]
 
-        assert "TOP 3 DEL DIA" in all_text
+        assert "TOP 3 OF THE DAY" in all_text
 
     @respx.mock
     async def test_send_briefing_includes_topic_blocks(self, notifier, sample_items):
@@ -712,8 +712,8 @@ class TestSendBriefing:
             body = json.loads(call.request.content)
             all_text += body["text"]
 
-        assert "MODELOS" in all_text
-        assert "HERRAMIENTAS" in all_text
+        assert "MODELS" in all_text
+        assert "TOOLS" in all_text
         assert "PAPERS" in all_text
 
     @respx.mock
@@ -729,8 +729,8 @@ class TestSendBriefing:
             body = json.loads(call.request.content)
             all_text += body["text"]
 
-        assert "analizados" in all_text
-        assert "fuentes" in all_text
+        assert "analyzed" in all_text
+        assert "sources" in all_text
 
     async def test_send_briefing_disabled_returns_false(self, disabled_notifier, sample_items):
         result = await disabled_notifier.send_briefing(sample_items)
@@ -747,10 +747,10 @@ class TestSendBriefing:
             make_classified_item(
                 title=f"News Item {i} with a reasonably long title for testing",
                 source="hackernews",
-                topic="modelos",
+                topic="models",
                 relevance_score=0.9 - i * 0.01,
                 priority=2,
-                summary=f"Resumen detallado del item numero {i} con informacion relevante.",
+                summary=f"Detailed summary of item number {i} with relevant information.",
             )
             for i in range(50)
         ]
@@ -781,7 +781,7 @@ class TestSendBriefing:
         items = [
             make_classified_item(
                 title=f"News {i} " + "x" * 100,
-                topic="modelos",
+                topic="models",
                 summary="A" * 100,
             )
             for i in range(50)
@@ -810,13 +810,13 @@ class TestConstants:
 
     def test_topic_emojis_cover_all_topics(self):
         expected_topics = {
-            "modelos",
-            "herramientas",
+            "models",
+            "tools",
             "papers",
-            "productos",
+            "products",
             "open_source",
-            "agentes",
-            "regulacion",
+            "agents",
+            "regulation",
         }
         assert set(TOPIC_EMOJI.keys()) == expected_topics
 
@@ -834,8 +834,8 @@ class TestGroupByTopic:
 
     def test_groups_correctly(self, sample_items):
         grouped = TelegramNotifier._group_by_topic(sample_items)
-        assert len(grouped["modelos"]) == 2
-        assert len(grouped["herramientas"]) == 1
+        assert len(grouped["models"]) == 2
+        assert len(grouped["tools"]) == 1
         assert len(grouped["papers"]) == 1
         assert len(grouped["open_source"]) == 1
 

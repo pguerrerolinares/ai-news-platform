@@ -29,13 +29,13 @@ SOURCE_LABEL: dict[str, str] = {
 }
 
 TOPIC_EMOJI: dict[str, str] = {
-    "modelos": "\U0001f9e0",  # brain
-    "herramientas": "\U0001f6e0",  # wrench
+    "models": "\U0001f9e0",  # brain
+    "tools": "\U0001f6e0",  # wrench
     "papers": "\U0001f4c4",  # page
-    "productos": "\U0001f4e6",  # package
+    "products": "\U0001f4e6",  # package
     "open_source": "\U0001f513",  # unlock
-    "agentes": "\U0001f916",  # robot
-    "regulacion": "\u2696\ufe0f",  # scales
+    "agents": "\U0001f916",  # robot
+    "regulation": "\u2696\ufe0f",  # scales
 }
 
 PRIORITY_DOT: dict[int, str] = {
@@ -47,13 +47,13 @@ PRIORITY_DOT: dict[int, str] = {
 }
 
 TOPIC_ORDER = [
-    "modelos",
-    "herramientas",
+    "models",
+    "tools",
     "papers",
-    "productos",
+    "products",
     "open_source",
-    "agentes",
-    "regulacion",
+    "agents",
+    "regulation",
 ]
 
 
@@ -143,7 +143,7 @@ class TelegramNotifier(BaseNotifier):
 
     async def send_error(self, error: str, context: str = "") -> bool:
         """Send an error notification via Telegram."""
-        ctx = f" en <b>{_esc(context)}</b>" if context else ""
+        ctx = f" in <b>{_esc(context)}</b>" if context else ""
         text = f"\U0001f6a8 <b>Error{ctx}</b>\n<code>{_esc(error[:500])}</code>"
         return await self._send(text)
 
@@ -167,7 +167,7 @@ class TelegramNotifier(BaseNotifier):
         """
         if not items:
             logger.warning("telegram_briefing_empty", reason="no items to send")
-            return await self._send("\U0001f4ed No hay noticias relevantes hoy.")
+            return await self._send("\U0001f4ed No relevant news today.")
 
         sorted_items = _sort_items(items)
         grouped = self._group_by_topic(sorted_items)
@@ -248,7 +248,7 @@ class TelegramNotifier(BaseNotifier):
         source_counts = Counter(it.item.source for it in items)
         source_parts = [f"{_source_label(s)} {c}" for s, c in source_counts.most_common()]
         source_str = " \u00b7 ".join(source_parts)
-        lines.append(f"\n\U0001f4ca {len(items)} noticias  \u00b7 {source_str}")
+        lines.append(f"\n\U0001f4ca {len(items)} items  \u00b7 {source_str}")
 
         return "\n".join(lines)
 
@@ -259,7 +259,7 @@ class TelegramNotifier(BaseNotifier):
         if not top:
             return ""
 
-        lines = ["\u2b50 <b>TOP 3 DEL DIA</b>\n"]
+        lines = ["\u2b50 <b>TOP 3 OF THE DAY</b>\n"]
         for idx, it in enumerate(top, 1):
             title = _esc(it.item.title)
             trending_marker = "\U0001f525" if it.trending else ""
@@ -324,7 +324,7 @@ class TelegramNotifier(BaseNotifier):
         trending = sum(1 for it in items if it.trending)
         duration_str = f"{duration_seconds / 60:.1f} min" if duration_seconds else ""
 
-        parts = [f"{len(items)} analizados", f"{sources} fuentes"]
+        parts = [f"{len(items)} analyzed", f"{sources} sources"]
         if duration_str:
             parts.append(duration_str)
         if trending:
