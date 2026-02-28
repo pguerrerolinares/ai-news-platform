@@ -18,7 +18,7 @@ import { useAuth } from '@/hooks/use-auth'
 const links = [
   { to: '/', label: 'Latest' },
   { to: '/trending', label: 'Trending' },
-  { to: '/buscar', label: 'Buscar' },
+  { to: '/search', label: 'Search' },
   { to: '/chat', label: 'Chat' },
 ]
 
@@ -80,7 +80,7 @@ export function AppNav() {
             </Sheet>
             <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
-              <Button variant="ghost" size="icon" onClick={logout} aria-label="Cerrar sesion">
+              <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out">
                 <IconLogout className="size-4" />
               </Button>
             </div>
@@ -118,7 +118,7 @@ export function AppNav() {
             </nav>
             <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
-              <Button variant="ghost" size="icon" onClick={logout} aria-label="Cerrar sesion">
+              <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out">
                 <IconLogout className="size-4" />
               </Button>
             </div>

@@ -8,19 +8,19 @@ export const SOURCE_COLORS: Record<string, string> = {
 }
 
 export const TOPIC_LABELS: Record<string, string> = {
-  modelos: 'Modelos',
-  herramientas: 'Herramientas',
+  models: 'Models',
+  tools: 'Tools',
   papers: 'Papers',
-  productos: 'Productos',
+  products: 'Products',
   open_source: 'Open Source',
-  agentes: 'Agentes',
-  regulacion: 'Regulacion',
+  agents: 'Agents',
+  regulation: 'Regulation',
 }
 
 export function formatTime(dateStr: string | null) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function safeUrl(url: string | null): string | null {
