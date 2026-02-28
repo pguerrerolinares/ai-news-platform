@@ -54,7 +54,7 @@ class HuggingFaceExtractor(BaseExtractor):
                 try:
                     published = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
                 except (ValueError, AttributeError):
-                    published = datetime.now(tz=UTC)
+                    published = None
 
                 items.append(
                     ExtractedItem(
@@ -118,9 +118,9 @@ class HuggingFaceExtractor(BaseExtractor):
                                 model.get("lastModified", "").replace("Z", "+00:00")
                             )
                         except (ValueError, AttributeError):
-                            last_mod = datetime.now(tz=UTC)
+                            last_mod = None
 
-                        if last_mod < since_cutoff:
+                        if last_mod is not None and last_mod < since_cutoff:
                             continue
 
                         items.append(

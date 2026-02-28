@@ -225,7 +225,7 @@ class TestExtract:
         assert result[0].author == "unknown"
 
     @respx.mock
-    async def test_invalid_last_modified_uses_now(self):
+    async def test_invalid_last_modified_returns_none(self):
         model = _make_model("org/bad-date", last_modified="not-a-date")
         respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):

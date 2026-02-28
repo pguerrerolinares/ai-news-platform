@@ -274,13 +274,13 @@ class TestExtract:
         assert result[0].author == "unknown"
 
     @respx.mock
-    async def test_invalid_pushed_at_uses_now(self):
+    async def test_invalid_pushed_at_returns_none(self):
         repo = _make_repo("bad-date-repo", pushed_at="not-a-date")
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
         assert len(result) == 1
-        assert result[0].published_at is not None
+        assert result[0].published_at is None
 
     @respx.mock
     async def test_partial_query_failure(self):
@@ -329,14 +329,14 @@ class TestEdgeCases:
 
     @respx.mock
     async def test_repo_missing_pushed_at(self):
-        """Repo with missing pushed_at field uses now() as fallback."""
+        """Repo with missing pushed_at field returns None."""
         repo = _make_repo("no-push-repo")
         del repo["pushed_at"]
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
         assert len(result) == 1
-        assert result[0].published_at is not None
+        assert result[0].published_at is None
 
     @respx.mock
     async def test_timeout_returns_empty(self):

@@ -117,7 +117,7 @@ class HackerNewsExtractor(BaseExtractor):
             try:
                 created_at = datetime.fromtimestamp(hit.get("created_at_i", 0), tz=UTC)
             except (ValueError, OSError):
-                created_at = datetime.now(tz=UTC)
+                created_at = None
 
             items.append(
                 ExtractedItem(
