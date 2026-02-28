@@ -46,10 +46,22 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    environment:
-      - SERVICE_FQDN_FRONTEND=https://pguerrero.me
     expose:
       - "80"
+    networks:
+      - coolify
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-https.rule=Host(`pguerrero.me`)"
+      - "traefik.http.routers.frontend-https.entrypoints=https"
+      - "traefik.http.routers.frontend-https.tls=true"
+      - "traefik.http.routers.frontend-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend-http.rule=Host(`pguerrero.me`)"
+      - "traefik.http.routers.frontend-http.entrypoints=http"
+      - "traefik.http.routers.frontend-http.middlewares=frontend-redirect"
+      - "traefik.http.middlewares.frontend-redirect.redirectscheme.scheme=https"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
     depends_on:
       api:
         condition: service_healthy
@@ -66,6 +78,10 @@ services:
     env_file:
       - .env
     command: ["bash", "scripts/pipeline-scheduler.sh"]
+
+networks:
+  coolify:
+    external: true
 
 volumes:
   pgdata:
