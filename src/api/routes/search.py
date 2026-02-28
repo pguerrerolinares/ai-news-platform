@@ -13,6 +13,7 @@ from src.api.ratelimit import get_client_ip
 from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
+from src.core.queries import effective_date
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 limiter = Limiter(key_func=get_client_ip)
@@ -65,9 +66,9 @@ async def search_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(func.date(NewsItem.published_at) >= date_from)
+        query = query.where(func.date(effective_date) >= date_from)
     if date_to:
-        query = query.where(func.date(NewsItem.published_at) <= date_to)
+        query = query.where(func.date(effective_date) <= date_to)
 
     # Count total matching results (before limit/offset)
     count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
@@ -76,7 +77,7 @@ async def search_items(
 
     # Apply sorting
     if sort_by == "date":
-        query = query.order_by(NewsItem.published_at.desc())
+        query = query.order_by(effective_date.desc())
     elif sort_by == "score":
         query = query.order_by(NewsItem.score.desc().nulls_last())
     else:  # relevance (default)
