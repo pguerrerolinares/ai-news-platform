@@ -22,7 +22,7 @@ from tests.factories import make_extracted_item
 # ---------------------------------------------------------------------------
 def _make_settings(**overrides) -> Settings:
     defaults = {
-        "topics": "modelos,herramientas,papers,productos,open_source,agentes,regulacion",
+        "topics": "models,tools,papers,products,open_source,agents,regulation",
         "min_relevance_score": 0.8,
         "openai_api_key": "",
     }
@@ -46,13 +46,13 @@ class TestTopicDefinitions:
 
     def test_expected_topics_present(self):
         expected = {
-            "modelos",
-            "herramientas",
+            "models",
+            "tools",
             "papers",
-            "productos",
+            "products",
             "open_source",
-            "agentes",
-            "regulacion",
+            "agents",
+            "regulation",
         }
         assert set(TOPIC_DEFINITIONS.keys()) == expected
 
@@ -61,22 +61,22 @@ class TestTopicDefinitions:
 # classify_by_keywords
 # ---------------------------------------------------------------------------
 class TestClassifyByKeywords:
-    def test_modelos_item(self):
+    def test_models_item(self):
         item = make_extracted_item(
             title="New GPT-5 LLM achieves SOTA on MMLU benchmark",
             text="The transformer model uses a novel attention architecture with 1T parameters",
         )
         topic, score = classify_by_keywords(item)
-        assert topic == "modelos"
+        assert topic == "models"
         assert score > 0.1
 
-    def test_herramientas_item(self):
+    def test_tools_item(self):
         item = make_extracted_item(
             title="LangChain releases new SDK for RAG pipeline deployment",
             text="The framework integrates with vLLM for serving and HuggingFace embeddings",
         )
         topic, score = classify_by_keywords(item)
-        assert topic == "herramientas"
+        assert topic == "tools"
         assert score > 0.1
 
     def test_papers_item(self):
@@ -89,14 +89,14 @@ class TestClassifyByKeywords:
         assert topic == "papers"
         assert score > 0.1
 
-    def test_productos_item(self):
+    def test_products_item(self):
         item = make_extracted_item(
             title="ChatGPT launches new enterprise feature update",
             text="The product release includes assistant pricing "
             "for general availability subscription",
         )
         topic, score = classify_by_keywords(item)
-        assert topic == "productos"
+        assert topic == "products"
         assert score > 0.1
 
     def test_open_source_item(self):
@@ -108,22 +108,22 @@ class TestClassifyByKeywords:
         assert topic == "open_source"
         assert score > 0.1
 
-    def test_agentes_item(self):
+    def test_agents_item(self):
         item = make_extracted_item(
             title="New MCP agent framework for autonomous multi-agent workflows",
             text="Agentic tool use with function calling and chain of thought reasoning",
         )
         topic, score = classify_by_keywords(item)
-        assert topic == "agentes"
+        assert topic == "agents"
         assert score > 0.1
 
-    def test_regulacion_item(self):
+    def test_regulation_item(self):
         item = make_extracted_item(
             title="EU AI Act regulation policy update on safety and alignment",
             text="Governance compliance for deepfake and misinformation risk ethics",
         )
         topic, score = classify_by_keywords(item)
-        assert topic == "regulacion"
+        assert topic == "regulation"
         assert score > 0.1
 
     def test_no_match_returns_none(self):
@@ -273,7 +273,7 @@ class TestKeywordClassifier:
         results = await classifier.classify(items)
         assert len(results) >= 1
         assert all(isinstance(r, ClassifiedItem) for r in results)
-        assert results[0].topic == "modelos"
+        assert results[0].topic == "models"
         assert results[0].relevance_score > 0.0
         assert results[0].item is items[0]
 
@@ -288,7 +288,7 @@ class TestKeywordClassifier:
         assert len(results) == 0
 
     async def test_classify_filters_disabled_topics(self):
-        settings = _make_settings(topics="papers,agentes")
+        settings = _make_settings(topics="papers,agents")
         with patch("src.classifiers.keyword.get_settings", return_value=settings):
             classifier = KeywordClassifier()
             items = [
@@ -299,9 +299,9 @@ class TestKeywordClassifier:
                 ),
             ]
             results = await classifier.classify(items)
-            # "modelos" is not in enabled topics, so it should be filtered
+            # "models" is not in enabled topics, so it should be filtered
             for r in results:
-                assert r.topic in ("papers", "agentes")
+                assert r.topic in ("papers", "agents")
 
     async def test_classify_multiple_items(self, classifier):
         items = [
@@ -323,10 +323,10 @@ class TestKeywordClassifier:
             ),
         ]
         results = await classifier.classify(items)
-        # At least the modelos and regulacion items should be classified
+        # At least the models and regulation items should be classified
         topics = [r.topic for r in results]
-        assert "modelos" in topics
-        assert "regulacion" in topics
+        assert "models" in topics
+        assert "regulation" in topics
         # Gardening should be filtered out
         assert not any(r.item.title.startswith("Unrelated") for r in results)
 

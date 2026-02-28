@@ -26,7 +26,7 @@ from tests.factories import make_extracted_item
 # ---------------------------------------------------------------------------
 def _make_settings(**overrides) -> Settings:
     defaults = {
-        "topics": "modelos,herramientas,papers,productos,open_source,agentes,regulacion",
+        "topics": "models,tools,papers,products,open_source,agents,regulation",
         "min_relevance_score": 0.8,
         "openai_api_key": "test-key",
         "openai_base_url": "https://api.test.com/v1",
@@ -57,10 +57,10 @@ def _make_llm_response(items: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 class TestParseLlmJson:
     def test_clean_json(self):
-        raw = '[{"idx": 0, "is_news": true, "topic": "modelos", "relevance": 0.9}]'
+        raw = '[{"idx": 0, "is_news": true, "topic": "models", "relevance": 0.9}]'
         result = _parse_llm_json(raw)
         assert len(result) == 1
-        assert result[0]["topic"] == "modelos"
+        assert result[0]["topic"] == "models"
 
     def test_json_with_code_fences(self):
         raw = '```json\n[{"idx": 0, "is_news": true}]\n```'
@@ -91,7 +91,7 @@ class TestParseLlmJson:
 
     def test_multiline_json(self):
         raw = """[
-  {"idx": 0, "is_news": true, "topic": "modelos", "relevance": 0.85},
+  {"idx": 0, "is_news": true, "topic": "models", "relevance": 0.85},
   {"idx": 1, "is_news": false}
 ]"""
         result = _parse_llm_json(raw)
@@ -116,22 +116,22 @@ class TestBuildPrompt:
     def test_prompt_contains_topics_info(self):
         prompt = _build_prompt(
             [make_extracted_item()],
-            '- "modelos": Nuevos modelos\n- "papers": Papers academicos',
+            '- "models": New models\n- "papers": Academic papers',
         )
-        assert "modelos" in prompt
+        assert "models" in prompt
         assert "papers" in prompt
 
     def test_prompt_contains_classification_rules(self):
         prompt = _build_prompt([make_extracted_item()], "topics")
         assert "is_news" in prompt
-        assert "DESCARTA" in prompt
-        assert "ACEPTA" in prompt
-        assert "ESCALA DE RELEVANCIA" in prompt
+        assert "REJECT" in prompt
+        assert "ACCEPT" in prompt
+        assert "RELEVANCE SCALE" in prompt
 
     def test_prompt_batch_size_in_text(self):
         items = [make_extracted_item(title=f"Item {i}") for i in range(3)]
         prompt = _build_prompt(items, "topics")
-        assert "Clasifica estos 3 items" in prompt
+        assert "Classify these 3 items" in prompt
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +245,7 @@ class TestLLMClassifier:
                 {
                     "idx": 0,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": "Nuevo modelo GPT-5 con mejoras significativas",
                 },
@@ -261,7 +261,7 @@ class TestLLMClassifier:
         ]
         results = await classifier.classify(items)
         assert len(results) == 1
-        assert results[0].topic == "modelos"
+        assert results[0].topic == "models"
         assert results[0].relevance_score == 0.9
         assert results[0].summary == "Nuevo modelo GPT-5 con mejoras significativas"
         assert isinstance(results[0], ClassifiedItem)
@@ -273,7 +273,7 @@ class TestLLMClassifier:
                 {
                     "idx": 1,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.85,
                     "summary": "Resumen de prueba",
                 },
@@ -294,7 +294,7 @@ class TestLLMClassifier:
                 {
                     "idx": 0,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.75,
                     "summary": "Resumen",
                 },
@@ -308,14 +308,14 @@ class TestLLMClassifier:
     async def test_classify_filters_disabled_topics(self):
         with patch(
             "src.classifiers.llm.get_settings",
-            return_value=_make_settings(topics="papers,agentes"),
+            return_value=_make_settings(topics="papers,agents"),
         ):
             response = _make_llm_response(
                 [
                     {
                         "idx": 0,
                         "is_news": True,
-                        "topic": "modelos",
+                        "topic": "models",
                         "relevance": 0.9,
                         "summary": "Resumen",
                     },
@@ -338,7 +338,7 @@ class TestLLMClassifier:
                 {
                     "idx": i,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": f"Resumen {i}",
                 }
@@ -363,7 +363,7 @@ class TestLLMClassifier:
                 {
                     "idx": i,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": f"Resumen batch2 {i}",
                 }
@@ -405,7 +405,7 @@ class TestLLMClassifier:
         results = await classifier.classify(items)
         # Should fall back to keyword classifier
         assert len(results) >= 1
-        assert results[0].topic == "modelos"
+        assert results[0].topic == "models"
 
     async def test_fallback_on_rate_limit_exhaustion(self):
         client = _make_mock_client("")
@@ -434,21 +434,21 @@ class TestLLMClassifier:
                 {
                     "idx": 99,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": "Resumen",
                 },
                 {
                     "idx": -1,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": "Resumen",
                 },
                 {
                     "idx": 0,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": "Resumen valido",
                 },
@@ -484,7 +484,7 @@ class TestLLMClassifier:
                 {
                     "idx": 0,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.95,
                     "summary": "Resumen",
                 },
@@ -523,7 +523,7 @@ class TestLLMClassifier:
 class TestParseLlmJsonEdgeCases:
     def test_truncated_json(self):
         """Truncated JSON string returns empty list."""
-        result = _parse_llm_json('[{"topic": "modelos"')
+        result = _parse_llm_json('[{"topic": "models"')
         assert result == []
 
     def test_empty_string_parse(self):
@@ -558,7 +558,7 @@ class TestLLMClassifierEdgeCases:
                 {
                     "idx": i,
                     "is_news": True,
-                    "topic": "modelos",
+                    "topic": "models",
                     "relevance": 0.9,
                     "summary": f"Resumen batch1 item {i}",
                 }
@@ -628,4 +628,4 @@ class TestLLMClassifierEdgeCases:
         assert client.chat.completions.create.call_count == 1
         # Falls back to keyword classifier, which should classify this item
         assert len(results) >= 1
-        assert results[0].topic == "modelos"
+        assert results[0].topic == "models"

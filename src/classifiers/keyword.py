@@ -17,7 +17,7 @@ from src.extractors.base import ExtractedItem
 # Topic definitions with keyword lists
 # ---------------------------------------------------------------------------
 TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
-    "modelos": {
+    "models": {
         "keywords": [
             "GPT",
             "LLM",
@@ -46,9 +46,9 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "context window",
             "token",
         ],
-        "description": "Nuevos modelos, arquitecturas, benchmarks, entrenamientos",
+        "description": "New models, architectures, benchmarks, training",
     },
-    "herramientas": {
+    "tools": {
         "keywords": [
             "framework",
             "library",
@@ -71,7 +71,7 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "prompt engineering",
             "eval",
         ],
-        "description": "Frameworks, librerias, plataformas, herramientas de desarrollo",
+        "description": "Frameworks, libraries, platforms, developer tools",
     },
     "papers": {
         "keywords": [
@@ -96,9 +96,9 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "ablation",
             "preprint",
         ],
-        "description": "Papers academicos, investigacion, nuevos metodos",
+        "description": "Academic papers, research, novel methods",
     },
-    "productos": {
+    "products": {
         "keywords": [
             "launch",
             "release",
@@ -120,7 +120,7 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "enterprise",
             "consumer",
         ],
-        "description": "Lanzamientos de productos, features, actualizaciones",
+        "description": "Product launches, features, updates",
     },
     "open_source": {
         "keywords": [
@@ -142,9 +142,9 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "local",
             "on-premise",
         ],
-        "description": "Releases open source, modelos abiertos, codigo liberado",
+        "description": "Open source releases, open models, released code",
     },
-    "agentes": {
+    "agents": {
         "keywords": [
             "agent",
             "agentic",
@@ -163,9 +163,9 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "automation",
             "chain of thought",
         ],
-        "description": "Agentes de IA, automatizacion, MCP, workflows",
+        "description": "AI agents, automation, MCP, workflows",
     },
-    "regulacion": {
+    "regulation": {
         "keywords": [
             "regulation",
             "policy",
@@ -186,7 +186,7 @@ TOPIC_DEFINITIONS: dict[str, dict[str, list[str] | str]] = {
             "deepfake",
             "misinformation",
         ],
-        "description": "Regulacion, etica, seguridad, politicas de IA",
+        "description": "Regulation, ethics, safety, AI policy",
     },
 }
 
