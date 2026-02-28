@@ -411,10 +411,10 @@ def _raw_to_extracted(raw: RawExtraction) -> ExtractedItem:
         )
     # huggingface
     return ExtractedItem(
-        title=raw.source_id,
+        title=html.unescape(raw.source_id),
         source="huggingface",
         url=f"https://huggingface.co/{raw.source_id}",
-        text=raw.source_id,
+        text=html.unescape(raw.source_id),
         author=raw.source_id.split("/")[0] if "/" in raw.source_id else "unknown",
         published_at=_parse_iso_date(j.get("lastModified")) or raw.extracted_at,
         score=j.get("downloads", 0),
