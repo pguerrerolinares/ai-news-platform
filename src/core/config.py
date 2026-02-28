@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     hf_min_downloads: int = 100
 
     # --- Topics ---
-    topics: str = "modelos,herramientas,papers,productos,open_source,agentes,regulacion"
+    topics: str = "models,tools,papers,products,open_source,agents,regulation"
     min_relevance_score: float = 0.8
 
     # --- Validation ---

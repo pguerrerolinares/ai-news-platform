@@ -13,11 +13,11 @@ class ClassifiedItem:
     """An item after classification with topic, relevance, and summary."""
 
     item: ExtractedItem
-    topic: str  # modelos, papers, agentes, productos, herramientas, open_source, regulacion
+    topic: str  # models, papers, agents, products, tools, open_source, regulation
     relevance_score: float  # 0.0 - 1.0
     dev_value_score: float | None = None  # 0.0 - 1.0: utility for AI development
     credibility_score: float | None = None  # 0.0 - 1.0: source credibility
-    summary: str | None = None  # Spanish summary (max 25 words)
+    summary: str | None = None  # English summary (max 25 words)
     priority: int = 3  # 1 (highest) - 5 (lowest)
     trending: bool = False
     source_count: int = 1
