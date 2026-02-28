@@ -141,10 +141,10 @@ class TestSaveBriefing:
         result = await db_session.execute(select(DailyBriefing))
         briefing = result.scalar_one()
 
-        assert briefing.items_extracted == 16  # 10 + 6
-        assert briefing.total_items == 8  # 5 + 3
-        assert briefing.trending_count == 1  # 1 + 0
-        assert briefing.duration_seconds == pytest.approx(3.5)  # 2.0 + 1.5
+        assert briefing.items_extracted == 6  # replaced by latest run
+        assert briefing.total_items == 8  # 5 + 3 (accumulated)
+        assert briefing.trending_count == 0  # replaced by latest run
+        assert briefing.duration_seconds == pytest.approx(1.5)  # replaced by latest run
 
     async def test_empty_pipeline(self, db_session):
         """Briefing with 0 items stored is valid."""
