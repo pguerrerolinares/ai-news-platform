@@ -30,6 +30,7 @@ def upgrade() -> None:
           RETURN NEW;
         END $$ LANGUAGE plpgsql
     """)
+    op.execute("DROP TRIGGER IF EXISTS trg_news_items_search ON news_items")
     op.execute("""
         CREATE TRIGGER trg_news_items_search
           BEFORE INSERT OR UPDATE OF title, summary ON news_items
