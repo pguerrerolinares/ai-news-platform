@@ -34,7 +34,7 @@ def _make_news_item(
     title: str = "AI News",
     summary: str = "Summary text",
     url: str = "https://example.com",
-    topic: str = "modelos",
+    topic: str = "models",
 ) -> MagicMock:
     item = MagicMock()
     item.id = uuid.uuid4()
@@ -62,12 +62,12 @@ def _parse_sse(raw: str) -> tuple[str | None, dict | None]:
 
 
 class TestSystemPrompt:
-    def test_is_spanish(self) -> None:
-        assert "noticias" in SYSTEM_PROMPT
-        assert "IA" in SYSTEM_PROMPT
+    def test_is_english(self) -> None:
+        assert "news" in SYSTEM_PROMPT
+        assert "AI" in SYSTEM_PROMPT
 
     def test_mentions_sources(self) -> None:
-        assert "fuentes" in SYSTEM_PROMPT.lower()
+        assert "sources" in SYSTEM_PROMPT.lower()
 
 
 class TestBuildContext:
@@ -84,7 +84,7 @@ class TestBuildContext:
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
             service = ChatService()
         context = service._build_context([])
-        assert "no se encontr" in context.lower() or "no hay" in context.lower()
+        assert "no relevant news" in context.lower()
 
 
 class TestBuildSources:
