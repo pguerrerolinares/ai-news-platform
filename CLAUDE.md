@@ -2,7 +2,8 @@
 
 ## Language & Style
 - **Code and comments**: English
-- **User-facing text** (summaries, Telegram messages, frontend labels): Spanish
+- **Backend user-facing text** (Telegram messages, LLM summaries): Spanish
+- **Frontend text**: English (all UI labels, buttons, errors via i18n)
 - **Type hints**: Required everywhere. Use `from __future__ import annotations` in every module.
 - **Docstrings**: Public APIs only. Google style, concise.
 - **Line length**: 100 characters (configured in ruff)

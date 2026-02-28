@@ -33,5 +33,29 @@
       "What new tools are there?",
       "Tell me about AI regulation"
     ]
+  },
+  "login": {
+    "description": "Enter your email to receive a code",
+    "codeSent": "Code sent to {{email}}",
+    "sharedPassword": "Shared password access",
+    "sendingCode": "Sending...",
+    "sendCode": "Send code",
+    "passwordAccess": "Password access",
+    "verifying": "Verifying...",
+    "verify": "Verify",
+    "changeEmail": "Change email",
+    "resendCode": "Resend code",
+    "password": "Password",
+    "otpLabel": "OTP Code",
+    "signingIn": "Signing in...",
+    "signIn": "Sign in",
+    "emailAccess": "Email access",
+    "errorSendingCode": "Error sending code",
+    "invalidCode": "Invalid or expired code",
+    "authError": "Authentication error",
+    "errorResending": "Error resending code"
+  },
+  "featured": {
+    "by": "by"
   }
 }

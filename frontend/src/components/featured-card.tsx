@@ -10,10 +10,12 @@ import {
 } from '@tabler/icons-react'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
+import { useTranslation } from 'react-i18next'
 
 export function FeaturedCard({ item }: { item: NewsItem }) {
   const href = safeUrl(item.url)
   const reduced = useReducedMotion()
+  const { t } = useTranslation()
 
   return (
     <motion.div
@@ -65,7 +67,7 @@ export function FeaturedCard({ item }: { item: NewsItem }) {
           </CardDescription>
         </CardHeader>
         <CardFooter className="text-xs text-muted-foreground gap-3">
-          {item.author && <span>por {item.author}</span>}
+          {item.author && <span>{t('featured.by')} {item.author}</span>}
           <span className="flex items-center gap-1">
             <IconClock className="size-3" />
             {formatTime(item.published_at)}

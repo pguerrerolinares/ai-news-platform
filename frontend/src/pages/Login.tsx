@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ export default function Login() {
   const { requestOtp, verifyOtp, loginLegacy } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
   const codeRef = useRef<HTMLInputElement>(null)
 
   function getRedirectPath(): string {
@@ -46,7 +48,7 @@ export default function Login() {
       await requestOtp(email)
       setStep('code')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar el codigo')
+      setError(err instanceof Error ? err.message : t('login.errorSendingCode'))
     } finally {
       setLoading(false)
     }
@@ -61,7 +63,7 @@ export default function Login() {
       await verifyOtp(email, code)
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Codigo invalido o expirado')
+      setError(err instanceof Error ? err.message : t('login.invalidCode'))
     } finally {
       setLoading(false)
     }
@@ -76,7 +78,7 @@ export default function Login() {
       await loginLegacy(password)
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error de autenticacion')
+      setError(err instanceof Error ? err.message : t('login.authError'))
     } finally {
       setLoading(false)
     }
@@ -88,9 +90,9 @@ export default function Login() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">AI News</CardTitle>
           <CardDescription>
-            {step === 'email' && 'Introduce tu email para recibir un codigo'}
-            {step === 'code' && `Codigo enviado a ${email}`}
-            {step === 'legacy' && 'Acceso con contrasena compartida'}
+            {step === 'email' && t('login.description')}
+            {step === 'code' && t('login.codeSent', { email })}
+            {step === 'legacy' && t('login.sharedPassword')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -102,7 +104,7 @@ export default function Login() {
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <Input
                 type="email"
-                placeholder="tu@email.com"
+                placeholder="you@email.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 disabled={loading}
@@ -110,14 +112,14 @@ export default function Login() {
                 autoFocus
               />
               <Button type="submit" className="w-full" disabled={loading || !email.trim()}>
-                {loading ? 'Enviando...' : 'Enviar codigo'}
+                {loading ? t('login.sendingCode') : t('login.sendCode')}
               </Button>
               <button
                 type="button"
                 className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => { setError(''); setStep('legacy') }}
               >
-                Acceso con contrasena
+                {t('login.passwordAccess')}
               </button>
             </form>
           )}
@@ -134,11 +136,11 @@ export default function Login() {
                 value={code}
                 onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 disabled={loading}
-                aria-label="Codigo OTP"
+                aria-label={t('login.otpLabel')}
                 className="text-center text-2xl tracking-[0.3em] font-mono"
               />
               <Button type="submit" className="w-full" disabled={loading || code.length !== 6}>
-                {loading ? 'Verificando...' : 'Verificar'}
+                {loading ? t('login.verifying') : t('login.verify')}
               </Button>
               <div className="flex justify-between">
                 <button
@@ -146,7 +148,7 @@ export default function Login() {
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => { setCode(''); setError(''); setStep('email') }}
                 >
-                  Cambiar email
+                  {t('login.changeEmail')}
                 </button>
                 <button
                   type="button"
@@ -159,13 +161,13 @@ export default function Login() {
                       await requestOtp(email)
                       setError('')
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Error al reenviar')
+                      setError(err instanceof Error ? err.message : t('login.errorResending'))
                     } finally {
                       setLoading(false)
                     }
                   }}
                 >
-                  Reenviar codigo
+                  {t('login.resendCode')}
                 </button>
               </div>
             </form>
@@ -175,22 +177,22 @@ export default function Login() {
             <form onSubmit={handleLegacyLogin} className="space-y-4">
               <Input
                 type="password"
-                placeholder="Contrasena"
+                placeholder={t('login.password')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 disabled={loading}
-                aria-label="Contrasena"
+                aria-label={t('login.password')}
                 autoFocus
               />
               <Button type="submit" className="w-full" disabled={loading || !password.trim()}>
-                {loading ? 'Entrando...' : 'Entrar'}
+                {loading ? t('login.signingIn') : t('login.signIn')}
               </Button>
               <button
                 type="button"
                 className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => { setError(''); setStep('email') }}
               >
-                Acceso con email
+                {t('login.emailAccess')}
               </button>
             </form>
           )}
