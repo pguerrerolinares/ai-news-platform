@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { IconEye, IconEyeOff } from '@tabler/icons-react'
 import { useAuth } from '@/hooks/use-auth'
 
 type Step = 'email' | 'code' | 'legacy'
@@ -13,6 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { requestOtp, verifyOtp, loginLegacy, loginPasskey } = useAuth()
@@ -123,6 +125,7 @@ export default function Login() {
                 onChange={e => setEmail(e.target.value)}
                 disabled={loading}
                 aria-label="Email"
+                autoComplete="email"
                 autoFocus
               />
               <Button type="submit" className="w-full" disabled={loading || !email.trim()}>
@@ -198,15 +201,26 @@ export default function Login() {
 
           {step === 'legacy' && (
             <form onSubmit={handleLegacyLogin} className="space-y-4">
-              <Input
-                type="password"
-                placeholder={t('login.password')}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                disabled={loading}
-                aria-label={t('login.password')}
-                autoFocus
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={t('login.password')}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  disabled={loading}
+                  aria-label={t('login.password')}
+                  autoFocus
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                </button>
+              </div>
               <Button type="submit" className="w-full" disabled={loading || !password.trim()}>
                 {loading ? t('login.signingIn') : t('login.signIn')}
               </Button>
