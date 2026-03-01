@@ -71,7 +71,7 @@ def create_scheduler() -> AsyncIOScheduler | None:
         run_scheduled_pipeline,
         IntervalTrigger(minutes=settings.hn_poll_interval_minutes),
         id="tier1_hn_reddit",
-        kwargs={"sources": ["hackernews", "reddit"], "since_hours": 1},
+        kwargs={"sources": ["hackernews", "reddit"], "since_hours": 6},
         replace_existing=True,
     )
 
