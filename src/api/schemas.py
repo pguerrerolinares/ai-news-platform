@@ -143,3 +143,28 @@ class UserResponse(BaseModel):
     role: str
 
     model_config = {"from_attributes": True}
+
+
+# --- WebAuthn (Passkeys) ---
+class WebAuthnLoginOptionsRequest(BaseModel):
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class WebAuthnRegisterVerifyRequest(BaseModel):
+    device_name: str = Field(..., min_length=1, max_length=100)
+    credential: dict  # Raw authenticator response from browser
+
+
+class WebAuthnLoginVerifyRequest(BaseModel):
+    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    credential: dict  # Raw authenticator assertion from browser
+
+
+class WebAuthnCredentialResponse(BaseModel):
+    id: uuid.UUID
+    device_name: str
+    backed_up: bool
+    created_at: datetime
+    last_used_at: datetime | None
+
+    model_config = {"from_attributes": True}
