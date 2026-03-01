@@ -62,6 +62,7 @@ services:
       - "traefik.http.routers.frontend-http.middlewares=frontend-redirect"
       - "traefik.http.middlewares.frontend-redirect.redirectscheme.scheme=https"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=coolify"
     depends_on:
       api:
         condition: service_healthy
