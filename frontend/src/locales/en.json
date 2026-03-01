@@ -1,21 +1,20 @@
 {
   "nav": {
-    "dashboard": "Dashboard",
-    "trending": "Trending",
-    "search": "Search",
-    "chat": "Chat"
+    "feed": "Feed",
+    "top": "Top",
+    "search": "Search"
   },
-  "dashboard": {
-    "loading": "Loading news...",
-    "errorLoading": "Error loading news",
-    "itemCount": "{{count}} news from {{trending}} trending",
+  "feed": {
+    "title": "Feed",
+    "subtitle": "AI news sorted by relevance",
     "noItems": "No news for this topic",
+    "errorLoading": "Error loading news",
     "errorLoadingMore": "Error loading more news"
   },
-  "trending": {
-    "subtitle": "{{count}} news gaining traction now",
-    "empty": "No trending news",
-    "topScored": "The highest scoring news"
+  "top": {
+    "title": "Top",
+    "subtitle": "Most relevant AI news",
+    "empty": "No items for this period"
   },
   "search": {
     "title": "Search",
@@ -76,8 +75,5 @@
     "never": "Never",
     "registered": "Registered",
     "backedUp": "Synced"
-  },
-  "featured": {
-    "by": "by"
   }
 }

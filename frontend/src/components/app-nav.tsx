@@ -16,10 +16,9 @@ import { motion } from 'motion/react'
 import { useAuth } from '@/hooks/use-auth'
 
 const links = [
-  { to: '/', label: 'Latest' },
-  { to: '/trending', label: 'Trending' },
+  { to: '/', label: 'Feed' },
+  { to: '/top', label: 'Top' },
   { to: '/search', label: 'Search' },
-  { to: '/chat', label: 'Chat' },
 ]
 
 const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>

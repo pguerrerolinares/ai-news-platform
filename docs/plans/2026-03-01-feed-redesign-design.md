@@ -21,7 +21,7 @@ Three clear sections replacing the current four:
 | **Top** (`/top`) | Leaderboard by time period | "What's been most important?" |
 | **Search** (`/search`) | Find specific news | "I'm looking for X" |
 
-**Removed**: Chat page, Trending page. Chat can be re-added later as a floating panel if needed.
+**Removed from nav**: Chat (route kept at `/chat`, redesign in backlog), Trending page.
 
 ## Content Type Balance
 
@@ -165,8 +165,7 @@ Keep current implementation. No changes needed.
 ### Removed
 
 - `/trending` route and page
-- `/chat` route and page
-- Chat component and dependencies (can be re-added as floating panel later)
+- Chat from navigation (route preserved at `/chat` for direct access — redesign in backlog)
 
 ## Migration Plan
 

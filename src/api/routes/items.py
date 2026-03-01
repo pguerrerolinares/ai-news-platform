@@ -264,12 +264,13 @@ async def list_latest_items(
     response: Response,
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
+    sort: str = Query("relevance", description="Sort: relevance or recent"),
     limit: int = Query(50, ge=1, le=200, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
-    """Latest items across all dates, sorted by effective date descending."""
+    """Latest items, sorted by relevance (default) or recency."""
     query = select(NewsItem)
 
     if topic:
@@ -281,7 +282,12 @@ async def list_latest_items(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(effective_date.desc()).offset(offset).limit(limit)
+    if sort == "recent":
+        query = query.order_by(effective_date.desc())
+    else:
+        query = query.order_by(NewsItem.score.desc().nulls_last(), effective_date.desc())
+
+    query = query.offset(offset).limit(limit)
 
     result = await session.execute(query)
     items = result.scalars().all()
