@@ -36,11 +36,12 @@ def upgrade() -> None:
         sa.Column("sign_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("device_name", sa.Text(), nullable=False),
         sa.Column("transports", JSONB(), nullable=True),
-        sa.Column("backed_up", sa.Boolean(), server_default=sa.text("false")),
+        sa.Column("backed_up", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
+            nullable=False,
             server_default=sa.func.now(),
         ),
     )
