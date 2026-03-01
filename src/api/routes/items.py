@@ -16,6 +16,7 @@ from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import ItemEmbedding, NewsItem
 from src.core.queries import effective_date
+from src.feed.feed_builder import FeedBuilder
 
 router = APIRouter(prefix="/api/items", tags=["items"])
 limiter = Limiter(key_func=get_client_ip)
@@ -265,8 +266,8 @@ async def list_latest_items(
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
     sort: str = Query("relevance", description="Sort: relevance or recent"),
-    max_per_source: int | None = Query(
-        None, ge=1, le=100, description="Max items per source (diversity cap)"
+    diversity: float | None = Query(
+        None, ge=0.0, le=1.0, description="Feed diversity (0=quality, 1=diverse)"
     ),
     limit: int = Query(50, ge=1, le=200, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
@@ -274,71 +275,31 @@ async def list_latest_items(
     _user: UserClaims = Depends(require_auth),
 ) -> list[NewsItemResponse]:
     """Latest items, sorted by relevance (default) or recency."""
-    use_diversity = max_per_source is not None and sort != "recent"
-
-    if use_diversity:
-        # Subquery: rank items within each source by composite_score
-        source_rank = (
-            func.row_number()
-            .over(
-                partition_by=NewsItem.source,
-                order_by=[
-                    NewsItem.composite_score.desc().nulls_last(),
-                    effective_date.desc(),
-                ],
-            )
-            .label("source_rank")
+    if sort != "recent":
+        # Diversified feed via FeedBuilder
+        builder = FeedBuilder(session)
+        items, total = await builder.build(
+            topic=topic,
+            source=source,
+            limit=limit,
+            offset=offset,
+            diversity=diversity,
         )
-
-        ranked = select(NewsItem.id, source_rank)
-        if topic:
-            ranked = ranked.where(NewsItem.topic == topic)
-        if source:
-            ranked = ranked.where(NewsItem.source == source)
-        ranked_subq = ranked.subquery()
-
-        # Filtered IDs: top N per source
-        filtered_ids = select(ranked_subq.c.id).where(ranked_subq.c.source_rank <= max_per_source)
-
-        # Count
-        count_q = select(func.count()).select_from(filtered_ids.subquery())
-        total = (await session.execute(count_q)).scalar_one()
         set_total_count_header(response, total)
+        return [NewsItemResponse.model_validate(item) for item in items]
 
-        # Main query
-        query = (
-            select(NewsItem)
-            .where(NewsItem.id.in_(filtered_ids))
-            .order_by(
-                NewsItem.composite_score.desc().nulls_last(),
-                effective_date.desc(),
-            )
-            .offset(offset)
-            .limit(limit)
-        )
-    else:
-        # Original behavior (no diversity cap)
-        query = select(NewsItem)
-        if topic:
-            query = query.where(NewsItem.topic == topic)
-        if source:
-            query = query.where(NewsItem.source == source)
+    # Chronological (sort=recent) — original behavior
+    query = select(NewsItem)
+    if topic:
+        query = query.where(NewsItem.topic == topic)
+    if source:
+        query = query.where(NewsItem.source == source)
 
-        count_query = select(func.count()).select_from(
-            query.with_only_columns(NewsItem.id).subquery()
-        )
-        total = (await session.execute(count_query)).scalar_one()
-        set_total_count_header(response, total)
+    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
+    total = (await session.execute(count_query)).scalar_one()
+    set_total_count_header(response, total)
 
-        if sort == "recent":
-            query = query.order_by(effective_date.desc())
-        else:
-            query = query.order_by(
-                NewsItem.composite_score.desc().nulls_last(),
-                effective_date.desc(),
-            )
-        query = query.offset(offset).limit(limit)
-
+    query = query.order_by(effective_date.desc()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
