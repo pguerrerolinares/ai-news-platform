@@ -97,6 +97,24 @@ class Settings(BaseSettings):
     topics: str = "models,tools,papers,products,open_source,agents,regulation"
     min_relevance_score: float = 0.8
 
+    # --- Composite Scoring Weights (must sum to 1.0 for each mode) ---
+    composite_w_velocity: float = 0.35
+    composite_w_relevance: float = 0.30
+    composite_w_recency: float = 0.20
+    composite_w_topic: float = 0.15
+    # Weights when velocity is unavailable (Arxiv, RSS)
+    composite_no_velocity_w_relevance: float = 0.45
+    composite_no_velocity_w_recency: float = 0.30
+    composite_no_velocity_w_topic: float = 0.25
+    # Recency decay window in hours
+    composite_recency_window_hours: float = 48.0
+    # --- Velocity Thresholds (saturation point = 1.0) ---
+    velocity_threshold_github: float = 500.0  # stars/day
+    velocity_threshold_hackernews: float = 200.0  # points/hour
+    velocity_threshold_reddit: float = 150.0  # upvotes/hour
+    velocity_threshold_huggingface: float = 100_000.0  # downloads/day (models)
+    velocity_threshold_huggingface_paper: float = 50.0  # upvotes/hour
+
     # --- Validation ---
     enable_news_validation: bool = True
     trusted_news_domains: str = (

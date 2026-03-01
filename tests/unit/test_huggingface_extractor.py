@@ -329,6 +329,43 @@ class TestDailyPapers:
         assert result[0].author == "Alice"
 
 
+class TestSourceCreatedAt:
+    """Tests for source_created_at capture."""
+
+    @respx.mock
+    async def test_extract_models_captures_created_at(self):
+        """source_created_at should be set from HF model createdAt field."""
+        model = _make_model("org/model-x", downloads=5000)
+        model["createdAt"] = "2025-01-10T08:00:00Z"
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=[]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].source_created_at is not None
+        assert result[0].source_created_at.year == 2025
+        assert result[0].source_created_at.month == 1
+
+    @respx.mock
+    async def test_missing_created_at_returns_none(self):
+        """source_created_at should be None when createdAt is missing."""
+        model = _make_model("org/no-created", downloads=5000)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=[]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].source_created_at is None
+
+    @respx.mock
+    async def test_model_metadata_includes_type(self):
+        """Model metadata should include type='model' for velocity calculation."""
+        model = _make_model("org/typed-model", downloads=5000)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=[]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].metadata["type"] == "model"
+
+
 class TestEdgeCases:
     """Edge-case tests for HuggingFaceExtractor robustness."""
 

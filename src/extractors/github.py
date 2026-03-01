@@ -106,6 +106,16 @@ class GitHubExtractor(BaseExtractor):
             except (ValueError, AttributeError):
                 pushed = None
 
+            try:
+                created_str = repo.get("created_at", "")
+                created_at_dt = (
+                    datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                    if created_str
+                    else None
+                )
+            except (ValueError, AttributeError):
+                created_at_dt = None
+
             items.append(
                 ExtractedItem(
                     title=title,
@@ -115,12 +125,14 @@ class GitHubExtractor(BaseExtractor):
                     author=repo.get("owner", {}).get("login", "unknown"),
                     published_at=pushed,
                     score=repo.get("stargazers_count", 0),
+                    source_created_at=created_at_dt,
                     metadata={
                         "language": repo.get("language"),
                         "stars": repo.get("stargazers_count", 0),
                         "forks": repo.get("forks_count", 0),
                         "topics": repo.get("topics", []),
                         "full_name": repo.get("full_name", ""),
+                        "created_at": repo.get("created_at"),
                         "search_query": query,
                     },
                 )

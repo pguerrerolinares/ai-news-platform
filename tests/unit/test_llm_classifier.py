@@ -126,7 +126,15 @@ class TestBuildPrompt:
         assert "is_news" in prompt
         assert "REJECT" in prompt
         assert "ACCEPT" in prompt
-        assert "RELEVANCE SCALE" in prompt
+        assert "RELEVANCE SCORING" in prompt
+
+    def test_prompt_contains_anchor_examples(self):
+        """Prompt should use concrete anchor examples for relevance scoring."""
+        items = [make_extracted_item(title="Test", source="github")]
+        prompt = _build_prompt(items, "models: AI models")
+        assert "OpenAI releases GPT-5" in prompt
+        assert "FORCED DISTRIBUTION" in prompt
+        assert "MUST NOT give more than" in prompt
 
     def test_prompt_batch_size_in_text(self):
         items = [make_extracted_item(title=f"Item {i}") for i in range(3)]

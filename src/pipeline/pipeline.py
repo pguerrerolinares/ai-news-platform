@@ -43,6 +43,7 @@ from src.extractors.reddit import RedditExtractor
 from src.extractors.rss import RSSExtractor
 from src.notifiers.alerts import AlertService
 from src.notifiers.telegram import TelegramNotifier
+from src.pipeline.composite_scorer import CompositeScorer
 from src.pipeline.dedup import deduplicate_items
 from src.pipeline.validation import validate_extracted_item
 from src.rag.embeddings import EmbeddingService
@@ -150,6 +151,7 @@ async def _store_classified_items(session: AsyncSession, items: list[ClassifiedI
                 full_text=item.text,
                 author=item.author,
                 score=item.score,
+                source_created_at=item.source_created_at,
                 metadata_=item.metadata,
                 # Classification fields
                 topic=ci.topic,
@@ -159,6 +161,7 @@ async def _store_classified_items(session: AsyncSession, items: list[ClassifiedI
                 priority=ci.priority,
                 trending=ci.trending,
                 dev_value_score=ci.dev_value_score,
+                composite_score=ci.composite_score,
             )
             .on_conflict_do_nothing(index_elements=["content_hash"])
         )
@@ -359,6 +362,11 @@ async def run_pipeline(
         if settings.openai_api_key and len(classified) > 1:
             classified = await deduplicate_events(classified)
             logger.info("pipeline_event_dedup", count=len(classified))
+
+        # 4b. Composite scoring
+        scorer = CompositeScorer()
+        classified = scorer.score_batch(classified)
+        logger.info("pipeline_composite_scoring", count=len(classified))
 
         # 5. Validate
         with validation_duration_seconds.time():

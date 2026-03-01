@@ -77,6 +77,10 @@ class NewsItem(Base):
     full_text: Mapped[str | None] = mapped_column(Text)
     author: Mapped[str | None] = mapped_column(Text)
     score: Mapped[int | None] = mapped_column(Integer)
+    source_created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    composite_score: Mapped[float | None] = mapped_column(Float, default=None)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     language: Mapped[str] = mapped_column(String(5), server_default=text("'en'"))
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR, deferred=True)
@@ -94,6 +98,7 @@ class NewsItem(Base):
         Index("idx_news_items_score", "score"),
         Index("idx_news_items_source_date", "source", "published_at"),
         Index("idx_news_items_topic_date", "topic", "published_at"),
+        Index("idx_news_items_composite_score", "composite_score"),
         Index("idx_news_items_created_at", "created_at"),
         Index(
             "idx_news_items_effective_date",

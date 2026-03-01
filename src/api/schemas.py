@@ -29,6 +29,7 @@ class NewsItemResponse(BaseModel):
     created_at: datetime
     author: str | None = None
     score: int | None = None
+    composite_score: float | None = None
 
     model_config = {"from_attributes": True}
 
