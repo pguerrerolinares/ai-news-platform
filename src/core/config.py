@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     velocity_threshold_huggingface: float = 100_000.0  # downloads/day (models)
     velocity_threshold_huggingface_paper: float = 50.0  # upvotes/hour
 
+    # --- Feed Algorithm ---
+    feed_mmr_lambda: float = 0.7  # MMR quality vs diversity (0=diverse, 1=quality)
+    feed_candidate_multiplier: int = 5  # Candidate pool = limit * multiplier
+
     # --- Validation ---
     enable_news_validation: bool = True
     trusted_news_domains: str = (
