@@ -193,7 +193,9 @@ async def login_options(
     allow_credentials = [
         PublicKeyCredentialDescriptor(
             id=cred.credential_id,
-            transports=[AuthenticatorTransport(t) for t in cred.transports] if cred.transports else None,
+            transports=(
+                [AuthenticatorTransport(t) for t in cred.transports] if cred.transports else None
+            ),
         )
         for cred in credentials
     ]
