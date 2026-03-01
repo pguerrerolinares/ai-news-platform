@@ -32,6 +32,7 @@ export default function Feed() {
         limit: String(PAGE_SIZE),
         offset: String(pageParam),
         sort: 'relevance',
+        max_per_source: '5',
       }
       if (topicParam) params.topic = topicParam
       return apiGet<NewsItem[]>('/api/items/latest', params, signal)
