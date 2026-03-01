@@ -218,3 +218,38 @@ class OtpCode(Base):
     )
 
     __table_args__ = (Index("idx_otp_codes_lookup", "email", "used", "expires_at"),)
+
+
+class WebAuthnCredential(Base):
+    """WebAuthn/passkey credential for biometric authentication."""
+
+    __tablename__ = "webauthn_credentials"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    credential_id: Mapped[bytes] = mapped_column(
+        "credential_id",
+        nullable=False,
+        unique=True,
+    )
+    public_key: Mapped[bytes] = mapped_column(nullable=False)
+    sign_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    device_name: Mapped[str] = mapped_column(Text, nullable=False)
+    transports: Mapped[dict | None] = mapped_column(JSONB)
+    backed_up: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_webauthn_user_id", "user_id"),
+    )
