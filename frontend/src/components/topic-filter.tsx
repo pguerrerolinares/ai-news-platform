@@ -11,7 +11,7 @@ interface TopicFilterProps {
 
 export function TopicFilter({ value, onChange }: TopicFilterProps) {
   return (
-    <ScrollArea className="w-full">
+    <ScrollArea className="sticky top-14 z-40 w-full bg-background/80 py-2 backdrop-blur-sm">
       <Tabs value={value} onValueChange={onChange}>
         <TabsList className="h-auto bg-transparent p-0">
           <TabsTrigger
