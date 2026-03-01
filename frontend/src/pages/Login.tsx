@@ -101,7 +101,7 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center px-4">
+    <div className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">AI News</CardTitle>
@@ -119,6 +119,7 @@ export default function Login() {
           {step === 'email' && (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <Input
+                name="email"
                 type="email"
                 placeholder="you@email.com"
                 value={email}
@@ -126,7 +127,6 @@ export default function Login() {
                 disabled={loading}
                 aria-label="Email"
                 autoComplete="email"
-                autoFocus
               />
               <Button type="submit" className="w-full" disabled={loading || !email.trim()}>
                 {loading ? t('login.sendingCode') : t('login.sendCode')}
@@ -209,7 +209,6 @@ export default function Login() {
                   onChange={e => setPassword(e.target.value)}
                   disabled={loading}
                   aria-label={t('login.password')}
-                  autoFocus
                   className="pr-10"
                 />
                 <button
