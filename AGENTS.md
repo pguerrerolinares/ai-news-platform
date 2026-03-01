@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 918 passed, 92% coverage
+- **Tests**: 1015+ passed, 92% coverage
 
 ## Architecture
 
@@ -39,13 +39,16 @@ Docker Compose on Hetzner VPS
 ### Data Flow
 
 ```
-Sources -> Extract -> Dedup -> Classify (LLM) -> Validate -> Store (PostgreSQL)
-                                                                 |
-                                                    FastAPI API <-+-> React UI
-                                                                 |
-                                                    Telegram     <-+
-                                                                 |
-                                                    Embed -> RAG Chat (SSE)
+Sources -> Extract -> Dedup -> Classify (LLM) -> Variant Collapse -> Validate -> Store (PostgreSQL)
+                                                                                       |
+                                                                          FastAPI API <-+-> React UI
+                                                                                       |
+                                                                          Telegram     <-+
+                                                                                       |
+                                                                          Embed -> RAG Chat (SSE)
+
+Feed Pipeline (query-time):
+  Candidates (composite_score NOT NULL) -> Variant Collapse -> MMR Diversification -> Paginate
 ```
 
 ## How to Run
@@ -109,8 +112,13 @@ ai-news-platform/
 │   │   ├── schemas.py                # Pydantic response models
 │   │   ├── webauthn.py                # WebAuthn challenge store
 │   │   └── routes/                   # auth, otp, webauthn, items, briefings, search, chat, stats, sources
+│   ├── feed/                           # Feed algorithm (query-time ranking)
+│   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ)
+│   │   ├── mmr_ranker.py             # MMR diversification (quality vs source diversity)
+│   │   └── feed_builder.py           # Orchestrator: candidates→collapse→MMR→paginate
 │   ├── pipeline/
-│   │   ├── pipeline.py               # extract→dedup→classify→validate→embed→store→notify
+│   │   ├── pipeline.py               # extract→dedup→classify→variant_collapse→validate→embed→store→notify
+│   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
 │   │   ├── scheduler.py              # APScheduler 3-tier (15m/1h window, 60m/3h window, daily/24h)
 │   │   └── circuit_breaker.py        # Per-source failure tracking
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
@@ -121,15 +129,15 @@ ai-news-platform/
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
 │       └── pages/                    # Login, Dashboard, Trending, Search, Chat, Settings
-├── tests/                            # 918 unit + 35 E2E (Playwright)
-├── scripts/                          # backup, health check, pipeline scheduler
+├── tests/                            # 1015+ unit + 35 E2E (Playwright)
+├── scripts/                          # backup, health check, rescore_composite, rescore_all
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
 
 ## Database Schema
 
 ### Tables
-- **news_items**: id(UUID PK), title, summary, url, source, topic, relevance_score, dev_value_score, credibility_score, priority, trending, published_at, created_at, content_hash(UNIQUE), url_hash, full_text, author, score, metadata(JSONB), language(VARCHAR DEFAULT 'en'), search_vector(tsvector)
+- **news_items**: id(UUID PK), title, summary, url, source, topic, relevance_score, dev_value_score, credibility_score, composite_score, priority, trending, published_at, created_at, content_hash(UNIQUE), url_hash, full_text, author, score, metadata(JSONB), language(VARCHAR DEFAULT 'en'), search_vector(tsvector)
   Indexes: published_at DESC, topic, source, content_hash, url_hash, FTS(title+summary+full_text), score, created_at, GIN(search_vector), partial(trending+date)
   Constraint: valid_topic CHECK (models, papers, agents, products, tools, open_source, regulation)
 - **raw_extractions**: id(SERIAL PK), title, url, source, extracted_at, data(JSONB) — staging table
@@ -160,7 +168,7 @@ ai-news-platform/
 | GET | /api/auth/me | JWT | Current user info |
 | GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) |
 | GET | /api/items/count | JWT | Count matching items |
-| GET | /api/items/latest | JWT | Latest items (date-unbounded, sorted by effective date) |
+| GET | /api/items/latest | JWT | Latest items (sort=relevance uses FeedBuilder with MMR diversity, sort=recent is chronological) |
 | GET | /api/items/today | JWT | Today's items by effective date |
 | GET | /api/items/by-date/{date} | JWT | Items for specific date |
 | GET | /api/items/trending | JWT | Trending items |
@@ -183,6 +191,9 @@ Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, co
 All config via env vars. See `.env.example` for full list.
 
 Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,arxiv,reddit,rss,github,huggingface`
+Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MULTIPLIER=5` (pool size = limit × N)
+Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
+Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
 Scheduler: HN+Reddit every 15min, RSS+GitHub+HF every 60min, arXiv daily 01:30 UTC. Circuit breaker: 3 failures → 1h cooldown.
 Auth: Passwordless OTP via Resend API + WebAuthn passkeys (biometric). `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. Shared password fallback (role=reader). WebAuthn config: `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`.
 
@@ -206,7 +217,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (918 passed)
+**Current coverage**: 92% (1015+ passed)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
