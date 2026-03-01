@@ -57,11 +57,12 @@ export default function Dashboard() {
     [data],
   )
 
+  const firstPage = data?.pages[0]?.data ?? []
   const featured = useMemo(
-    () => activeTopic === 'all' && items.length > 0
-      ? [...items].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
+    () => activeTopic === 'all' && firstPage.length > 0
+      ? [...firstPage].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
       : null,
-    [items, activeTopic],
+    [firstPage, activeTopic],
   )
 
   const filtered = useMemo(() => {
