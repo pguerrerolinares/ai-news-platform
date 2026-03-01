@@ -79,9 +79,7 @@ async def register_options(
     # Get existing credentials to exclude
     async with get_async_session() as session:
         result = await session.execute(
-            select(WebAuthnCredential.credential_id).where(
-                WebAuthnCredential.user_id == user_uuid
-            )
+            select(WebAuthnCredential.credential_id).where(WebAuthnCredential.user_id == user_uuid)
         )
         existing_creds = result.scalars().all()
 
