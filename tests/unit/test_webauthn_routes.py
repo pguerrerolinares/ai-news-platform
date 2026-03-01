@@ -111,6 +111,38 @@ class TestLoginOptions:
         assert resp.status_code == 404
 
 
+class TestLegacySessionRejected:
+    """Legacy (non-UUID sub) tokens must be rejected by all webauthn endpoints."""
+
+    def _legacy_header(self) -> dict[str, str]:
+        from src.api.auth import create_access_token
+
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(subject="legacy", role="reader")
+        return {"Authorization": f"Bearer {token}"}
+
+    async def test_register_options_rejects_legacy(self, api_client: AsyncClient):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            resp = await api_client.post(
+                "/api/auth/webauthn/register/options",
+                headers=self._legacy_header(),
+            )
+        assert resp.status_code == 403
+        assert resp.json()["error"]["code"] == "LEGACY_SESSION"
+
+    async def test_list_credentials_rejects_legacy(self, api_client: AsyncClient):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            resp = await api_client.get(
+                "/api/auth/webauthn/credentials",
+                headers=self._legacy_header(),
+            )
+        assert resp.status_code == 403
+        assert resp.json()["error"]["code"] == "LEGACY_SESSION"
+
+
 class TestCredentialsList:
     async def test_unauthenticated_returns_403(self, api_client: AsyncClient):
         resp = await api_client.get("/api/auth/webauthn/credentials")

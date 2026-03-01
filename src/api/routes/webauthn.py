@@ -55,6 +55,14 @@ limiter = Limiter(key_func=get_client_ip)
 CHALLENGE_TTL = 300  # 5 minutes
 
 
+def _parse_user_uuid(sub: str) -> uuid_mod.UUID:
+    """Parse user.sub as UUID, rejecting legacy (non-UUID) sessions."""
+    try:
+        return uuid_mod.UUID(sub)
+    except ValueError:
+        raise APIError(403, "LEGACY_SESSION", "Passkeys require OTP-based authentication") from None
+
+
 # --- Registration (authenticated) ---
 
 
@@ -66,12 +74,13 @@ async def register_options(
 ):
     """Generate registration options for a new passkey."""
     settings = get_settings()
+    user_uuid = _parse_user_uuid(user.sub)
 
     # Get existing credentials to exclude
     async with get_async_session() as session:
         result = await session.execute(
             select(WebAuthnCredential.credential_id).where(
-                WebAuthnCredential.user_id == uuid_mod.UUID(user.sub)
+                WebAuthnCredential.user_id == user_uuid
             )
         )
         existing_creds = result.scalars().all()
@@ -110,6 +119,7 @@ async def register_verify(
 ):
     """Verify registration and store the new passkey."""
     settings = get_settings()
+    user_uuid = _parse_user_uuid(user.sub)
 
     challenge = get_challenge(f"reg:{user.sub}")
     if challenge is None:
@@ -130,7 +140,7 @@ async def register_verify(
     async with get_async_session() as session:
         session.add(
             WebAuthnCredential(
-                user_id=uuid_mod.UUID(user.sub),
+                user_id=user_uuid,
                 credential_id=verification.credential_id,
                 public_key=verification.credential_public_key,
                 sign_count=verification.sign_count,
@@ -284,10 +294,11 @@ async def list_credentials(
     user: UserClaims = Depends(require_auth),
 ):
     """List the current user's registered passkeys."""
+    user_uuid = _parse_user_uuid(user.sub)
     async with get_async_session() as session:
         result = await session.execute(
             select(WebAuthnCredential)
-            .where(WebAuthnCredential.user_id == uuid_mod.UUID(user.sub))
+            .where(WebAuthnCredential.user_id == user_uuid)
             .order_by(WebAuthnCredential.created_at.desc())
         )
         credentials = result.scalars().all()
@@ -306,11 +317,12 @@ async def delete_credential(
     user: UserClaims = Depends(require_auth),
 ):
     """Delete a registered passkey."""
+    user_uuid = _parse_user_uuid(user.sub)
     async with get_async_session() as session:
         result = await session.execute(
             delete(WebAuthnCredential).where(
                 WebAuthnCredential.id == credential_id,
-                WebAuthnCredential.user_id == uuid_mod.UUID(user.sub),
+                WebAuthnCredential.user_id == user_uuid,
             )
         )
         await session.commit()
