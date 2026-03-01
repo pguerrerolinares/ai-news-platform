@@ -1,9 +1,8 @@
 """WebAuthn (passkey) authentication endpoints."""
 
+import json
 import uuid as uuid_mod
 from datetime import UTC, datetime
-
-import json
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -15,8 +14,11 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers import options_to_json, parse_authentication_credential_json
-from webauthn.helpers import parse_registration_credential_json
+from webauthn.helpers import (
+    options_to_json,
+    parse_authentication_credential_json,
+    parse_registration_credential_json,
+)
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
@@ -40,7 +42,7 @@ from src.api.schemas import (
     WebAuthnLoginVerifyRequest,
     WebAuthnRegisterVerifyRequest,
 )
-from src.api.webauthn import clear_challenge, get_challenge, store_challenge
+from src.api.webauthn import get_challenge, store_challenge
 from src.core.config import get_settings
 from src.core.database import get_async_session
 from src.core.logging import get_logger
@@ -74,10 +76,7 @@ async def register_options(
         )
         existing_creds = result.scalars().all()
 
-    exclude_credentials = [
-        PublicKeyCredentialDescriptor(id=cred_id)
-        for cred_id in existing_creds
-    ]
+    exclude_credentials = [PublicKeyCredentialDescriptor(id=cred_id) for cred_id in existing_creds]
 
     options = generate_registration_options(
         rp_id=settings.webauthn_rp_id,
@@ -168,18 +167,14 @@ async def login_options(
 
     async with get_async_session() as session:
         # Find user
-        user_result = await session.execute(
-            select(User).where(User.email == email)
-        )
+        user_result = await session.execute(select(User).where(User.email == email))
         user = user_result.scalar_one_or_none()
         if user is None:
             raise APIError(404, "USER_NOT_FOUND", "No account found for this email")
 
         # Get user's credentials
         cred_result = await session.execute(
-            select(WebAuthnCredential).where(
-                WebAuthnCredential.user_id == user.id
-            )
+            select(WebAuthnCredential).where(WebAuthnCredential.user_id == user.id)
         )
         credentials = cred_result.scalars().all()
 
@@ -229,9 +224,7 @@ async def login_verify(
 
     # Look up user and credential
     async with get_async_session() as session:
-        user_result = await session.execute(
-            select(User).where(User.email == email)
-        )
+        user_result = await session.execute(select(User).where(User.email == email))
         user = user_result.scalar_one_or_none()
         if user is None:
             raise APIError(401, "AUTH_FAILED", "Authentication failed")
@@ -271,12 +264,8 @@ async def login_verify(
         user.last_login_at = datetime.now(tz=UTC)
         await session.commit()
 
-    access_token = create_access_token(
-        subject=str(user.id), role=user.role, email=user.email
-    )
-    refresh_token = create_refresh_token(
-        subject=str(user.id), role=user.role, email=user.email
-    )
+    access_token = create_access_token(subject=str(user.id), role=user.role, email=user.email)
+    refresh_token = create_refresh_token(subject=str(user.id), role=user.role, email=user.email)
 
     return TokenResponseV2(
         access_token=access_token,

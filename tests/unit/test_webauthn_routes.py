@@ -1,7 +1,6 @@
 """Tests for WebAuthn route endpoints."""
 
 import uuid
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +8,6 @@ from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
 from src.core.config import Settings
-
 
 TEST_SECRET = "test-jwt-secret-key"
 TEST_PASSWORD = "test-password-123"
@@ -80,12 +78,8 @@ class TestRegisterOptions:
             mock_result.scalars.return_value.all.return_value = []
             mock_session.execute = AsyncMock(return_value=mock_result)
 
-            with patch(
-                "src.api.routes.webauthn.get_async_session"
-            ) as mock_get_session:
-                mock_get_session.return_value.__aenter__ = AsyncMock(
-                    return_value=mock_session
-                )
+            with patch("src.api.routes.webauthn.get_async_session") as mock_get_session:
+                mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
                 mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
                 resp = await api_client.post(
                     "/api/auth/webauthn/register/options",
@@ -98,9 +92,7 @@ class TestRegisterOptions:
 
 class TestLoginOptions:
     async def test_missing_email_returns_422(self, api_client: AsyncClient):
-        resp = await api_client.post(
-            "/api/auth/webauthn/login/options", json={}
-        )
+        resp = await api_client.post("/api/auth/webauthn/login/options", json={})
         assert resp.status_code == 422
 
     async def test_no_credentials_returns_404(self, api_client: AsyncClient):
@@ -109,12 +101,8 @@ class TestLoginOptions:
         mock_result.scalar_one_or_none.return_value = None
         mock_session.execute = AsyncMock(return_value=mock_result)
 
-        with patch(
-            "src.api.routes.webauthn.get_async_session"
-        ) as mock_get_session:
-            mock_get_session.return_value.__aenter__ = AsyncMock(
-                return_value=mock_session
-            )
+        with patch("src.api.routes.webauthn.get_async_session") as mock_get_session:
+            mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
             resp = await api_client.post(
                 "/api/auth/webauthn/login/options",

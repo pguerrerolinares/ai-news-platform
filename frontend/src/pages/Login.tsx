@@ -15,7 +15,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { requestOtp, verifyOtp, loginLegacy } = useAuth()
+  const { requestOtp, verifyOtp, loginLegacy, loginPasskey } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
@@ -69,6 +69,20 @@ export default function Login() {
     }
   }
 
+  async function handlePasskeyLogin() {
+    if (!email.trim()) return
+    setError('')
+    setLoading(true)
+    try {
+      await loginPasskey(email)
+      navigate(from, { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('login.passkeyError'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleLegacyLogin(e: React.FormEvent) {
     e.preventDefault()
     if (!password.trim()) return
@@ -113,6 +127,15 @@ export default function Login() {
               />
               <Button type="submit" className="w-full" disabled={loading || !email.trim()}>
                 {loading ? t('login.sendingCode') : t('login.sendCode')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading || !email.trim()}
+                onClick={handlePasskeyLogin}
+              >
+                {loading ? t('login.passkeyLoading') : t('login.passkeyLogin')}
               </Button>
               <button
                 type="button"

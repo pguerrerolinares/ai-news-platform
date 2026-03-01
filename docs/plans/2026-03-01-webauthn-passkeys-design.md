@@ -1,7 +1,7 @@
 # WebAuthn Passkeys — Design Document
 
 **Date**: 2026-03-01
-**Status**: Approved
+**Status**: Implemented
 
 ## Problem
 

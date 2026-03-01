@@ -246,10 +246,6 @@ class WebAuthnCredential(Base):
     transports: Mapped[dict | None] = mapped_column(JSONB)
     backed_up: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    __table_args__ = (
-        Index("idx_webauthn_user_id", "user_id"),
-    )
+    __table_args__ = (Index("idx_webauthn_user_id", "user_id"),)

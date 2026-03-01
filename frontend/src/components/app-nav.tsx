@@ -11,7 +11,7 @@ import {
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useScrollDirection } from '@/hooks/use-scroll-direction'
-import { IconMenu2, IconLogout } from '@tabler/icons-react'
+import { IconMenu2, IconLogout, IconSettings } from '@tabler/icons-react'
 import { motion } from 'motion/react'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -80,6 +80,11 @@ export function AppNav() {
             </Sheet>
             <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
+              <NavLink to="/settings">
+                <Button variant="ghost" size="icon" aria-label="Settings">
+                  <IconSettings className="size-4" />
+                </Button>
+              </NavLink>
               <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out">
                 <IconLogout className="size-4" />
               </Button>
@@ -118,6 +123,11 @@ export function AppNav() {
             </nav>
             <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
+              <NavLink to="/settings">
+                <Button variant="ghost" size="icon" aria-label="Settings">
+                  <IconSettings className="size-4" />
+                </Button>
+              </NavLink>
               <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out">
                 <IconLogout className="size-4" />
               </Button>

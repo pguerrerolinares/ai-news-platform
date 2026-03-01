@@ -12,9 +12,16 @@ class TestWebAuthnCredentialModel:
     def test_has_required_columns(self):
         col_names = {c.name for c in WebAuthnCredential.__table__.columns}
         expected = {
-            "id", "user_id", "credential_id", "public_key",
-            "sign_count", "device_name", "transports", "backed_up",
-            "last_used_at", "created_at",
+            "id",
+            "user_id",
+            "credential_id",
+            "public_key",
+            "sign_count",
+            "device_name",
+            "transports",
+            "backed_up",
+            "last_used_at",
+            "created_at",
         }
         assert expected.issubset(col_names)
 

@@ -53,7 +53,29 @@
     "errorSendingCode": "Error sending code",
     "invalidCode": "Invalid or expired code",
     "authError": "Authentication error",
-    "errorResending": "Error resending code"
+    "errorResending": "Error resending code",
+    "passkeyLogin": "Sign in with Passkey",
+    "passkeyLoading": "Authenticating...",
+    "passkeyError": "Passkey authentication failed"
+  },
+  "settings": {
+    "title": "Settings",
+    "security": "Security",
+    "passkeys": "Passkeys",
+    "passkeysDescription": "Use fingerprint or Face ID to sign in without a code",
+    "noPasskeys": "No passkeys registered yet",
+    "registerPasskey": "Register new passkey",
+    "deviceName": "Device name",
+    "deviceNamePlaceholder": "e.g. My iPhone",
+    "registering": "Registering...",
+    "register": "Register",
+    "cancel": "Cancel",
+    "deleteConfirm": "Remove this passkey?",
+    "delete": "Remove",
+    "lastUsed": "Last used",
+    "never": "Never",
+    "registered": "Registered",
+    "backedUp": "Synced"
   },
   "featured": {
     "by": "by"

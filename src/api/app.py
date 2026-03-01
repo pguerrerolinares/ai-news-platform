@@ -21,11 +21,11 @@ from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.items import router as items_router
 from src.api.routes.otp import router as otp_router
-from src.api.routes.webauthn import router as webauthn_router
 from src.api.routes.search import router as search_router
 from src.api.routes.sources import router as sources_router
 from src.api.routes.stats import router as stats_router
 from src.api.routes.topics import router as topics_router
+from src.api.routes.webauthn import router as webauthn_router
 from src.core.config import get_settings
 from src.core.database import close_db, get_engine, init_db
 from src.core.logging import get_logger, set_correlation_id, setup_logging

@@ -9,7 +9,7 @@
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
 **Key facts**:
-- **Audience**: Semi-public (5-10 people), passwordless email OTP auth + JWT (shared password fallback)
+- **Audience**: Semi-public (5-10 people), passwordless email OTP auth + WebAuthn passkeys + JWT (shared password fallback)
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
@@ -31,6 +31,7 @@ Docker Compose on Hetzner VPS
 │                └──────────┘  │  - item_embeddings   │    │
 │                              │  - users             │    │
 │                              │  - otp_codes         │    │
+│                              │  - webauthn_creds    │    │
 │                              └─────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -88,13 +89,13 @@ ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
 ├── Dockerfile / docker-compose.yml / nginx.conf
-├── alembic/                          # DB migrations (8 versions)
+├── alembic/                          # DB migrations (9 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
 │   ├── core/
 │   │   ├── config.py                 # Pydantic Settings (all env vars)
 │   │   ├── database.py               # Async SQLAlchemy engine + get_async_session()
-│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction
+│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction, WebAuthnCredential
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   └── metrics.py                # Prometheus counters + histograms
 │   ├── extractors/                   # 6 extractors (HN, arXiv, Reddit, RSS, GitHub, HF)
@@ -106,7 +107,8 @@ ai-news-platform/
 │   │   ├── auth.py                   # JWT + refresh tokens, require_auth, require_admin
 │   │   ├── otp.py                    # OTP generation + Resend API
 │   │   ├── schemas.py                # Pydantic response models
-│   │   └── routes/                   # auth, otp, items, briefings, search, chat, stats, sources
+│   │   ├── webauthn.py                # WebAuthn challenge store
+│   │   └── routes/                   # auth, otp, webauthn, items, briefings, search, chat, stats, sources
 │   ├── pipeline/
 │   │   ├── pipeline.py               # extract→dedup→classify→validate→embed→store→notify
 │   │   ├── scheduler.py              # APScheduler 3-tier (15m/1h window, 60m/3h window, daily/24h)
@@ -115,10 +117,10 @@ ai-news-platform/
 │   └── mcp/                          # MCP server + client
 ├── frontend/                         # React 19 (Vite + Shadcn UI + Tailwind CSS 4)
 │   └── src/
-│       ├── lib/                      # api.ts, auth.ts, constants.ts, types.ts
+│       ├── lib/                      # api.ts, auth.ts, webauthn.ts, constants.ts, types.ts
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
-│       └── pages/                    # Login, Dashboard, Trending, Search, Chat
+│       └── pages/                    # Login, Dashboard, Trending, Search, Chat, Settings
 ├── tests/                            # 918 unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, pipeline scheduler
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
@@ -136,6 +138,8 @@ ai-news-platform/
   Indexes: HNSW(embedding vector_cosine_ops)
 - **users**: id(UUID PK), email(UNIQUE), name, role(admin|reader), created_at, last_login_at
 - **otp_codes**: id(SERIAL PK), email, code(6-digit), expires_at, used, created_at — purged daily by scheduler
+- **webauthn_credentials**: id(UUID PK), user_id(UUID FK→users CASCADE), credential_id(BYTEA UNIQUE), public_key(BYTEA), sign_count, device_name, transports(JSONB), backed_up, last_used_at, created_at
+  Indexes: user_id
 
 ## API Endpoints
 
@@ -147,6 +151,12 @@ ai-news-platform/
 | POST | /api/auth/refresh | No | Refresh access token (rotation, 10/min) |
 | POST | /api/auth/otp/request | No | Send OTP email (3/min) |
 | POST | /api/auth/otp/verify | No | Verify OTP → JWT (5/min) |
+| POST | /api/auth/webauthn/register/options | JWT | Generate passkey registration options (3/min) |
+| POST | /api/auth/webauthn/register/verify | JWT | Verify and store new passkey (3/min) |
+| POST | /api/auth/webauthn/login/options | No | Generate passkey login options (5/min) |
+| POST | /api/auth/webauthn/login/verify | No | Verify passkey login → JWT (5/min) |
+| GET | /api/auth/webauthn/credentials | JWT | List user's passkeys (10/min) |
+| DELETE | /api/auth/webauthn/credentials/{id} | JWT | Delete a passkey (3/min) |
 | GET | /api/auth/me | JWT | Current user info |
 | GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) |
 | GET | /api/items/count | JWT | Count matching items |
@@ -174,7 +184,7 @@ All config via env vars. See `.env.example` for full list.
 
 Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,arxiv,reddit,rss,github,huggingface`
 Scheduler: HN+Reddit every 15min, RSS+GitHub+HF every 60min, arXiv daily 01:30 UTC. Circuit breaker: 3 failures → 1h cooldown.
-Auth: Passwordless OTP via Resend API. `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. Shared password fallback (role=reader).
+Auth: Passwordless OTP via Resend API + WebAuthn passkeys (biometric). `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. Shared password fallback (role=reader). WebAuthn config: `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`.
 
 ## Testing
 

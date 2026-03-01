@@ -4,12 +4,14 @@ import type { ReactNode } from 'react'
 import { apiPost } from '@/lib/api'
 import { storeTokens, clearTokens, hasTokens, isTokenExpired } from '@/lib/auth'
 import type { AuthTokens } from '@/lib/auth'
+import { loginWithPasskey as webauthnLogin } from '@/lib/webauthn'
 
 interface AuthContextValue {
   isAuthenticated: boolean
   requestOtp: (email: string) => Promise<void>
   verifyOtp: (email: string, code: string) => Promise<void>
   loginLegacy: (password: string) => Promise<void>
+  loginPasskey: (email: string) => Promise<void>
   logout: () => void
 }
 
@@ -40,13 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true)
   }, [])
 
+  const loginPasskey = useCallback(async (email: string) => {
+    const tokens = await webauthnLogin(email)
+    storeTokens(tokens)
+    setIsAuthenticated(true)
+  }, [])
+
   const logout = useCallback(() => {
     clearTokens()
     setIsAuthenticated(false)
   }, [])
 
   return (
-    <AuthContext value={{ isAuthenticated, requestOtp, verifyOtp, loginLegacy, logout }}>
+    <AuthContext value={{ isAuthenticated, requestOtp, verifyOtp, loginLegacy, loginPasskey, logout }}>
       {children}
     </AuthContext>
   )

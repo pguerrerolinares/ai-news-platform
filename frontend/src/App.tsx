@@ -6,6 +6,7 @@ import Trending from '@/pages/Trending'
 import Search from '@/pages/Search'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
+import Settings from '@/pages/Settings'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="trending" element={<Trending />} />
             <Route path="search" element={<Search />} />
             <Route path="chat" element={<Chat />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
