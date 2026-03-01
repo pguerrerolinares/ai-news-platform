@@ -21,6 +21,7 @@ from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.items import router as items_router
 from src.api.routes.otp import router as otp_router
+from src.api.routes.webauthn import router as webauthn_router
 from src.api.routes.search import router as search_router
 from src.api.routes.sources import router as sources_router
 from src.api.routes.stats import router as stats_router
@@ -156,7 +157,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
     expose_headers=["X-Total-Count", "X-Correlation-ID"],
 )
@@ -171,6 +172,7 @@ app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore
 # Register route modules
 app.include_router(auth_router)
 app.include_router(otp_router)
+app.include_router(webauthn_router)
 app.include_router(items_router)
 app.include_router(briefings_router)
 app.include_router(search_router)
