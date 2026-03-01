@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-02-28 | **Current milestone**: Language Standardization | **Status**: Complete
+> **Last updated**: 2026-03-01 | **Current milestone**: CI/CD Auto-Deploy | **Status**: Complete
 
 ## Project Overview
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 997 passed + 35 skipped, 92% coverage
+- **Tests**: 918 passed, 92% coverage
 
 ## Architecture
 
@@ -119,7 +119,7 @@ ai-news-platform/
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
 │       └── pages/                    # Login, Dashboard, Trending, Search, Chat
-├── tests/                            # 914 unit + 35 E2E (Playwright)
+├── tests/                            # 918 unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, pipeline scheduler
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
@@ -196,28 +196,25 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (997 passed + 35 skipped)
+**Current coverage**: 92% (918 passed)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline
 
-### CI (on push/PR to main)
-1. `ruff check .` — Linting
-2. `ruff format --check .` — Format check
-3. `pyright .` — Type checking
-4. `bandit -r src/` — Security scan
-5. `alembic upgrade head && alembic check` — Migration validity
-6. `coverage run -m pytest && coverage report --fail-under=80` — Tests + coverage
+### CI (on push/PR to main) — `.github/workflows/ci.yml`
+1. **Lint** (parallel): `ruff check .`, `ruff format --check .`, `bandit -r src/`
+2. **Type Check** (parallel): `pyright .`
+3. **Unit Tests** (needs lint+typecheck): `alembic upgrade head && alembic check`, `coverage run -m pytest tests/unit/ --fail-under=80`
+4. **Integration** (needs test): `pytest tests/integration/`, `pytest tests/security/`
+5. **Deploy** (needs integration, main push only): Coolify webhook API
 
-### CD (on CI success, main branch only)
-1. SSH to VPS
-2. `git pull origin main`
-3. `docker compose build --no-cache api`
-4. `docker compose up -d api`
-5. Auto-migration via `docker-entrypoint.sh` (alembic upgrade head)
-6. Health check (60s timeout)
-7. On failure: automatic rollback to previous version
-8. Telegram notification (success or failure)
+### CD (automated via Coolify webhook)
+- **Trigger**: CI stage 5 calls `POST /api/v1/deploy?uuid=<service-uuid>` on Coolify API
+- **Gate**: `vars.COOLIFY_DEPLOY_ENABLED == 'true'` (kill switch in GitHub Variables)
+- **Secrets**: `COOLIFY_WEBHOOK` (deploy URL), `COOLIFY_TOKEN` (API bearer token)
+- **What Coolify does**: pulls latest code, builds Docker images, restarts containers
+- **Compose file**: `docker-compose.coolify.yml` (Traefik labels, 4 services)
+- **Rollback**: via Coolify UI deployment history, or revert commit on main
 
 ## Risk-Based Autonomy
 
