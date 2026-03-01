@@ -51,7 +51,9 @@ async def rescore_all(dry_run: bool = False, batch_size: int = 500) -> int:
     scorer = CompositeScorer()
     now = datetime.now(UTC)
     thresholds = scorer._velocity_thresholds
-    print(f"Thresholds: gh={thresholds['github']}, hn={thresholds['hackernews']}, hf={thresholds['huggingface']}")
+    print(
+        f"Thresholds: gh={thresholds['github']}, hn={thresholds['hackernews']}, hf={thresholds['huggingface']}"
+    )
 
     async with get_async_session() as session:
         count_result = await session.execute(select(func.count(NewsItem.id)))
@@ -73,7 +75,9 @@ async def rescore_all(dry_run: bool = False, batch_size: int = 500) -> int:
                 new_score = scorer.score(ci, now=now)
                 if not dry_run:
                     await session.execute(
-                        update(NewsItem).where(NewsItem.id == item.id).values(composite_score=new_score)
+                        update(NewsItem)
+                        .where(NewsItem.id == item.id)
+                        .values(composite_score=new_score)
                     )
 
             if not dry_run:
@@ -87,20 +91,26 @@ async def rescore_all(dry_run: bool = False, batch_size: int = 500) -> int:
                 for item in items[:3]:
                     ci = _newsitem_to_classified(item)
                     score = scorer.score(ci, now=now)
-                    print(f"    {item.source:15s} | old={item.composite_score:.4f} -> new={score:.4f} | {item.title[:60]}")
+                    print(
+                        f"    {item.source:15s} | old={item.composite_score:.4f} -> new={score:.4f} | {item.title[:60]}"
+                    )
                 break
 
         print(f"\nDone. {'Would update' if dry_run else 'Updated'} {updated} items.")
 
         if not dry_run:
-            r = await session.execute(text(
-                "SELECT source, count(*), avg(composite_score), min(composite_score), max(composite_score) "
-                "FROM news_items WHERE composite_score IS NOT NULL "
-                "GROUP BY source ORDER BY avg(composite_score) DESC"
-            ))
+            r = await session.execute(
+                text(
+                    "SELECT source, count(*), avg(composite_score), min(composite_score), max(composite_score) "
+                    "FROM news_items WHERE composite_score IS NOT NULL "
+                    "GROUP BY source ORDER BY avg(composite_score) DESC"
+                )
+            )
             print("\nNew distribution:")
             for row in r.all():
-                print(f"  {row[0]:15s} count={row[1]:5d} avg={row[2]:.4f} min={row[3]:.4f} max={row[4]:.4f}")
+                print(
+                    f"  {row[0]:15s} count={row[1]:5d} avg={row[2]:.4f} min={row[3]:.4f} max={row[4]:.4f}"
+                )
 
     return updated
 
