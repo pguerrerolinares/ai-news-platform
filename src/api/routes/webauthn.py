@@ -170,7 +170,7 @@ async def login_options(
         user_result = await session.execute(select(User).where(User.email == email))
         user = user_result.scalar_one_or_none()
         if user is None:
-            raise APIError(404, "USER_NOT_FOUND", "No account found for this email")
+            raise APIError(404, "NO_PASSKEYS", "No passkeys available for this email")
 
         # Get user's credentials
         cred_result = await session.execute(
@@ -179,7 +179,7 @@ async def login_options(
         credentials = cred_result.scalars().all()
 
     if not credentials:
-        raise APIError(404, "NO_PASSKEYS", "No passkeys registered for this account")
+        raise APIError(404, "NO_PASSKEYS", "No passkeys available for this email")
 
     allow_credentials = [
         PublicKeyCredentialDescriptor(

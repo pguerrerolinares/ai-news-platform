@@ -104,6 +104,10 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return data
 }
 
+export async function apiDelete(path: string): Promise<void> {
+  await request(path, { method: 'DELETE' })
+}
+
 export async function apiStream(
   path: string,
   body: unknown,

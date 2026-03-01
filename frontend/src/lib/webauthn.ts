@@ -3,7 +3,7 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/browser'
-import { apiPost, apiGet } from './api'
+import { apiPost, apiGet, apiDelete } from './api'
 import type { AuthTokens } from './auth'
 
 export interface WebAuthnCredential {
@@ -54,17 +54,5 @@ export async function listPasskeys(): Promise<WebAuthnCredential[]> {
 }
 
 export async function deletePasskey(id: string): Promise<void> {
-  const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
-  const token = localStorage.getItem('auth_access_token')
-  const res = await fetch(`${BASE_URL}/api/auth/webauthn/credentials/${id}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error?.message ?? `Error ${res.status}`)
-  }
+  await apiDelete(`/api/auth/webauthn/credentials/${id}`)
 }

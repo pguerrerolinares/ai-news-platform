@@ -28,16 +28,16 @@ class TestCORS:
         assert "GET" in resp.headers["Access-Control-Allow-Methods"]
 
     async def test_preflight_disallowed_method(self, security_client: AsyncClient):
-        """OPTIONS preflight for DELETE must not include DELETE in allowed methods."""
+        """OPTIONS preflight for PATCH must not include PATCH in allowed methods."""
         resp = await security_client.options(
             "/api/items",
             headers={
                 "Origin": _ORIGIN,
-                "Access-Control-Request-Method": "DELETE",
+                "Access-Control-Request-Method": "PATCH",
             },
         )
         allow_methods = resp.headers.get("Access-Control-Allow-Methods", "")
-        assert "DELETE" not in allow_methods
+        assert "PATCH" not in allow_methods
 
     async def test_disallowed_origin_gets_no_cors(self, security_client: AsyncClient):
         """Request from unknown origin must not get CORS headers."""
