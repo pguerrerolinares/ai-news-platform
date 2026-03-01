@@ -17,12 +17,6 @@ export const TOPIC_LABELS: Record<string, string> = {
   regulation: 'Regulation',
 }
 
-export function formatTime(dateStr: string | null) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-}
-
 export function safeUrl(url: string | null): string | null {
   if (!url) return null
   try {

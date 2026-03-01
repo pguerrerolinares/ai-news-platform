@@ -1,72 +1,87 @@
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { SOURCE_COLORS, TOPIC_LABELS, formatTime, safeUrl } from '@/lib/constants'
+import { SOURCE_COLORS, TOPIC_LABELS, safeUrl } from '@/lib/constants'
 import type { NewsItem } from '@/lib/types'
-import {
-  IconFlame,
-  IconClock,
-  IconTrendingUp,
-} from '@tabler/icons-react'
-import { motion } from 'motion/react'
-import { useReducedMotion } from '@/hooks/use-reduced-motion'
+import { IconTrendingUp } from '@tabler/icons-react'
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  return `${days}d`
+}
+
+function extractDomain(url: string | null): string {
+  if (!url) return ''
+  try {
+    return new URL(url).hostname.replace('www.', '')
+  } catch {
+    return ''
+  }
+}
 
 export function NewsCard({ item }: { item: NewsItem }) {
   const href = safeUrl(item.url)
-  const reduced = useReducedMotion()
+  const domain = extractDomain(item.url)
 
   return (
-    <motion.div
-      whileHover={reduced ? undefined : { y: -2 }}
-      whileTap={reduced ? undefined : { scale: 0.98 }}
-      transition={{ duration: 0.2 }}
-    >
-      <Card className="group flex h-full flex-col transition-colors hover:border-primary/30">
-        <CardHeader className="flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={SOURCE_COLORS[item.source] ?? ''}>
-              {item.source}
-            </Badge>
-            {item.topic && (
-              <Badge variant="secondary" className="text-xs">
-                {TOPIC_LABELS[item.topic] ?? item.topic}
-              </Badge>
-            )}
-            {item.trending && (
-              <IconFlame className="ml-auto size-4 text-orange-500" />
-            )}
-          </div>
-          <CardTitle className="line-clamp-2 text-sm font-semibold leading-snug">
-            {href ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {item.title}
-              </a>
-            ) : (
-              item.title
-            )}
-          </CardTitle>
-          <CardDescription className="line-clamp-2 text-xs">
-            {item.summary}
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="flex items-center gap-3 text-xs text-muted-foreground">
-          {item.score != null && (
-            <span className="flex items-center gap-1 font-medium text-foreground">
-              <IconTrendingUp className="size-3" />
-              {item.score.toLocaleString()}
-            </span>
-          )}
-          {item.author && <span>{item.author}</span>}
-          <span className="ml-auto flex items-center gap-1">
-            <IconClock className="size-3" />
-            {formatTime(item.published_at)}
+    <article className="border-b border-border pb-4 transition-colors hover:bg-accent/50">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+        <Badge variant="outline" className={`text-xs ${SOURCE_COLORS[item.source] ?? ''}`}>
+          {item.source}
+        </Badge>
+        {domain && (
+          <>
+            <span>·</span>
+            <span>{domain}</span>
+          </>
+        )}
+        {item.published_at && (
+          <>
+            <span>·</span>
+            <span>{timeAgo(item.published_at)}</span>
+          </>
+        )}
+      </div>
+
+      <h3 className="text-base font-semibold leading-snug mb-1 line-clamp-2">
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            {item.title}
+          </a>
+        ) : (
+          item.title
+        )}
+      </h3>
+
+      {item.summary && (
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-1.5">
+          {item.summary}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2">
+        {item.topic && (
+          <Badge variant="secondary" className="text-xs">
+            {TOPIC_LABELS[item.topic] ?? item.topic}
+          </Badge>
+        )}
+        {item.score != null && (
+          <span className="ml-auto flex items-center gap-0.5 text-xs font-semibold text-muted-foreground">
+            <IconTrendingUp className="size-3" />
+            {item.score.toLocaleString()}
           </span>
-        </CardFooter>
-      </Card>
-    </motion.div>
+        )}
+      </div>
+    </article>
   )
 }
