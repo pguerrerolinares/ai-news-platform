@@ -323,6 +323,12 @@ async def phase_classify(
     checkpoint.cost_usd = cost_tracker.estimated_cost_usd
     checkpoint.save()
 
+    # Composite scoring (so backfill items get composite_score like pipeline items)
+    from src.pipeline.composite_scorer import CompositeScorer
+
+    scorer = CompositeScorer()
+    classified_items = scorer.score_batch(classified_items)
+
     # Store classified items
     async with factory() as session:
         for ci in classified_items:
@@ -347,6 +353,7 @@ async def phase_classify(
                     trending=ci.trending,
                     dev_value_score=ci.dev_value_score,
                     credibility_score=ci.credibility_score,
+                    composite_score=ci.composite_score,
                 )
                 .on_conflict_do_nothing(index_elements=["content_hash"])
             )
