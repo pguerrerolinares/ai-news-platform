@@ -145,7 +145,10 @@ async def register_verify(
                 sign_count=verification.sign_count,
                 device_name=body.device_name,
                 transports=(
-                    [str(t) for t in credential.response.transports]
+                    [
+                        t.value if hasattr(t, "value") else str(t)
+                        for t in credential.response.transports
+                    ]
                     if credential.response.transports
                     else None
                 ),
@@ -194,7 +197,12 @@ async def login_options(
         PublicKeyCredentialDescriptor(
             id=cred.credential_id,
             transports=(
-                [AuthenticatorTransport(t) for t in cred.transports] if cred.transports else None
+                [
+                    AuthenticatorTransport(t.split(".")[-1].lower() if "." in t else t)
+                    for t in cred.transports
+                ]
+                if cred.transports
+                else None
             ),
         )
         for cred in credentials
