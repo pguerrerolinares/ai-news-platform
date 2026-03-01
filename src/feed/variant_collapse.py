@@ -12,13 +12,15 @@ log = get_logger(__name__)
 _SUFFIXES = re.compile(r"-(GGUF|GPTQ|AWQ|ONNX|EXL2|MLX)$", re.IGNORECASE)
 
 # Known re-upload publishers (strip these to find base model name)
-_QUANT_PUBLISHERS = frozenset({
-    "unsloth",
-    "thebloke",
-    "bartowski",
-    "turboderp",
-    "mradermacher",
-})
+_QUANT_PUBLISHERS = frozenset(
+    {
+        "unsloth",
+        "thebloke",
+        "bartowski",
+        "turboderp",
+        "mradermacher",
+    }
+)
 
 
 def normalize_model_name(title: str) -> str | None:

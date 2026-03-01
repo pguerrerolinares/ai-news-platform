@@ -63,23 +63,15 @@ class TestNormalizeModelName:
 
 class TestCollapseVariants:
     def test_keeps_original_drops_gguf_variant(self) -> None:
-        original = _make_item(
-            source="huggingface", title="meta-llama/Llama-2-7B", score=100
-        )
-        variant = _make_item(
-            source="huggingface", title="TheBloke/Llama-2-7B-GGUF", score=50
-        )
+        original = _make_item(source="huggingface", title="meta-llama/Llama-2-7B", score=100)
+        variant = _make_item(source="huggingface", title="TheBloke/Llama-2-7B-GGUF", score=50)
         result = collapse_variants([original, variant])
         assert len(result) == 1
         assert result[0] is original
 
     def test_keeps_highest_score_variant(self) -> None:
-        low = _make_item(
-            source="huggingface", title="meta-llama/Llama-2-7B", score=10
-        )
-        high = _make_item(
-            source="huggingface", title="TheBloke/Llama-2-7B-GGUF", score=200
-        )
+        low = _make_item(source="huggingface", title="meta-llama/Llama-2-7B", score=10)
+        high = _make_item(source="huggingface", title="TheBloke/Llama-2-7B-GGUF", score=200)
         result = collapse_variants([low, high])
         assert len(result) == 1
         assert result[0] is high
@@ -94,12 +86,8 @@ class TestCollapseVariants:
 
     def test_mixed_sources(self) -> None:
         hn = _make_item(source="hackernews", title="Some Post", score=50)
-        hf_original = _make_item(
-            source="huggingface", title="meta-llama/Llama-2-7B", score=100
-        )
-        hf_variant = _make_item(
-            source="huggingface", title="TheBloke/Llama-2-7B-GGUF", score=50
-        )
+        hf_original = _make_item(source="huggingface", title="meta-llama/Llama-2-7B", score=100)
+        hf_variant = _make_item(source="huggingface", title="TheBloke/Llama-2-7B-GGUF", score=50)
         result = collapse_variants([hn, hf_original, hf_variant])
         assert len(result) == 2
         assert hn in result
@@ -107,12 +95,8 @@ class TestCollapseVariants:
         assert hf_variant not in result
 
     def test_does_not_collapse_different_models(self) -> None:
-        llama = _make_item(
-            source="huggingface", title="meta-llama/Llama-2-7B", score=100
-        )
-        mistral = _make_item(
-            source="huggingface", title="mistralai/Mistral-7B", score=80
-        )
+        llama = _make_item(source="huggingface", title="meta-llama/Llama-2-7B", score=100)
+        mistral = _make_item(source="huggingface", title="mistralai/Mistral-7B", score=80)
         result = collapse_variants([llama, mistral])
         assert len(result) == 2
         assert llama in result
@@ -128,12 +112,8 @@ class TestCollapseVariants:
         assert result[0] is item
 
     def test_item_with_none_score(self) -> None:
-        a = _make_item(
-            source="huggingface", title="org/Model-GGUF", score=None
-        )
-        b = _make_item(
-            source="huggingface", title="org/Model", score=5
-        )
+        a = _make_item(source="huggingface", title="org/Model-GGUF", score=None)
+        b = _make_item(source="huggingface", title="org/Model", score=5)
         result = collapse_variants([a, b])
         assert len(result) == 1
         assert result[0] is b
