@@ -201,9 +201,7 @@ async def list_today_items(
     """List today's news items, sorted chronologically (newest first)."""
     today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
     today_end = today_start + timedelta(days=1)
-    query = select(NewsItem).where(
-        (effective_date >= today_start) & (effective_date < today_end)
-    )
+    query = select(NewsItem).where((effective_date >= today_start) & (effective_date < today_end))
     if topic:
         query = query.where(NewsItem.topic == topic)
 
