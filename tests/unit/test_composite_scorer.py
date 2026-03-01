@@ -200,3 +200,63 @@ class TestCompositeScorer:
         item = self._make_item(topic="unknown_topic")
         score = scorer.score(item)
         assert 0.0 <= score <= 1.0
+
+
+class TestScoreNewsitem:
+    """Test live rescoring of persisted NewsItem objects."""
+
+    def _make_newsitem(
+        self,
+        source: str = "github",
+        score: int = 10000,
+        relevance_score: float = 0.85,
+        topic: str = "tools",
+        published_at: datetime | None = None,
+        source_created_at: datetime | None = None,
+        metadata_: dict | None = None,
+    ) -> object:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            source=source,
+            score=score,
+            relevance_score=relevance_score,
+            topic=topic,
+            published_at=published_at if published_at else datetime.now(UTC),
+            source_created_at=source_created_at,
+            metadata_=metadata_ or {},
+        )
+
+    def test_score_newsitem_returns_float_in_range(self):
+        scorer = CompositeScorer()
+        item = self._make_newsitem()
+        result = scorer.score_newsitem(item)
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    def test_score_newsitem_fresh_item_higher_than_old(self):
+        scorer = CompositeScorer()
+        now = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
+        fresh = self._make_newsitem(published_at=now - timedelta(hours=1))
+        old = self._make_newsitem(published_at=now - timedelta(hours=40))
+        assert scorer.score_newsitem(fresh, now=now) > scorer.score_newsitem(old, now=now)
+
+    def test_score_newsitem_none_relevance_treated_as_zero(self):
+        scorer = CompositeScorer()
+        item = self._make_newsitem(relevance_score=None)
+        result = scorer.score_newsitem(item)
+        assert 0.0 <= result <= 1.0
+
+    def test_score_newsitem_arxiv_uses_no_velocity_weights(self):
+        scorer = CompositeScorer()
+        now = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
+        item = self._make_newsitem(
+            source="arxiv",
+            score=0,
+            topic="papers",
+            relevance_score=0.90,
+            published_at=now,
+        )
+        result = scorer.score_newsitem(item, now=now)
+        assert 0.0 <= result <= 1.0
+        assert result == pytest.approx(0.745, abs=0.05)

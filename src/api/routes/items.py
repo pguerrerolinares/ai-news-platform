@@ -238,7 +238,7 @@ async def list_top_items(
     since = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    query = select(NewsItem).where((effective_date >= since) & NewsItem.score.isnot(None))
+    query = select(NewsItem).where((effective_date >= since) & NewsItem.composite_score.isnot(None))
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
@@ -248,7 +248,7 @@ async def list_top_items(
     total = (await session.execute(count_query)).scalar_one()
     set_total_count_header(response, total)
 
-    query = query.order_by(NewsItem.score.desc().nulls_last()).offset(offset).limit(limit)
+    query = query.order_by(NewsItem.composite_score.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
     return [NewsItemResponse.model_validate(item) for item in items]
@@ -288,8 +288,9 @@ async def list_latest_items(
         set_total_count_header(response, total)
         return [NewsItemResponse.model_validate(item) for item in items]
 
-    # Chronological (sort=recent) — original behavior
-    query = select(NewsItem)
+    # Chronological (sort=recent) — with time window
+    cutoff = datetime.now(tz=UTC) - timedelta(hours=48)
+    query = select(NewsItem).where(effective_date >= cutoff)
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:

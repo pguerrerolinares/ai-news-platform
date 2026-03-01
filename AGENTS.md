@@ -48,7 +48,8 @@ Sources -> Extract -> Dedup -> Classify (LLM) -> Variant Collapse -> Validate ->
                                                                           Embed -> RAG Chat (SSE)
 
 Feed Pipeline (query-time):
-  Candidates (composite_score NOT NULL) -> Variant Collapse -> MMR Diversification -> Paginate
+  Time-window filter (48h→72h→168h expansion) -> Live rescore (CompositeScorer.score_newsitem)
+  -> Variant Collapse -> MMR Diversification -> Paginate
 ```
 
 ## How to Run
@@ -168,11 +169,11 @@ ai-news-platform/
 | GET | /api/auth/me | JWT | Current user info |
 | GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) |
 | GET | /api/items/count | JWT | Count matching items |
-| GET | /api/items/latest | JWT | Latest items (sort=relevance uses FeedBuilder with MMR diversity, sort=recent is chronological) |
+| GET | /api/items/latest | JWT | Latest items (sort=relevance uses FeedBuilder with time filter + live rescore + MMR, sort=recent is chronological with 48h window) |
 | GET | /api/items/today | JWT | Today's items by effective date |
 | GET | /api/items/by-date/{date} | JWT | Items for specific date |
 | GET | /api/items/trending | JWT | Trending items |
-| GET | /api/items/top | JWT | Top items by score |
+| GET | /api/items/top | JWT | Top items by composite_score (normalized across sources) |
 | GET | /api/items/{id}/similar | JWT | Similar via pgvector cosine |
 | GET | /api/briefings/{date} | JWT | Daily briefing (resilient — synthesizes if no row) |
 | GET | /api/briefings | JWT | Recent briefings |

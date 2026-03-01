@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     # --- Feed Algorithm ---
     feed_mmr_lambda: float = 0.7  # MMR quality vs diversity (0=diverse, 1=quality)
     feed_candidate_multiplier: int = 5  # Candidate pool = limit * multiplier
+    feed_latest_max_age_hours: float = 48.0  # Time window for /latest endpoint
+    feed_latest_min_items: int = 5  # Min items before expanding time window
 
     # --- Validation ---
     enable_news_validation: bool = True

@@ -154,6 +154,41 @@ class CompositeScorer:
             + self._w_top * topic_weight
         )
 
+    def score_newsitem(self, item: object, now: datetime | None = None) -> float:
+        """Rescore a persisted NewsItem with current time."""
+        if now is None:
+            now = datetime.now(UTC)
+
+        relevance_norm = self._normalize_relevance(getattr(item, "relevance_score", None) or 0.0)
+        recency = self._compute_recency(getattr(item, "published_at", None), now)
+        topic_weight = TOPIC_WEIGHTS.get(getattr(item, "topic", None) or "", DEFAULT_TOPIC_WEIGHT)
+
+        velocity = compute_velocity(
+            source=getattr(item, "source", ""),
+            score=getattr(item, "score", None),
+            source_created_at=getattr(item, "source_created_at", None),
+            published_at=getattr(item, "published_at", None),
+            metadata=getattr(item, "metadata_", None),
+            now=now,
+        )
+
+        if velocity is None:
+            return (
+                self._nv_w_rel * relevance_norm
+                + self._nv_w_rec * recency
+                + self._nv_w_top * topic_weight
+            )
+
+        velocity_norm = self._normalize_velocity(
+            velocity, getattr(item, "source", ""), getattr(item, "metadata_", None)
+        )
+        return (
+            self._w_vel * velocity_norm
+            + self._w_rel * relevance_norm
+            + self._w_rec * recency
+            + self._w_top * topic_weight
+        )
+
     def score_batch(self, items: list[ClassifiedItem]) -> list[ClassifiedItem]:
         """Compute composite scores for a batch, setting composite_score on each."""
         now = datetime.now(UTC)

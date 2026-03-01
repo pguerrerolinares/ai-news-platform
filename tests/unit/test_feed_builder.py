@@ -47,6 +47,8 @@ def _make_settings(**overrides: object) -> SimpleNamespace:
     defaults = {
         "feed_mmr_lambda": 0.7,
         "feed_candidate_multiplier": 5,
+        "feed_latest_max_age_hours": 48.0,
+        "feed_latest_min_items": 5,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -69,7 +71,7 @@ async def test_build_returns_items_and_count(mock_get_settings: MagicMock) -> No
 
     assert len(result) == 3
     assert total == 3
-    session.execute.assert_awaited_once()
+    assert session.execute.await_count >= 1
 
 
 @pytest.mark.asyncio
@@ -86,7 +88,7 @@ async def test_build_with_topic_filter(mock_get_settings: MagicMock) -> None:
     assert len(result) == 1
     assert total == 1
     # Verify execute was called (topic filter is in the query)
-    session.execute.assert_awaited_once()
+    assert session.execute.await_count >= 1
 
 
 @pytest.mark.asyncio
@@ -153,3 +155,17 @@ async def test_build_filters_null_composite_scores(mock_get_settings: MagicMock)
     # All returned items have composite_score
     for item in result:
         assert item.composite_score is not None
+
+
+@pytest.mark.asyncio
+@patch("src.feed.feed_builder.get_settings")
+async def test_build_accepts_max_age_hours(mock_get_settings: MagicMock) -> None:
+    """build() accepts max_age_hours parameter without error."""
+    mock_get_settings.return_value = _make_settings()
+    items = [_make_item(composite_score=0.9)]
+    session = _make_mock_session(items)
+
+    builder = FeedBuilder(session)
+    result, total = await builder.build(limit=10, max_age_hours=48.0)
+
+    assert len(result) == 1
