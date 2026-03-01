@@ -363,7 +363,31 @@ async def run_pipeline(
             classified = await deduplicate_events(classified)
             logger.info("pipeline_event_dedup", count=len(classified))
 
-        # 4b. Composite scoring
+        # 4c. Variant collapse — deduplicate HuggingFace model variants (GGUF, GPTQ, etc.)
+        from src.feed.variant_collapse import normalize_model_name
+
+        before_collapse = len(classified)
+        hf_groups: dict[str, list[ClassifiedItem]] = {}
+        non_hf: list[ClassifiedItem] = []
+        for ci in classified:
+            if ci.item.source != "huggingface":
+                non_hf.append(ci)
+                continue
+            base = normalize_model_name(ci.item.title or "")
+            if base is None:
+                non_hf.append(ci)
+                continue
+            hf_groups.setdefault(base, []).append(ci)
+
+        kept: list[ClassifiedItem] = []
+        for group in hf_groups.values():
+            best = max(group, key=lambda x: x.item.score or 0)
+            kept.append(best)
+
+        classified = non_hf + kept
+        logger.info("pipeline_variant_collapse", before=before_collapse, after=len(classified))
+
+        # 4d. Composite scoring
         scorer = CompositeScorer()
         classified = scorer.score_batch(classified)
         logger.info("pipeline_composite_scoring", count=len(classified))
