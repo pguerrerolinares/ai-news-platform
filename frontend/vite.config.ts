@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+const proxyTarget = process.env.VITE_PROXY_TARGET
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -10,4 +12,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  ...(proxyTarget && {
+    server: {
+      proxy: {
+        '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: true,
+        },
+      },
+    },
+  }),
 })

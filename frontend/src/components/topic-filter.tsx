@@ -10,7 +10,7 @@ interface TopicFilterProps {
 
 export function TopicFilter({ value, onChange }: TopicFilterProps) {
   return (
-    <div className="sticky top-14 z-40 w-full overflow-x-auto overflow-y-hidden bg-background/80 py-2 backdrop-blur-sm">
+    <div className="sticky top-[5.25rem] z-40 w-full overflow-x-auto overflow-y-hidden bg-background/80 py-2 backdrop-blur-sm">
       <Tabs value={value} onValueChange={onChange}>
         <TabsList className="inline-flex h-auto w-max bg-transparent p-0">
           <TabsTrigger

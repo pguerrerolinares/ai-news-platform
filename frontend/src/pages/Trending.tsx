@@ -59,9 +59,13 @@ export default function Top() {
       </div>
 
       <Tabs value={days} onValueChange={setDays}>
-        <TabsList>
+        <TabsList className="h-auto bg-transparent p-0">
           {TIME_PERIODS.map(({ value, label }) => (
-            <TabsTrigger key={value} value={value}>
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-3 py-1 text-sm"
+            >
               {label}
             </TabsTrigger>
           ))}

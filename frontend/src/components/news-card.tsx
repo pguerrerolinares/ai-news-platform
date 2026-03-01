@@ -12,13 +12,13 @@ import {
 } from '@icons-pack/react-simple-icons'
 import type { ComponentType, SVGProps } from 'react'
 
-const SOURCE_ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
-  hackernews: SiYcombinator,
-  github: SiGithub,
-  arxiv: SiArxiv,
-  reddit: SiReddit,
-  rss: SiRss,
-  huggingface: SiHuggingface,
+const SOURCE_ICONS: Record<string, { icon: ComponentType<SVGProps<SVGSVGElement>>; color: string }> = {
+  hackernews: { icon: SiYcombinator, color: '#F0652F' },
+  github: { icon: SiGithub, color: 'currentColor' },
+  arxiv: { icon: SiArxiv, color: '#B31B1B' },
+  reddit: { icon: SiReddit, color: '#FF4500' },
+  rss: { icon: SiRss, color: '#FFA500' },
+  huggingface: { icon: SiHuggingface, color: '#FFD21E' },
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -51,8 +51,8 @@ export function NewsCard({ item }: { item: NewsItem }) {
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
         {SOURCE_ICONS[item.source] ? (
           (() => {
-            const Icon = SOURCE_ICONS[item.source]
-            return <Icon className="size-4" />
+            const { icon: Icon, color } = SOURCE_ICONS[item.source]
+            return <Icon className="size-4" style={{ color }} />
           })()
         ) : (
           <Badge variant="outline" className={`text-xs ${SOURCE_COLORS[item.source] ?? ''}`}>
