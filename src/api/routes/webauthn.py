@@ -178,8 +178,8 @@ async def login_options(
         )
         credentials = cred_result.scalars().all()
 
-    if not credentials:
-        raise APIError(404, "NO_PASSKEYS", "No passkeys available for this email")
+        if not credentials:
+            raise APIError(404, "NO_PASSKEYS", "No passkeys available for this email")
 
     allow_credentials = [
         PublicKeyCredentialDescriptor(

@@ -60,6 +60,7 @@ class RSSExtractor(BaseExtractor):
         with extractor_duration_seconds.labels(source=self.source_name).time():
             async with httpx.AsyncClient(
                 timeout=30,
+                follow_redirects=True,
                 headers={"User-Agent": "AI-News-Platform/1.0"},
             ) as client:
                 for feed_url in feeds:

@@ -94,7 +94,7 @@ class HuggingFaceExtractor(BaseExtractor):
             ) as client:
                 try:
                     params = {
-                        "sort": "trending",
+                        "sort": "trendingScore",
                         "direction": "-1",
                         "limit": 50,
                     }
