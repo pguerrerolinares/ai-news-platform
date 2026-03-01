@@ -95,6 +95,25 @@ class TestLatestEndpoint:
         resp = await api_client.get("/api/items/latest")
         assert "x-total-count" in resp.headers
 
+    async def test_latest_accepts_max_per_source(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/items/latest",
+            params={"max_per_source": "5"},
+        )
+        assert resp.status_code == 200
+
+    async def test_latest_rejects_invalid_max_per_source(self, api_client: AsyncClient):
+        resp = await api_client.get(
+            "/api/items/latest",
+            params={"max_per_source": "0"},
+        )
+        assert resp.status_code == 422
+
+    async def test_latest_without_max_per_source_still_works(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/items/latest")
+        assert resp.status_code == 200
+        assert "x-total-count" in resp.headers
+
 
 class TestTopEndpoint:
     async def test_top_returns_200(self, api_client: AsyncClient):
