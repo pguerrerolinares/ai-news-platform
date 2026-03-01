@@ -30,6 +30,7 @@ services:
     environment:
       DATABASE_URL: 'postgresql+asyncpg://${POSTGRES_USER:-ainews}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ainews}'
       DATABASE_URL_SYNC: 'postgresql://${POSTGRES_USER:-ainews}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ainews}'
+      SCHEDULER_ENABLED: 'false'
     env_file:
       - .env
     expose:
