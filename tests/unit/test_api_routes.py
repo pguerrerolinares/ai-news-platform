@@ -385,7 +385,7 @@ class TestTrendingItems:
         assert resp.status_code == 200
 
     async def test_trending_rejects_excessive_days(self, api_client: AsyncClient):
-        resp = await api_client.get("/api/items/trending", params={"days": 999})
+        resp = await api_client.get("/api/items/trending", params={"days": 3651})
         assert resp.status_code == 422
 
     async def test_trending_requires_auth(self, api_client: AsyncClient):
@@ -446,7 +446,7 @@ class TestTopItems:
         assert resp.status_code == 200
 
     async def test_rejects_excessive_days(self, api_client: AsyncClient):
-        resp = await api_client.get("/api/items/top", params={"days": 999})
+        resp = await api_client.get("/api/items/top", params={"days": 3651})
         assert resp.status_code == 422
 
     async def test_requires_auth(self, api_client: AsyncClient):

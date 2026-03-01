@@ -153,7 +153,7 @@ async def list_trending_items(
     response: Response,
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
-    days: int = Query(7, ge=1, le=90, description="Look back N days"),
+    days: int = Query(7, ge=1, le=3650, description="Look back N days"),
     limit: int = Query(20, ge=1, le=100, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: AsyncSession = Depends(get_session),
@@ -225,7 +225,7 @@ async def list_today_items(
 async def list_top_items(
     request: Request,
     response: Response,
-    days: int = Query(7, ge=1, le=90, description="Look back N days"),
+    days: int = Query(7, ge=1, le=3650, description="Look back N days"),
     limit: int = Query(10, ge=1, le=50, description="Max items to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     topic: str | None = Query(None, description="Filter by topic"),
