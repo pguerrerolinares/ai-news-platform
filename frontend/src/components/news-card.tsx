@@ -2,6 +2,24 @@ import { Badge } from '@/components/ui/badge'
 import { SOURCE_COLORS, TOPIC_LABELS, safeUrl } from '@/lib/constants'
 import type { NewsItem } from '@/lib/types'
 import { IconTrendingUp } from '@tabler/icons-react'
+import {
+  SiYcombinator,
+  SiGithub,
+  SiArxiv,
+  SiReddit,
+  SiRss,
+  SiHuggingface,
+} from '@icons-pack/react-simple-icons'
+import type { ComponentType, SVGProps } from 'react'
+
+const SOURCE_ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  hackernews: SiYcombinator,
+  github: SiGithub,
+  arxiv: SiArxiv,
+  reddit: SiReddit,
+  rss: SiRss,
+  huggingface: SiHuggingface,
+}
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -31,9 +49,16 @@ export function NewsCard({ item }: { item: NewsItem }) {
   return (
     <article className="border-b border-border pb-4 transition-colors hover:bg-accent/50">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
-        <Badge variant="outline" className={`text-xs ${SOURCE_COLORS[item.source] ?? ''}`}>
-          {item.source}
-        </Badge>
+        {SOURCE_ICONS[item.source] ? (
+          (() => {
+            const Icon = SOURCE_ICONS[item.source]
+            return <Icon className="size-4" />
+          })()
+        ) : (
+          <Badge variant="outline" className={`text-xs ${SOURCE_COLORS[item.source] ?? ''}`}>
+            {item.source}
+          </Badge>
+        )}
         {domain && (
           <>
             <span>·</span>
