@@ -129,6 +129,11 @@ class Settings(BaseSettings):
     otp_from_email: str = "noreply@resend.dev"
     otp_expire_minutes: int = 10
 
+    # --- WebAuthn (Passkeys) ---
+    webauthn_rp_id: str = "localhost"
+    webauthn_rp_name: str = "AI News"
+    webauthn_origin: str = "http://localhost:5173"
+
     # --- Observability ---
     log_level: str = "INFO"
     log_format: str = "json"  # json or console
