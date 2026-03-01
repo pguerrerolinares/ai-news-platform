@@ -285,7 +285,7 @@ async def list_latest_items(
     if sort == "recent":
         query = query.order_by(effective_date.desc())
     else:
-        query = query.order_by(NewsItem.score.desc().nulls_last(), effective_date.desc())
+        query = query.order_by(NewsItem.composite_score.desc().nulls_last(), effective_date.desc())
 
     query = query.offset(offset).limit(limit)
 

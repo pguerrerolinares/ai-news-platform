@@ -21,6 +21,7 @@ class ClassifiedItem:
     priority: int = 3  # 1 (highest) - 5 (lowest)
     trending: bool = False
     source_count: int = 1
+    composite_score: float | None = None  # 0.0-1.0, computed by CompositeScorer
 
 
 class BaseClassifier(ABC):

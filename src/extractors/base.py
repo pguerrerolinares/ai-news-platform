@@ -20,6 +20,7 @@ class ExtractedItem:
     author: str | None = None
     published_at: datetime | None = None
     score: int | None = None
+    source_created_at: datetime | None = None  # actual creation date on source platform
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property

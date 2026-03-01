@@ -145,14 +145,19 @@ ACCEPT (is_news=true):
 - AI company news (OpenAI, Google, Meta, Anthropic, etc.)
 - Technical advances, benchmarks, open source releases
 
-RELEVANCE SCALE (use the full range, do NOT put 0.9 on everything):
-- 1.0: Major launch from top company or breakthrough with massive impact
-- 0.95: Important release with verifiable metrics surpassing SOTA
-- 0.9: Significant news with clear industry impact
-- 0.85: Interesting paper or release but incremental
-- 0.8: Relevant but routine content
-- 0.75: Minimally relevant, niche
-- <0.75: Reject (is_news=false)
+RELEVANCE SCORING — you MUST use the full range. Each item gets ONE score.
+Score by comparing against these real-world anchors:
+
+1.0  = "OpenAI releases GPT-5 with 2x performance on all benchmarks"
+0.95 = "Meta open-sources Llama 4 405B model weights"
+0.90 = "Google DeepMind publishes new SOTA on protein folding"
+0.85 = "New framework reaches #1 on GitHub trending with 10K stars in a day"
+0.80 = "Incremental update to an existing popular tool"
+0.75 = "Niche library or minor paper with limited audience"
+<0.75: Reject (is_news=false)
+
+FORCED DISTRIBUTION: In a batch of {len(batch)} items, you MUST NOT give more than
+3 items the same score. Spread your scores across the range.
 
 DISAMBIGUATION RULES:
 - arXiv preprint without code/weights release -> "papers" (NOT "models")

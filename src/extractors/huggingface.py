@@ -124,6 +124,16 @@ class HuggingFaceExtractor(BaseExtractor):
                         if last_mod is not None and last_mod < since_cutoff:
                             continue
 
+                        try:
+                            created_str = model.get("createdAt", "")
+                            hf_created_at = (
+                                datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                                if created_str
+                                else None
+                            )
+                        except (ValueError, AttributeError):
+                            hf_created_at = None
+
                         items.append(
                             ExtractedItem(
                                 title=model_id,
@@ -136,11 +146,13 @@ class HuggingFaceExtractor(BaseExtractor):
                                 ),
                                 published_at=last_mod,
                                 score=downloads,
+                                source_created_at=hf_created_at,
                                 metadata={
                                     "pipeline_tag": model.get("pipeline_tag"),
                                     "downloads": downloads,
                                     "likes": model.get("likes", 0),
                                     "tags": model.get("tags", []),
+                                    "type": "model",
                                 },
                             )
                         )

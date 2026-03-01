@@ -324,6 +324,40 @@ class TestExtract:
         assert ": " not in result[0].title
 
 
+class TestSourceCreatedAt:
+    """Tests for source_created_at capture."""
+
+    @respx.mock
+    async def test_extract_captures_repo_created_at(self):
+        """source_created_at should be set from GitHub repo created_at field."""
+        repo = _make_repo(created_at="2024-06-15T10:30:00Z")
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert result[0].source_created_at is not None
+        assert result[0].source_created_at.year == 2024
+        assert result[0].source_created_at.month == 6
+
+    @respx.mock
+    async def test_missing_created_at_returns_none(self):
+        """source_created_at should be None when created_at is missing."""
+        repo = _make_repo()
+        del repo["created_at"]
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert result[0].source_created_at is None
+
+    @respx.mock
+    async def test_invalid_created_at_returns_none(self):
+        """source_created_at should be None when created_at is invalid."""
+        repo = _make_repo(created_at="not-a-date")
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            result = await GitHubExtractor().extract()
+        assert result[0].source_created_at is None
+
+
 class TestEdgeCases:
     """Edge-case tests for GitHubExtractor robustness."""
 
