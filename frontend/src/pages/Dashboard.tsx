@@ -9,7 +9,6 @@ import type { NewsItem } from '@/lib/types'
 import { IconRefresh, IconLoader2 } from '@tabler/icons-react'
 
 const PAGE_SIZE = 20
-const MAX_PER_SOURCE = 5
 
 export default function Feed() {
   const [activeTopic, setActiveTopic] = useState('all')
@@ -33,7 +32,6 @@ export default function Feed() {
         limit: String(PAGE_SIZE),
         offset: String(pageParam),
         sort: 'relevance',
-        max_per_source: String(MAX_PER_SOURCE),
       }
       if (topicParam) params.topic = topicParam
       return apiGet<NewsItem[]>('/api/items/latest', params, signal)
