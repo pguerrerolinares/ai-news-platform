@@ -109,10 +109,10 @@ class Settings(BaseSettings):
     # Recency decay window in hours
     composite_recency_window_hours: float = 48.0
     # --- Velocity Thresholds (saturation point = 1.0) ---
-    velocity_threshold_github: float = 500.0  # stars/day
-    velocity_threshold_hackernews: float = 200.0  # points/hour
-    velocity_threshold_reddit: float = 150.0  # upvotes/hour
-    velocity_threshold_huggingface: float = 100_000.0  # downloads/day (models)
+    velocity_threshold_github: float = 1000.0  # stars/day (p95)
+    velocity_threshold_hackernews: float = 0.15  # points/hour (p95)
+    velocity_threshold_reddit: float = 0.15  # upvotes/hour (aligned with HN)
+    velocity_threshold_huggingface: float = 1_000_000.0  # downloads/day (p95)
     velocity_threshold_huggingface_paper: float = 50.0  # upvotes/hour
 
     # --- Feed Algorithm ---
