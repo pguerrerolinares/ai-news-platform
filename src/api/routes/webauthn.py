@@ -21,6 +21,7 @@ from webauthn.helpers import (
 )
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
+    AuthenticatorTransport,
     PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
     UserVerificationRequirement,
@@ -192,7 +193,7 @@ async def login_options(
     allow_credentials = [
         PublicKeyCredentialDescriptor(
             id=cred.credential_id,
-            transports=cred.transports if cred.transports else None,
+            transports=[AuthenticatorTransport(t) for t in cred.transports] if cred.transports else None,
         )
         for cred in credentials
     ]
