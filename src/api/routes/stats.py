@@ -1,6 +1,7 @@
 """API routes for aggregate statistics."""
 
-from datetime import UTC, date as date_type, datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
+from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from slowapi import Limiter
