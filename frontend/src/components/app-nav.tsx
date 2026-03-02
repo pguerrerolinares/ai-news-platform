@@ -10,6 +10,7 @@ const links = [
   { to: '/', label: 'Feed' },
   { to: '/top', label: 'Top' },
   { to: '/search', label: 'Search' },
+  { to: '/timeline', label: 'Timeline' },
 ]
 
 export function AppNav() {

@@ -7,6 +7,7 @@ import Search from '@/pages/Search'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Settings from '@/pages/Settings'
+import Timeline from '@/pages/Timeline'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Route path="top" element={<Top />} />
             <Route path="search" element={<Search />} />
             <Route path="chat" element={<Chat />} />
+            <Route path="timeline" element={<Timeline />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

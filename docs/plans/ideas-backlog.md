@@ -69,6 +69,18 @@
 
 ## Frontend — Future Pages
 
+- [x] **Timeline section** — Calendar heatmap + topic-grouped items per date. Browse by date
+  with full history navigation. See `2026-03-02-timeline-section-design.md`. Done (2026-03-02).
+
+- [ ] **Daily Briefing page** — Backend already generates LLM briefings (`/briefings/{date}`).
+  Surface them in a dedicated page with date navigation. Low effort — data already exists.
+
+- [ ] **Analytics Dashboard** — 8 stats endpoints are unused in the frontend. Visualize:
+  topic trends over time, source breakdown, trending timeline, score distribution histogram.
+
+- [ ] **Discovery / Similar** — "More like this" recommendations using pgvector similarity
+  (`/items/{id}/similar`). Cross-topic connections, emerging patterns.
+
 - [ ] **Settings page** — User preferences: default topic filter, preferred sources,
   notification preferences. Stored in localStorage initially, backend later.
 
