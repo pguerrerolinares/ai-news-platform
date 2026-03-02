@@ -121,6 +121,14 @@
   body {
     @apply bg-background text-foreground;
     }
+  /* Hide browser-native password reveal button (Chrome/Edge) */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+  input::-webkit-credentials-auto-fill-button {
+    display: none;
+  }
 }
 
 /* Theme circular reveal via View Transitions API */
