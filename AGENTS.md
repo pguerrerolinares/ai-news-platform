@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat.
+**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace, WebScraper), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat.
 
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
@@ -102,7 +102,7 @@ ai-news-platform/
 │   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction, WebAuthnCredential
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   └── metrics.py                # Prometheus counters + histograms
-│   ├── extractors/                   # 6 extractors (HN, arXiv, Reddit, RSS, GitHub, HF)
+│   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper)
 │   ├── classifiers/                  # Keyword + LLM classifiers, event dedup
 │   ├── validators/                   # CredibilityValidator
 │   ├── notifiers/                    # Telegram notifier + AlertService
@@ -120,7 +120,7 @@ ai-news-platform/
 │   ├── pipeline/
 │   │   ├── pipeline.py               # extract→dedup→classify→variant_collapse→validate→embed→store→notify
 │   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
-│   │   ├── scheduler.py              # APScheduler 3-tier (15m/1h window, 60m/3h window, daily/24h)
+│   │   ├── scheduler.py              # APScheduler 3-tier (15m/HN+Reddit, 60m/RSS+GH+HF+WS, daily/arXiv)
 │   │   └── circuit_breaker.py        # Per-source failure tracking
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
 │   └── mcp/                          # MCP server + client
@@ -130,7 +130,7 @@ ai-news-platform/
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
 │       └── pages/                    # Login, Dashboard, Trending, Search, Chat, Settings
-├── tests/                            # 1015+ unit + 35 E2E (Playwright)
+├── tests/                            # 1054+ unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, rescore_composite, rescore_all
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
@@ -191,7 +191,7 @@ Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, co
 
 All config via env vars. See `.env.example` for full list.
 
-Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,arxiv,reddit,rss,github,huggingface`
+Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,arxiv,reddit,rss,github,huggingface,webscraper`
 Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MULTIPLIER=5` (pool size = limit × N)
 Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
 Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
