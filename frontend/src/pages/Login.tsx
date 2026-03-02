@@ -101,7 +101,7 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center px-4">
+    <div className="flex min-h-svh items-start justify-center px-4 pt-[20vh] pb-8">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">AI News</CardTitle>
