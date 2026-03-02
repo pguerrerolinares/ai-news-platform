@@ -53,6 +53,24 @@ async def request_otp(request: Request, body: OtpRequestBody) -> OtpRequestRespo
             logger.warning("otp_email_rate_limited", email=email, count=email_count)
             raise APIError(429, "OTP_EMAIL_RATE_LIMITED", "Too many attempts. Try again later.")
 
+        # Global daily cap
+        today_start = datetime.now(tz=UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        daily_result = await session.execute(
+            select(func.count())
+            .select_from(OtpCode)
+            .where(OtpCode.created_at >= today_start)
+        )
+        daily_count = daily_result.scalar_one()
+        if daily_count >= settings.otp_daily_limit:
+            logger.warning(
+                "otp_daily_cap_reached",
+                daily_count=daily_count,
+                limit=settings.otp_daily_limit,
+            )
+            raise APIError(
+                503, "OTP_DAILY_CAP_REACHED", "Service temporarily unavailable. Try again later."
+            )
+
         # Invalidate old unused codes for this email
         await session.execute(
             update(OtpCode)

@@ -76,8 +76,12 @@ class TestOtpRequest:
         """POST /api/auth/otp/request sends OTP and returns success."""
         mock_session = AsyncMock()
         mock_count_result = MagicMock()
-        mock_count_result.scalar_one.return_value = 0  # not rate limited
-        mock_session.execute = AsyncMock(side_effect=[mock_count_result, MagicMock()])
+        mock_count_result.scalar_one.return_value = 0  # email rate limit: OK
+        mock_daily_result = MagicMock()
+        mock_daily_result.scalar_one.return_value = 0  # daily cap: OK
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_count_result, mock_daily_result, MagicMock()]
+        )
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
 
@@ -139,12 +143,51 @@ class TestOtpRequest:
         assert resp.json()["error"]["code"] == "OTP_EMAIL_RATE_LIMITED"
         mock_send.assert_not_called()
 
+    async def test_request_otp_daily_cap(self, api_client: AsyncClient):
+        """Returns 503 when global daily OTP cap is reached."""
+        mock_session = AsyncMock()
+
+        # First execute: email rate limit count returns 0 (OK)
+        mock_email_count = MagicMock()
+        mock_email_count.scalar_one.return_value = 0
+        # Second execute: daily cap count returns 50 (at limit)
+        mock_daily_count = MagicMock()
+        mock_daily_count.scalar_one.return_value = 50
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_email_count, mock_daily_count]
+        )
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_session
+
+        with (
+            patch("src.api.routes.otp.get_async_session", mock_get_session),
+            patch("src.api.routes.otp.send_otp_email", new_callable=AsyncMock) as mock_send,
+        ):
+            resp = await api_client.post(
+                "/api/auth/otp/request",
+                json={"email": "legit@example.com"},
+            )
+
+        assert resp.status_code == 503
+        assert resp.json()["error"]["code"] == "OTP_DAILY_CAP_REACHED"
+        mock_send.assert_not_called()
+
     async def test_request_otp_normalizes_email(self, api_client: AsyncClient):
         """Email should be lowercased."""
         mock_session = AsyncMock()
         mock_count_result = MagicMock()
-        mock_count_result.scalar_one.return_value = 0  # not rate limited
-        mock_session.execute = AsyncMock(side_effect=[mock_count_result, MagicMock()])
+        mock_count_result.scalar_one.return_value = 0  # email rate limit: OK
+        mock_daily_result = MagicMock()
+        mock_daily_result.scalar_one.return_value = 0  # daily cap: OK
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_count_result, mock_daily_result, MagicMock()]
+        )
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
 
