@@ -1,80 +1,97 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { TopicFilter } from '@/components/topic-filter'
 import { NewsCard } from '@/components/news-card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiGet } from '@/lib/api'
 import type { NewsItem } from '@/lib/types'
-import { IconRefresh } from '@tabler/icons-react'
+import { IconRefresh, IconLoader2 } from '@tabler/icons-react'
 
-const TIME_PERIODS = [
-  { value: '1', label: '24h' },
-  { value: '7', label: '1w' },
-  { value: '30', label: '1m' },
-  { value: '90', label: '3m' },
-  { value: '365', label: '1y' },
-  { value: '3650', label: 'All' },
-] as const
+const PAGE_SIZE = 20
 
-export default function Top() {
-  const [days, setDays] = useState('7')
-  const [topic, setTopic] = useState('all')
-  const [items, setItems] = useState<NewsItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+export default function Latest() {
+  const [activeTopic, setActiveTopic] = useState('all')
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const fetchingRef = useRef(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
+  const topicParam = activeTopic !== 'all' ? activeTopic : undefined
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    error,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ['latest', { topic: topicParam }],
+    queryFn: async ({ pageParam, signal }) => {
       const params: Record<string, string> = {
-        days,
-        limit: '30',
+        limit: String(PAGE_SIZE),
+        offset: String(pageParam),
+        sort: 'recent',
       }
-      if (topic !== 'all') params.topic = topic
-      const { data } = await apiGet<NewsItem[]>('/api/items/top', params)
-      setItems(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading data')
-    } finally {
-      setLoading(false)
-    }
-  }, [days, topic])
+      if (topicParam) params.topic = topicParam
+      return apiGet<NewsItem[]>('/api/items/latest', params, signal)
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((n, p) => n + p.data.length, 0)
+      const total = lastPage.totalCount ?? Infinity
+      if (loaded >= total || lastPage.data.length < PAGE_SIZE) return undefined
+      return loaded
+    },
+  })
 
-  useEffect(() => { fetchData() }, [fetchData])
+  const items = useMemo(
+    () => data?.pages.flatMap(p => p.data) ?? [],
+    [data],
+  )
+
+  fetchingRef.current = isFetchingNextPage
+
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) observerRef.current.disconnect()
+      if (!node) return
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && !fetchingRef.current) {
+            fetchNextPage()
+          }
+        },
+        { rootMargin: '200px' },
+      )
+      observerRef.current.observe(node)
+    },
+    [fetchNextPage],
+  )
+
+  useEffect(() => {
+    return () => { observerRef.current?.disconnect() }
+  }, [])
+
+  const isInitialLoad = isFetching && !isFetchingNextPage && items.length === 0
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Top</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Latest</h2>
           <p className="text-sm text-muted-foreground">
-            Most relevant AI news
+            Newest AI news
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={fetchData} title="Refresh">
+        <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refresh">
           <IconRefresh className="size-4" />
         </Button>
       </div>
 
-      <Tabs value={days} onValueChange={setDays}>
-        <TabsList className="h-auto bg-transparent p-0">
-          {TIME_PERIODS.map(({ value, label }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-3 py-1 text-sm"
-            >
-              {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <TopicFilter value={activeTopic} onChange={setActiveTopic} />
 
-      <TopicFilter value={topic} onChange={setTopic} />
-
-      {loading && (
+      {isInitialLoad && (
         <div className="space-y-6">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="space-y-2 border-b border-border pb-4">
@@ -90,16 +107,18 @@ export default function Top() {
         </div>
       )}
 
-      {error && (
+      {error && items.length === 0 && !isInitialLoad && (
         <div className="flex flex-col items-center gap-4 py-24">
-          <p className="text-destructive">{error}</p>
-          <Button variant="outline" onClick={fetchData}>
+          <p className="text-destructive">
+            {error instanceof Error ? error.message : 'Error loading news'}
+          </p>
+          <Button variant="outline" onClick={() => refetch()}>
             <IconRefresh className="mr-2 size-4" /> Retry
           </Button>
         </div>
       )}
 
-      {!loading && !error && items.length > 0 && (
+      {!isInitialLoad && items.length > 0 && (
         <div className="space-y-4">
           {items.map(item => (
             <NewsCard key={item.id} item={item} />
@@ -107,11 +126,31 @@ export default function Top() {
         </div>
       )}
 
-      {!loading && !error && items.length === 0 && (
+      {items.length === 0 && !isFetching && !error && (
         <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-          <p>No items for this period</p>
+          <p>No news for this topic</p>
         </div>
       )}
+
+      {error && items.length > 0 && (
+        <div className="flex flex-col items-center gap-2 py-4">
+          <p className="text-sm text-destructive">
+            {error instanceof Error ? error.message : 'Error loading more news'}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>
+            <IconRefresh className="mr-2 size-4" /> Retry
+          </Button>
+        </div>
+      )}
+
+      {isFetchingNextPage && (
+        <div className="flex items-center justify-center py-8">
+          <IconLoader2 className="size-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading more...</span>
+        </div>
+      )}
+
+      {hasNextPage && <div ref={sentinelRef} className="h-1" />}
     </div>
   )
 }

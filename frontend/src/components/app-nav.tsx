@@ -7,10 +7,10 @@ import { motion } from 'motion/react'
 import { useAuth } from '@/hooks/use-auth'
 
 const links = [
-  { to: '/', label: 'Feed' },
+  { to: '/', label: 'Latest' },
   { to: '/top', label: 'Top' },
-  { to: '/search', label: 'Search' },
   { to: '/timeline', label: 'Timeline' },
+  { to: '/search', label: 'Search' },
 ]
 
 export function AppNav() {

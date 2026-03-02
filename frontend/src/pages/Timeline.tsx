@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { CalendarHeatmap } from '@/components/calendar-heatmap'
-import { TopicGroup } from '@/components/topic-group'
+import { TopicFilter } from '@/components/topic-filter'
+import { NewsCard } from '@/components/news-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { apiGet } from '@/lib/api'
@@ -95,6 +96,7 @@ export default function Timeline() {
         return
       }
       setSelectedDate(date)
+      setActiveTopic('all')
       fetchDayItems(date)
     },
     [selectedDate, fetchDayItems],
@@ -107,18 +109,13 @@ export default function Timeline() {
     setDayItems([])
   }, [])
 
-  // Group items by topic for the selected date
-  const groupedByTopic = useMemo(() => {
-    const map = new Map<string, NewsItem[]>()
-    for (const item of dayItems) {
-      const key = item.topic ?? 'uncategorized'
-      const list = map.get(key) ?? []
-      list.push(item)
-      map.set(key, list)
-    }
-    // Sort groups by count descending
-    return [...map.entries()].sort((a, b) => b[1].length - a[1].length)
-  }, [dayItems])
+  const [activeTopic, setActiveTopic] = useState('all')
+
+  // Filter items by selected topic
+  const filteredItems = useMemo(() => {
+    if (activeTopic === 'all') return dayItems
+    return dayItems.filter((item) => (item.topic ?? 'uncategorized') === activeTopic)
+  }, [dayItems, activeTopic])
 
   // Topic summary for the selected date from stats data
   const dateSummary = useMemo(() => {
@@ -187,12 +184,20 @@ export default function Timeline() {
             </p>
           )}
 
-          {!dayLoading && !dayError && groupedByTopic.length > 0 && (
-            <div className="space-y-3">
-              {groupedByTopic.map(([topic, items], i) => (
-                <TopicGroup key={topic} topic={topic} items={items} defaultExpanded={i < 2} />
-              ))}
-            </div>
+          {!dayLoading && !dayError && dayItems.length > 0 && (
+            <>
+              <TopicFilter value={activeTopic} onChange={setActiveTopic} />
+              <div className="space-y-4">
+                {filteredItems.map((item) => (
+                  <NewsCard key={item.id} item={item} />
+                ))}
+              </div>
+              {filteredItems.length === 0 && (
+                <p className="py-8 text-center text-muted-foreground">
+                  No items for this topic
+                </p>
+              )}
+            </>
           )}
         </div>
       )}

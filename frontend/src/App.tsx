@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 import { AuthProvider, RequireAuth } from '@/hooks/use-auth'
 import { Layout } from '@/components/layout'
-import Feed from '@/pages/Dashboard'
-import Top from '@/pages/Trending'
+import Latest from '@/pages/Trending'
+import Top from '@/pages/Dashboard'
 import Search from '@/pages/Search'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
@@ -16,7 +16,7 @@ function App() {
         <Routes>
           <Route path="login" element={<Login />} />
           <Route element={<RequireAuth><Layout /></RequireAuth>}>
-            <Route index element={<Feed />} />
+            <Route index element={<Latest />} />
             <Route path="top" element={<Top />} />
             <Route path="search" element={<Search />} />
             <Route path="chat" element={<Chat />} />

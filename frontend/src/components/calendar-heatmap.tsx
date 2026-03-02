@@ -45,11 +45,11 @@ function getIntensity(count: number, maxCount: number): number {
 }
 
 const INTENSITY_CLASSES = [
-  'bg-muted',
-  'bg-primary/20',
-  'bg-primary/40',
-  'bg-primary/60',
-  'bg-primary/90',
+  'bg-muted text-muted-foreground',
+  'bg-emerald-500/20 dark:bg-emerald-400/30 text-foreground',
+  'bg-emerald-500/40 dark:bg-emerald-400/50 text-foreground',
+  'bg-emerald-500/60 dark:bg-emerald-400/70 text-foreground dark:text-emerald-50',
+  'bg-emerald-500/90 dark:bg-emerald-400 text-white dark:text-emerald-950',
 ] as const
 
 function toISODate(d: Date): string {

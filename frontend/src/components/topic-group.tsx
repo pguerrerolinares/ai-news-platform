@@ -33,7 +33,7 @@ export function TopicGroup({ topic, items, defaultExpanded }: TopicGroupProps) {
         />
       </button>
       {open && (
-        <div className="space-y-2 px-4 pb-3">
+        <div className="space-y-4 px-4 pb-4 [&>article:last-child]:border-b-0 [&>article:last-child]:pb-0">
           {items.map((item) => (
             <NewsCard key={item.id} item={item} />
           ))}

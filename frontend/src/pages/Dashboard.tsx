@@ -10,7 +10,7 @@ import { IconRefresh, IconLoader2 } from '@tabler/icons-react'
 
 const PAGE_SIZE = 20
 
-export default function Feed() {
+export default function Top() {
   const [activeTopic, setActiveTopic] = useState('all')
   const observerRef = useRef<IntersectionObserver | null>(null)
   const fetchingRef = useRef(false)
@@ -79,9 +79,9 @@ export default function Feed() {
     <div className="mx-auto max-w-2xl space-y-6 px-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Feed</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Top</h2>
           <p className="text-sm text-muted-foreground">
-            AI news sorted by relevance
+            Most relevant AI news
           </p>
         </div>
         <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refresh">
