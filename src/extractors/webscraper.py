@@ -106,7 +106,7 @@ def _filter_article_links(links: list[dict[str, str]], index_url: str) -> list[s
     return result
 
 
-def _extract_title_from_markdown(markdown: str, metadata: dict[str, str]) -> str:
+def _extract_title_from_markdown(markdown: str, metadata: dict[str, str] | None) -> str:
     """Extract a title from crawled page content.
 
     Priority:

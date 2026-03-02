@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.extractors.base import ExtractedItem
 from src.extractors.webscraper import (
     WebScraperExtractor,
@@ -89,16 +87,13 @@ def _mock_crawler_context(arun_side_effect):
         raise NotImplementedError  # pragma: no cover
 
     # We'll use a different approach: build a proper async mock.
-    call_results: dict[str, FakeCrawlResult] = {}
-    if callable(arun_side_effect):
-        _resolver = arun_side_effect
-    else:
-        _resolver = None
+    _resolver = arun_side_effect if callable(arun_side_effect) else None
 
     class FakeAsyncCrawler:
         async def arun(self, url: str, config: Any = None) -> FakeCrawlResult:
             if _resolver is not None:
-                return _resolver(url, config)
+                result: FakeCrawlResult = _resolver(url, config)
+                return result
             raise RuntimeError(f"No result configured for {url}")  # pragma: no cover
 
     mock_class = MagicMock()
@@ -247,15 +242,11 @@ class TestExtractTitleFromMarkdown:
         assert result == "Metadata Title"
 
     def test_falls_back_to_h1(self):
-        result = _extract_title_from_markdown(
-            "# My Article Title\n\nContent here.", {}
-        )
+        result = _extract_title_from_markdown("# My Article Title\n\nContent here.", {})
         assert result == "My Article Title"
 
     def test_falls_back_to_first_line(self):
-        result = _extract_title_from_markdown(
-            "This is the first line\n\nMore content.", {}
-        )
+        result = _extract_title_from_markdown("This is the first line\n\nMore content.", {})
         assert result == "This is the first line"
 
     def test_truncates_long_first_line(self):
@@ -272,9 +263,7 @@ class TestExtractTitleFromMarkdown:
         assert result == "Untitled"
 
     def test_empty_metadata_title_falls_back_to_h1(self):
-        result = _extract_title_from_markdown(
-            "# Heading Title\n\nBody.", {"title": ""}
-        )
+        result = _extract_title_from_markdown("# Heading Title\n\nBody.", {"title": ""})
         assert result == "Heading Title"
 
 
@@ -293,10 +282,12 @@ class TestExtract:
 
     async def test_extract_returns_extracted_items(self):
         """Full two-phase extraction returns ExtractedItem instances."""
-        index_result = _make_index_result([
-            {"href": "https://example.com/blog/ai-article", "text": "AI Article"},
-            {"href": "https://example.com/blog/ml-article", "text": "ML Article"},
-        ])
+        index_result = _make_index_result(
+            [
+                {"href": "https://example.com/blog/ai-article", "text": "AI Article"},
+                {"href": "https://example.com/blog/ml-article", "text": "ML Article"},
+            ]
+        )
         article1 = _make_article_result(title="AI Article", content="Content about AI.")
         article2 = _make_article_result(title="ML Article", content="Content about ML.")
 
@@ -340,10 +331,12 @@ class TestExtract:
 
     async def test_extract_skips_failed_article_crawl(self):
         """Failed article crawls are skipped; successful ones are returned."""
-        index_result = _make_index_result([
-            {"href": "https://example.com/blog/good-article", "text": "Good"},
-            {"href": "https://example.com/blog/bad-article", "text": "Bad"},
-        ])
+        index_result = _make_index_result(
+            [
+                {"href": "https://example.com/blog/good-article", "text": "Good"},
+                {"href": "https://example.com/blog/bad-article", "text": "Bad"},
+            ]
+        )
         good_article = _make_article_result(title="Good Article")
         bad_article = FakeCrawlResult(success=False, error_message="500 Error")
 
@@ -368,8 +361,7 @@ class TestExtract:
     async def test_extract_respects_max_items_per_source(self):
         """Output is truncated to max_items_per_source."""
         links = [
-            {"href": f"https://example.com/blog/post-{i}", "text": f"Post {i}"}
-            for i in range(10)
+            {"href": f"https://example.com/blog/post-{i}", "text": f"Post {i}"} for i in range(10)
         ]
         index_result = _make_index_result(links)
 
@@ -394,9 +386,11 @@ class TestExtract:
 
     async def test_extract_maps_fields_correctly(self):
         """Verify all ExtractedItem fields are mapped correctly."""
-        index_result = _make_index_result([
-            {"href": "https://example.com/blog/test-post", "text": "Test"},
-        ])
+        index_result = _make_index_result(
+            [
+                {"href": "https://example.com/blog/test-post", "text": "Test"},
+            ]
+        )
         article_result = _make_article_result(
             title="Test Post",
             content="This is the article body content for testing.",
@@ -450,9 +444,11 @@ class TestExtract:
 
     async def test_extract_handles_article_crawl_exception(self):
         """If crawler.arun raises for an article, that article is skipped."""
-        index_result = _make_index_result([
-            {"href": "https://example.com/blog/exploding", "text": "Boom"},
-        ])
+        index_result = _make_index_result(
+            [
+                {"href": "https://example.com/blog/exploding", "text": "Boom"},
+            ]
+        )
 
         call_count = 0
 
