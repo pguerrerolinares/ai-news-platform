@@ -75,7 +75,9 @@ class TestOtpRequest:
     async def test_request_otp_returns_200(self, api_client: AsyncClient):
         """POST /api/auth/otp/request sends OTP and returns success."""
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=MagicMock())
+        mock_count_result = MagicMock()
+        mock_count_result.scalar_one.return_value = 0  # not rate limited
+        mock_session.execute = AsyncMock(side_effect=[mock_count_result, MagicMock()])
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
 
@@ -107,10 +109,42 @@ class TestOtpRequest:
         )
         assert resp.status_code == 422
 
+    async def test_request_otp_email_rate_limit(self, api_client: AsyncClient):
+        """Returns 429 when email has 5+ OTPs in the last hour."""
+        mock_session = AsyncMock()
+
+        # email rate limit count returns 5 (at limit)
+        mock_count_result = MagicMock()
+        mock_count_result.scalar_one.return_value = 5
+        mock_session.execute = AsyncMock(return_value=mock_count_result)
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock()
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_session
+
+        with (
+            patch("src.api.routes.otp.get_async_session", mock_get_session),
+            patch("src.api.routes.otp.send_otp_email", new_callable=AsyncMock) as mock_send,
+        ):
+            resp = await api_client.post(
+                "/api/auth/otp/request",
+                json={"email": "spam@example.com"},
+            )
+
+        assert resp.status_code == 429
+        assert resp.json()["error"]["code"] == "OTP_EMAIL_RATE_LIMITED"
+        mock_send.assert_not_called()
+
     async def test_request_otp_normalizes_email(self, api_client: AsyncClient):
         """Email should be lowercased."""
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=MagicMock())
+        mock_count_result = MagicMock()
+        mock_count_result.scalar_one.return_value = 0  # not rate limited
+        mock_session.execute = AsyncMock(side_effect=[mock_count_result, MagicMock()])
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
 

@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from src.api.auth import UserClaims, create_access_token, create_refresh_token, require_auth
 from src.api.errors import APIError
@@ -30,22 +30,38 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 limiter = Limiter(key_func=get_client_ip)
 
 
+OTP_EMAIL_RATE_LIMIT = 5  # max OTPs per email per hour
+
+
 @router.post("/otp/request", response_model=OtpRequestResponse)
 @limiter.limit("3/minute")
 async def request_otp(request: Request, body: OtpRequestBody) -> OtpRequestResponse:
     """Send a 6-digit OTP code to the given email."""
     settings = get_settings()
     email = body.email.lower().strip()
-    code = generate_otp_code()
-    expires_at = datetime.now(tz=UTC) + timedelta(minutes=settings.otp_expire_minutes)
 
     async with get_async_session() as session:
+        # Per-email rate limit: max 5 per hour
+        one_hour_ago = datetime.now(tz=UTC) - timedelta(hours=1)
+        result = await session.execute(
+            select(func.count())
+            .select_from(OtpCode)
+            .where(OtpCode.email == email, OtpCode.created_at > one_hour_ago)
+        )
+        email_count = result.scalar_one()
+        if email_count >= OTP_EMAIL_RATE_LIMIT:
+            logger.warning("otp_email_rate_limited", email=email, count=email_count)
+            raise APIError(429, "OTP_EMAIL_RATE_LIMITED", "Too many attempts. Try again later.")
+
         # Invalidate old unused codes for this email
         await session.execute(
             update(OtpCode)
             .where(OtpCode.email == email, OtpCode.used == False)  # noqa: E712
             .values(used=True)
         )
+
+        code = generate_otp_code()
+        expires_at = datetime.now(tz=UTC) + timedelta(minutes=settings.otp_expire_minutes)
 
         # Store new code
         session.add(OtpCode(email=email, code=code, expires_at=expires_at))
