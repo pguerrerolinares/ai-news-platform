@@ -27,7 +27,7 @@ class TestCreateScheduler:
         assert len(jobs) == 4
         job_ids = {j.id for j in jobs}
         assert "tier1_hn_reddit" in job_ids
-        assert "tier2_rss_gh_hf" in job_ids
+        assert "tier2_rss_gh_hf_ws" in job_ids
         assert "tier3_arxiv" in job_ids
         assert "otp_cleanup" in job_ids
 

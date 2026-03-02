@@ -75,12 +75,15 @@ def create_scheduler() -> AsyncIOScheduler | None:
         replace_existing=True,
     )
 
-    # Tier 2: RSS + GitHub + HuggingFace (every 60 min, extract last 3h)
+    # Tier 2: RSS + GitHub + HuggingFace + WebScraper (every 60 min, extract last 3h)
     scheduler.add_job(
         run_scheduled_pipeline,
         IntervalTrigger(minutes=settings.rss_poll_interval_minutes),
-        id="tier2_rss_gh_hf",
-        kwargs={"sources": ["rss", "github", "huggingface"], "since_hours": 3},
+        id="tier2_rss_gh_hf_ws",
+        kwargs={
+            "sources": ["rss", "github", "huggingface", "webscraper"],
+            "since_hours": 3,
+        },
         replace_existing=True,
     )
 

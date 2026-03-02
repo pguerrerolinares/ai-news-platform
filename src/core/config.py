@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     # HuggingFace
     hf_min_downloads: int = 100
 
+    # WebScraper (crawl4ai)
+    webscraper_urls: str = ""
+    webscraper_max_concurrent: int = 3
+    webscraper_page_timeout: int = 30
+
     # --- Topics ---
     topics: str = "models,tools,papers,products,open_source,agents,regulation"
     min_relevance_score: float = 0.8
@@ -140,6 +145,7 @@ class Settings(BaseSettings):
     rss_poll_interval_minutes: int = 60
     github_poll_interval_minutes: int = 60
     hf_poll_interval_minutes: int = 60
+    webscraper_poll_interval_minutes: int = 60
     arxiv_cron_hour: int = 1
     arxiv_cron_minute: int = 30
 
@@ -197,6 +203,10 @@ class Settings(BaseSettings):
     @property
     def github_search_queries_list(self) -> list[str]:
         return [q.strip() for q in self.github_search_queries.split(",") if q.strip()]
+
+    @property
+    def webscraper_urls_list(self) -> list[str]:
+        return [u.strip() for u in self.webscraper_urls.split(",") if u.strip()]
 
     @property
     def cors_origins_list(self) -> list[str]:

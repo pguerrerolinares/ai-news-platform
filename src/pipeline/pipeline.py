@@ -41,6 +41,7 @@ from src.extractors.hackernews import HackerNewsExtractor
 from src.extractors.huggingface import HuggingFaceExtractor
 from src.extractors.reddit import RedditExtractor
 from src.extractors.rss import RSSExtractor
+from src.extractors.webscraper import WebScraperExtractor
 from src.notifiers.alerts import AlertService
 from src.notifiers.telegram import TelegramNotifier
 from src.pipeline.composite_scorer import CompositeScorer
@@ -80,6 +81,9 @@ def _get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
 
     if "huggingface" in enabled:
         extractors.append(HuggingFaceExtractor())
+
+    if "webscraper" in enabled:
+        extractors.append(WebScraperExtractor())
 
     return extractors
 

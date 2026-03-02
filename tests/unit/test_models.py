@@ -53,11 +53,12 @@ class TestValidSources:
             "rss",
             "github",
             "huggingface",
+            "webscraper",
         }
         assert set(VALID_SOURCES) == expected
 
     def test_valid_sources_length(self):
-        assert len(VALID_SOURCES) == 6
+        assert len(VALID_SOURCES) == 7
 
 
 # ---------------------------------------------------------------------------

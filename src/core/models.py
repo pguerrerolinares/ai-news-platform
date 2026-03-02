@@ -49,6 +49,7 @@ VALID_SOURCES = (
     "rss",
     "github",
     "huggingface",
+    "webscraper",
 )
 
 
