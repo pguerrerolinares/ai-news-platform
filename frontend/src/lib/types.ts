@@ -16,6 +16,17 @@ export interface NewsItem {
   score: number | null;
 }
 
+export interface StatsDateItem {
+  date: string;
+  count: number;
+}
+
+export interface StatsGroupDateItem {
+  date: string;
+  group: string;
+  count: number;
+}
+
 export interface Briefing {
   date: string;
   total_items: number | null;
