@@ -69,8 +69,8 @@
 
 ## Frontend — Future Pages
 
-- [ ] **Timeline section** — Calendar heatmap + topic-grouped items per date. Browse by date
-  with full history navigation. See `2026-03-02-timeline-section-design.md`. **Next up.**
+- [x] **Timeline section** — Calendar heatmap + topic-grouped items per date. Browse by date
+  with full history navigation. See `2026-03-02-timeline-section-design.md`. Done (2026-03-02).
 
 - [ ] **Daily Briefing page** — Backend already generates LLM briefings (`/briefings/{date}`).
   Surface them in a dedicated page with date navigation. Low effort — data already exists.

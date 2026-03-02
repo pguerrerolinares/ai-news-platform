@@ -129,7 +129,7 @@ ai-news-platform/
 │       ├── lib/                      # api.ts, auth.ts, webauthn.ts, constants.ts, types.ts
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
-│       └── pages/                    # Login, Dashboard, Trending, Search, Chat, Settings
+│       └── pages/                    # Login, Dashboard, Trending, Search, Timeline, Chat, Settings
 ├── tests/                            # 1054+ unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, rescore_composite, rescore_all
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
