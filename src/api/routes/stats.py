@@ -1,8 +1,8 @@
 """API routes for aggregate statistics."""
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date as date_type, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from slowapi import Limiter
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -116,19 +116,35 @@ async def stats_by_topic(
 async def stats_by_date(
     request: Request,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
+    date_from: date_type | None = Query(default=None, description="Start date (inclusive)"),
+    date_to: date_type | None = Query(default=None, description="End date (inclusive)"),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth),
 ) -> list[StatsDateResponse]:
-    """Get item count grouped by date for the last N days."""
-    since_date = datetime.now(tz=UTC).date() - timedelta(days=days)
-    since_dt = datetime.combine(since_date, time.min, tzinfo=UTC)
+    """Get item count grouped by date for the last N days, or a custom date range."""
+    if (date_from is None) != (date_to is None):
+        raise HTTPException(
+            status_code=422,
+            detail="date_from and date_to must both be provided or both omitted",
+        )
+
     eff_date = func.date(effective_date)
+
+    if date_from is not None and date_to is not None:
+        from_dt = datetime.combine(date_from, time.min, tzinfo=UTC)
+        to_dt = datetime.combine(date_to, time(23, 59, 59), tzinfo=UTC)
+        date_filter = (effective_date >= from_dt) & (effective_date <= to_dt)
+    else:
+        since_date = datetime.now(tz=UTC).date() - timedelta(days=days)
+        since_dt = datetime.combine(since_date, time.min, tzinfo=UTC)
+        date_filter = effective_date >= since_dt
+
     result = await session.execute(
         select(
             eff_date.label("date"),
             func.count(NewsItem.id).label("count"),
         )
-        .where(effective_date >= since_dt)
+        .where(date_filter)
         .group_by(eff_date)
         .order_by(eff_date.desc())
     )
