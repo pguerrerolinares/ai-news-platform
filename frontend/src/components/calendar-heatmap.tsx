@@ -11,6 +11,7 @@ interface CalendarHeatmapProps {
   loading?: boolean
   onSelectDate?: (date: string) => void
   selectedDate?: string | null
+  onMonthChange?: (date: Date) => void
 }
 
 /** Build a map from ISO date string to count. */
@@ -63,6 +64,7 @@ export function CalendarHeatmap({
   loading = false,
   onSelectDate,
   selectedDate,
+  onMonthChange,
 }: CalendarHeatmapProps) {
   const [viewDate, setViewDate] = useState(() => new Date())
 
@@ -74,11 +76,13 @@ export function CalendarHeatmap({
     year: 'numeric',
   })
 
-  const prevMonth = () =>
-    setViewDate(new Date(year, month - 1, 1))
+  const changeMonth = (newDate: Date) => {
+    setViewDate(newDate)
+    onMonthChange?.(newDate)
+  }
 
-  const nextMonth = () =>
-    setViewDate(new Date(year, month + 1, 1))
+  const prevMonth = () => changeMonth(new Date(year, month - 1, 1))
+  const nextMonth = () => changeMonth(new Date(year, month + 1, 1))
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
   const countMap = useMemo(() => buildCountMap(data), [data])
