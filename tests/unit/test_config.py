@@ -226,3 +226,27 @@ class TestAuthConfig:
         monkeypatch.setenv("RESEND_API_KEY", "re_test_key_123")
         s = Settings()
         assert s.resend_api_key == "re_test_key_123"
+
+
+# ---------------------------------------------------------------------------
+# OTP abuse prevention config
+# ---------------------------------------------------------------------------
+def test_otp_daily_limit_default():
+    s = Settings(
+        jwt_secret="x",
+        shared_password="x",
+        database_url="postgresql+asyncpg://x:x@localhost/x",
+        database_url_sync="postgresql://x:x@localhost/x",
+    )
+    assert s.otp_daily_limit == 50
+
+
+def test_otp_daily_limit_custom():
+    s = Settings(
+        jwt_secret="x",
+        shared_password="x",
+        database_url="postgresql+asyncpg://x:x@localhost/x",
+        database_url_sync="postgresql://x:x@localhost/x",
+        otp_daily_limit=80,
+    )
+    assert s.otp_daily_limit == 80

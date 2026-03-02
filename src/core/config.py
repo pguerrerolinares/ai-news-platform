@@ -158,6 +158,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     otp_from_email: str = "noreply@resend.dev"
     otp_expire_minutes: int = 10
+    otp_daily_limit: int = 50
 
     # --- WebAuthn (Passkeys) ---
     webauthn_rp_id: str = "localhost"
