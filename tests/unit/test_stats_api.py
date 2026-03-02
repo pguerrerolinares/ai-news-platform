@@ -138,6 +138,23 @@ class TestStatsByDate:
         )
         assert resp.status_code == 200
 
+    async def test_by_date_inverted_range_rejected(
+        self, api_client: AsyncClient
+    ) -> None:
+        resp = await api_client.get(
+            "/api/stats/by-date",
+            params={"date_from": "2026-01-31", "date_to": "2026-01-01"},
+        )
+        assert resp.status_code == 422
+
+    async def test_by_date_date_to_without_date_from_rejected(
+        self, api_client: AsyncClient
+    ) -> None:
+        resp = await api_client.get(
+            "/api/stats/by-date", params={"date_to": "2026-01-31"}
+        )
+        assert resp.status_code == 422
+
 
 class TestStatsByTopicDate:
     async def test_returns_200(self, api_client: AsyncClient):
@@ -189,6 +206,23 @@ class TestStatsByTopicDate:
             params={"date_from": "2026-01-01", "date_to": "2026-01-31", "days": "7"},
         )
         assert resp.status_code == 200
+
+    async def test_inverted_range_rejected(
+        self, api_client: AsyncClient
+    ) -> None:
+        resp = await api_client.get(
+            "/api/stats/by-topic-date",
+            params={"date_from": "2026-01-31", "date_to": "2026-01-01"},
+        )
+        assert resp.status_code == 422
+
+    async def test_date_to_without_date_from_rejected(
+        self, api_client: AsyncClient
+    ) -> None:
+        resp = await api_client.get(
+            "/api/stats/by-topic-date", params={"date_to": "2026-01-31"}
+        )
+        assert resp.status_code == 422
 
 
 class TestStatsBySourceDate:

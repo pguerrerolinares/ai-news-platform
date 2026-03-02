@@ -91,6 +91,12 @@ export function CalendarHeatmap({
     [countMap],
   )
 
+  const today = useMemo(() => {
+    const t = new Date()
+    t.setHours(0, 0, 0, 0)
+    return t
+  }, [])
+
   // Monday-based offset: 0=Mon ... 6=Sun
   const firstDayOffset = (days[0].getDay() + 6) % 7
 
@@ -154,8 +160,6 @@ export function CalendarHeatmap({
           const count = countMap.get(iso) ?? 0
           const intensity = getIntensity(count, maxCount)
           const isSelected = selectedDate === iso
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
           const isFuture = d > today
 
           return (
