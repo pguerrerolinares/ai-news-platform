@@ -1,52 +1,403 @@
 # Architecture Overview
 
+> **Last updated**: 2026-03-02 | **Status**: Production (pguerrero.me)
+
 ## System Architecture
 
 AI News Platform runs as a Docker Compose stack on a Hetzner VPS (4GB RAM, ~5 EUR/month).
 
-### Components
+```mermaid
+graph TB
+    subgraph Internet
+        HN[HackerNews API]
+        AX[arXiv API]
+        RD[Reddit API]
+        RS[RSS Feeds]
+        GH[GitHub API]
+        HF[HuggingFace API]
+        WS[Web URLs]
+        LLM[Kimi/Moonshot LLM]
+        EMB[OpenAI Embeddings]
+        RE[Resend Email API]
+        TG[Telegram Bot API]
+    end
+
+    subgraph "Docker Compose — Hetzner VPS (4GB)"
+        subgraph "Nginx (TLS + Proxy)"
+            NG[Nginx 1.27]
+            STATIC[Static Files<br/>frontend/dist]
+        end
+
+        subgraph "API Container"
+            FA[FastAPI<br/>uvicorn 2 workers]
+            AUTH[Auth<br/>JWT + OTP + WebAuthn]
+            ROUTES[25+ REST Endpoints]
+            SCHED[APScheduler<br/>3-tier jobs]
+            RAG[RAG Chat<br/>SSE streaming]
+        end
+
+        subgraph "Pipeline Container"
+            PIPE[Pipeline Orchestrator]
+            EXT[7 Extractors]
+            CLASS[LLM + Keyword<br/>Classifiers]
+            SCORE[Composite Scorer<br/>+ MMR Ranker]
+        end
+
+        subgraph "PostgreSQL 16"
+            DB[(news_items<br/>+ 6 tables)]
+            VEC[(pgvector<br/>embeddings)]
+            FTS[(tsvector<br/>full-text search)]
+        end
+    end
+
+    subgraph "Browser"
+        REACT[React 19 + Shadcn UI]
+    end
+
+    HN & AX & RD & RS & GH & HF & WS --> EXT
+    EXT --> PIPE
+    PIPE --> CLASS
+    CLASS -.- LLM
+    PIPE --> SCORE
+    PIPE --> DB
+    PIPE --> VEC
+    PIPE -.- EMB
+    PIPE -.- TG
+
+    REACT --> NG
+    NG --> STATIC
+    NG --> FA
+    FA --> DB & VEC & FTS
+    FA --> RAG
+    RAG -.- EMB
+    AUTH -.- RE
+
+    SCHED -->|triggers| PIPE
+
+    style DB fill:#336791,color:#fff
+    style VEC fill:#336791,color:#fff
+    style FTS fill:#336791,color:#fff
+```
+
+### Component Resource Budget
 
 | Component | Technology | RAM Budget | Purpose |
 |-----------|-----------|-----------|---------|
-| Database | PostgreSQL 16 + pgvector | 300MB | Persistent storage, FTS, vector search |
-| API | FastAPI (2 workers) | 200MB | REST API for frontend and MCP |
-| Pipeline | Python (temporal) | 300MB | Daily news extraction + classification |
-| Nginx | Nginx 1.27 | 50MB | TLS termination, reverse proxy, static files |
-| OS + Docker | Linux | 400MB | Infrastructure |
+| Database | PostgreSQL 16 + pgvector | ~300MB | Storage, FTS, vector search |
+| API | FastAPI (2 workers) | ~200MB | REST API, scheduler, RAG chat |
+| Pipeline | Python (temporal) | ~300MB | News extraction + classification |
+| Nginx | Nginx 1.27 | ~50MB | TLS, reverse proxy, static files |
+| OS + Docker | Linux | ~400MB | Infrastructure |
 
-### Data Flow
+## Data Flow — Pipeline
 
-1. **Extraction**: Pipeline runs daily (cron), extractors fetch from 4-6 sources in parallel
-2. **Deduplication**: 2-pass hash dedup (content_hash + url_hash)
-3. **Classification**: Batched LLM calls (Kimi/Moonshot) assign topic, relevance, summary
-4. **Event Dedup**: LLM groups items about the same event, picks winners
-5. **Validation**: Concurrent URL verification, credibility scoring
-6. **Storage**: Validated items inserted into PostgreSQL via SQLAlchemy async
-7. **Notification**: Telegram briefing + web UI
+The pipeline runs on a 3-tier schedule (15min / 60min / daily) with per-source circuit breakers.
 
-### Interface Architecture
+```mermaid
+flowchart LR
+    subgraph Extract
+        E1[HackerNews<br/>every 15min]
+        E2[Reddit<br/>every 15min]
+        E3[RSS<br/>every 60min]
+        E4[GitHub<br/>every 60min]
+        E5[HuggingFace<br/>every 60min]
+        E6[WebScraper<br/>every 60min]
+        E7[arXiv<br/>daily 01:30]
+    end
 
-Every major component is defined as an ABC (Abstract Base Class).
-Existing implementations marked with **bold**, planned ones in *italics*:
+    subgraph Process
+        DD[Hash Dedup<br/>content + URL]
+        VL[Pre-validation<br/>title + URL required]
+        CL[LLM Classify<br/>topic + relevance + summary]
+        ED[Event Dedup<br/>LLM grouping]
+        VC[Variant Collapse<br/>HF model dedup]
+        CS[Composite Score<br/>velocity + relevance<br/>+ recency + topic]
+        CR[Credibility<br/>Validation]
+    end
 
-- `BaseExtractor` -> **`HackerNewsExtractor`** (M1), *`ArxivExtractor`* (M2), *`RedditExtractor`* (M2), *`RSSExtractor`* (M2), *`GitHubTrendingExtractor`* (M3), *`HuggingFaceExtractor`* (M3)
-- `BaseClassifier` -> *`LLMClassifier`* (M2), *`KeywordClassifier`* (M2)
-- `BaseValidator` -> *`CredibilityValidator`* (M2)
-- `BaseNotifier` -> *`TelegramNotifier`* (M2)
-- *`BaseEmbedder`* -> (Milestone 4)
+    subgraph Store
+        DB[(PostgreSQL)]
+        EM[Generate<br/>Embeddings]
+        BR[Daily<br/>Briefing]
+        TG[Telegram<br/>Notification]
+    end
 
-New implementations extend the system without modifying existing code (Open/Closed Principle).
+    E1 & E2 & E3 & E4 & E5 & E6 & E7 --> DD
+    DD --> VL --> CL --> ED --> VC --> CS --> CR
+    CR --> DB
+    DB --> EM & BR & TG
+```
 
-### Security Model
+### Pipeline Schedule
 
-- **Auth**: Shared password -> JWT token (semi-public, small group)
+| Tier | Sources | Interval | Extraction Window |
+|------|---------|----------|-------------------|
+| 1 | HackerNews, Reddit | 15 min | 6 hours |
+| 2 | RSS, GitHub, HuggingFace, WebScraper | 60 min | 3 hours |
+| 3 | arXiv | Daily 01:30 UTC | 24 hours |
+
+Circuit breaker: 3 consecutive failures → 1 hour cooldown per source.
+
+## Data Flow — API Request
+
+```mermaid
+flowchart LR
+    Browser[React App] -->|HTTPS| Nginx
+    Nginx -->|proxy_pass| FastAPI
+
+    subgraph FastAPI
+        MW[Middleware<br/>CORS + Security Headers<br/>+ Body Limit + Metrics]
+        AUTH[JWT Auth<br/>require_auth]
+        ROUTE[Route Handler]
+    end
+
+    FastAPI -->|query| DB[(PostgreSQL)]
+
+    subgraph "Feed Algorithm (/items/latest)"
+        TW[Time Window<br/>48h → 72h → 168h]
+        RS[Live Rescore<br/>CompositeScorer]
+        VC2[Variant Collapse]
+        MMR[MMR Diversification<br/>λ=0.7]
+        PAG[Paginate]
+    end
+
+    ROUTE --> TW --> RS --> VC2 --> MMR --> PAG
+    PAG -->|JSON + X-Total-Count| Browser
+
+    subgraph "RAG Chat (/chat)"
+        RET[Vector Retriever<br/>pgvector cosine]
+        CTX[Build Context<br/>top-k items]
+        LLM[LLM Generate<br/>streaming]
+        SSE[SSE Response]
+    end
+
+    ROUTE --> RET --> CTX --> LLM --> SSE
+    SSE -->|event stream| Browser
+```
+
+## Interface Architecture
+
+Every major component is defined as an ABC. New implementations extend the system
+without modifying existing code (Open/Closed Principle).
+
+```mermaid
+classDiagram
+    class BaseExtractor {
+        <<abstract>>
+        +source_name: str
+        +extract(since_hours) list~ExtractedItem~
+    }
+    class BaseClassifier {
+        <<abstract>>
+        +classify(items) list~ClassifiedItem~
+    }
+    class BaseValidator {
+        <<abstract>>
+        +validate(items) list~ClassifiedItem~
+    }
+    class BaseNotifier {
+        <<abstract>>
+        +send_briefing(items)
+    }
+
+    BaseExtractor <|-- HackerNewsExtractor
+    BaseExtractor <|-- ArxivExtractor
+    BaseExtractor <|-- RedditExtractor
+    BaseExtractor <|-- RSSExtractor
+    BaseExtractor <|-- GitHubExtractor
+    BaseExtractor <|-- HuggingFaceExtractor
+    BaseExtractor <|-- WebScraperExtractor
+
+    BaseClassifier <|-- LLMClassifier
+    BaseClassifier <|-- KeywordClassifier
+
+    BaseValidator <|-- CredibilityValidator
+
+    BaseNotifier <|-- TelegramNotifier
+```
+
+## Authentication Flow
+
+Three auth methods coexist, all producing the same JWT tokens:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant A as API
+    participant R as Resend
+    participant DB as PostgreSQL
+
+    Note over U,DB: Method 1 — Email OTP (primary)
+    U->>F: Enter email
+    F->>A: POST /auth/otp/request
+    A->>R: Send OTP email
+    A->>DB: Store OTP code (10min TTL)
+    R-->>U: Email with 6-digit code
+    U->>F: Enter code
+    F->>A: POST /auth/otp/verify
+    A->>DB: Verify code + upsert user
+    A-->>F: access_token + refresh_token
+
+    Note over U,DB: Method 2 — WebAuthn Passkey
+    U->>F: Click "Login with passkey"
+    F->>A: POST /auth/webauthn/login/options
+    A-->>F: Challenge
+    F->>U: Biometric prompt
+    U-->>F: Signed assertion
+    F->>A: POST /auth/webauthn/login/verify
+    A->>DB: Verify credential + update sign_count
+    A-->>F: access_token + refresh_token
+
+    Note over U,DB: Method 3 — Shared Password (fallback)
+    U->>F: Enter password
+    F->>A: POST /auth/token
+    A-->>F: access_token + refresh_token (role=reader)
+```
+
+## Database Schema
+
+```mermaid
+erDiagram
+    news_items {
+        uuid id PK
+        text title
+        text summary
+        text url
+        varchar source
+        varchar topic
+        float relevance_score
+        float composite_score
+        float credibility_score
+        bool trending
+        timestamptz published_at
+        timestamptz created_at
+        text content_hash UK
+        tsvector search_vector
+    }
+
+    item_embeddings {
+        uuid item_id PK,FK
+        text model PK
+        vector embedding "vector(1536)"
+        timestamptz created_at
+    }
+
+    daily_briefings {
+        date date PK
+        int total_items
+        jsonb sources_used
+        float duration_seconds
+    }
+
+    users {
+        uuid id PK
+        text email UK
+        varchar role "admin | reader"
+        timestamptz last_login_at
+    }
+
+    otp_codes {
+        serial id PK
+        text email
+        varchar code "6 digits"
+        timestamptz expires_at
+        bool used
+    }
+
+    webauthn_credentials {
+        uuid id PK
+        uuid user_id FK
+        bytea credential_id UK
+        bytea public_key
+        int sign_count
+    }
+
+    raw_extractions {
+        uuid id PK
+        varchar source
+        varchar source_id
+        jsonb raw_json
+    }
+
+    news_items ||--o{ item_embeddings : "has embeddings"
+    users ||--o{ webauthn_credentials : "has passkeys"
+    users ||--o{ otp_codes : "has OTP codes"
+```
+
+### Key Indexes
+
+| Table | Index | Type | Purpose |
+|-------|-------|------|---------|
+| news_items | content_hash | UNIQUE | Deduplication |
+| news_items | search_vector | GIN | Full-text search |
+| news_items | effective_date | B-tree DESC | Feed ordering |
+| news_items | trending + date | Partial B-tree | Trending queries |
+| news_items | composite_score | B-tree | Feed ranking |
+| item_embeddings | embedding | HNSW (cosine) | Vector similarity |
+| webauthn_credentials | credential_id | UNIQUE | Passkey lookup |
+
+## Security Model
+
+- **Auth**: Passwordless OTP + WebAuthn passkeys + shared password fallback → JWT (30min access + 7d refresh with rotation)
 - **SSRF**: All external URL fetches check for private IP ranges
-- **Secrets**: `.env` file, never committed
-- **Scanning**: bandit in CI, ruff security rules
-- **Network**: Nginx rate limiting, HTTPS via Let's Encrypt
+- **Headers**: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS
+- **Body limit**: 1MB max request body (ASGI middleware)
+- **Rate limiting**: slowapi per-endpoint (IP-based via X-Forwarded-For with anti-spoofing)
+- **Secrets**: `.env` file, never committed, validated at startup (fail-fast on insecure defaults)
+- **Scanning**: bandit in CI, ruff security rules (S-series)
+- **Network**: Nginx/Traefik TLS termination, HTTPS via Let's Encrypt
 
-### Observability
+## Observability
 
-- **Logging**: structlog (JSON), correlation IDs per pipeline run / API request
-- **Metrics**: Prometheus counters and histograms at /metrics
-- **Alerts**: Telegram notifications for pipeline failures, deploy issues, backup failures, extractor 0 items
+- **Logging**: structlog JSON with `correlation_id` per pipeline run / API request
+- **Metrics**: Prometheus counters and histograms at `/metrics` (localhost only)
+  - `api_requests_total`, `api_request_duration_seconds`
+  - `pipeline_runs_total`, `pipeline_duration_seconds`
+  - Per-extractor duration, items stored, classification duration
+  - Embedding failures, notification errors, validation failures
+- **Alerts**: Telegram notifications for pipeline failures, empty extractors, deploy issues
+
+## Feed Algorithm
+
+The feed ranking system replaces simple chronological ordering with quality-aware diversification:
+
+```mermaid
+flowchart TD
+    subgraph "Composite Score (per item)"
+        V[Velocity<br/>stars/hr, points/hr<br/>weight: 0.35]
+        R[Relevance<br/>LLM score<br/>weight: 0.30]
+        T[Recency<br/>48h decay<br/>weight: 0.20]
+        TP[Topic<br/>bonus for trending topics<br/>weight: 0.15]
+        V & R & T & TP --> CS[composite_score<br/>0.0 — 1.0]
+    end
+
+    subgraph "Feed Builder (query-time)"
+        CAN[Fetch Candidates<br/>limit × 5 pool] --> COL[Variant Collapse<br/>HF model dedup]
+        COL --> LR[Live Rescore<br/>fresh composite_score]
+        LR --> MMR[MMR Diversification<br/>λ=0.7 quality vs diversity]
+        MMR --> PAG[Paginate<br/>offset + limit]
+    end
+
+    CS --> CAN
+```
+
+## CI/CD Pipeline
+
+```mermaid
+flowchart LR
+    PUSH[Push to main] --> LINT[Lint<br/>ruff check + format]
+    PUSH --> TYPE[Type Check<br/>pyright]
+    LINT & TYPE --> TEST[Unit Tests<br/>pytest + coverage ≥80%]
+    TEST --> INT[Integration<br/>+ Security Tests]
+    INT --> DEPLOY[Deploy<br/>Coolify webhook]
+    DEPLOY --> COOLIFY[Coolify rebuilds<br/>Docker containers]
+
+    style DEPLOY fill:#2d6a4f,color:#fff
+```
+
+**Kill switch**: `COOLIFY_DEPLOY_ENABLED` GitHub Variable (set to `false` to disable auto-deploy).
+
+---
+
+*See also: [`AGENTS.md`](../../AGENTS.md) for the complete file map, endpoint reference, and DB schema details.*

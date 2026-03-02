@@ -84,6 +84,47 @@
 - [ ] **Settings page** — User preferences: default topic filter, preferred sources,
   notification preferences. Stored in localStorage initially, backend later.
 
+## Architecture — Pipeline & Infrastructure (from 2026-03-02 retrospective)
+
+### Tier 1 — High Impact (Pipeline Performance)
+
+- [ ] **Separate Dockerfiles: API vs Pipeline** — Two images: `Dockerfile.api` (no crawl4ai,
+  feedparser, telegram) and `Dockerfile.pipeline` (full deps). API image drops from ~1.2GB
+  to ~300MB. Faster builds, less RAM.
+  See `2026-03-02-architecture-retrospective-design.md`.
+
+- [ ] **Replace Crawl4AI with httpx + readability** — Chromium consumes 500MB-1GB on a 4GB VPS.
+  For manually-configured URLs that are mostly static HTML blogs, httpx + readability-lxml
+  is sufficient at ~0 overhead. Keep Crawl4AI as optional separate service if JS rendering
+  is needed later.
+
+- [ ] **Break pipeline.py into composable stages** — Current: 469 LOC monolithic function with
+  9 inline steps. Proposed: `stages/extract.py`, `stages/classify.py`, `stages/score.py`,
+  `stages/store.py`, `stages/notify.py` + thin orchestrator. Each stage independently
+  testable, profilable, parallelizable.
+
+### Tier 2 — Medium Impact (Tech Debt)
+
+- [ ] **Move refresh tokens to PostgreSQL** — `_refresh_tokens` dict in `auth.py` is lost on
+  every container restart, forcing all users to re-login. Add `refresh_token_hash` +
+  `refresh_expires_at` to `users` table (or dedicated table). One migration, one code change.
+
+- [ ] **Replace python-jose with PyJWT** — python-jose last release 2022, unmaintained.
+  PyJWT is actively maintained, near drop-in replacement. Security-critical dependency.
+
+- [ ] **Multi-stage Dockerfile** (if not doing separate Dockerfiles) — At minimum, builder
+  stage to reduce final image size.
+
+### Tier 3 — Low Impact (Nice to Have)
+
+- [ ] **Split Settings into sub-configs** — `PipelineSettings`, `AuthSettings`, `FeedSettings`,
+  `ScraperSettings`. 50 settings in one flat class with 13 `*_list` properties is unwieldy.
+
+- [ ] **Clean up dead code** — Remove `web/` (Angular) if still tracked. Remove unused imports.
+
+- [ ] **psycopg2-binary → psycopg3** — Modern driver supporting both async and sync in one
+  package. Eliminates need for asyncpg + psycopg2-binary dual dependency.
+
 ## Backend — Improvements
 
 - [ ] **HF daily_papers: fetch abstract text** — Currently `text` field for daily papers is
@@ -163,4 +204,4 @@
 
 ---
 
-*Last updated: 27 de febrero de 2026*
+*Last updated: 2 de marzo de 2026*
