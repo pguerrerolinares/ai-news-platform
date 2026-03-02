@@ -75,5 +75,11 @@
     "never": "Never",
     "registered": "Registered",
     "backedUp": "Synced"
+  },
+  "passkeyPrompt": {
+    "title": "Faster sign-in available",
+    "description": "Register a passkey to sign in with fingerprint or Face ID — no more email codes.",
+    "register": "Set up passkey",
+    "dismiss": "Not now"
   }
 }
