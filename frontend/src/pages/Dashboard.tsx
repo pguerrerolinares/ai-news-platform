@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { apiGet } from '@/lib/api'
 import type { NewsItem } from '@/lib/types'
 import { IconRefresh, IconLoader2 } from '@tabler/icons-react'
+import { PasskeyPrompt } from '@/components/passkey-prompt'
 
 const PAGE_SIZE = 20
 
@@ -77,6 +78,7 @@ export default function Top() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4">
+      <PasskeyPrompt />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Top</h2>
