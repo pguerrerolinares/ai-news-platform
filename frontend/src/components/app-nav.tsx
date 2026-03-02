@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth'
 const links = [
   { to: '/', label: 'Feed' },
   { to: '/top', label: 'Top' },
+  { to: '/timeline', label: 'Timeline' },
   { to: '/search', label: 'Search' },
 ]
 
