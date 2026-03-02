@@ -153,9 +153,7 @@ class TestOtpRequest:
         # Second execute: daily cap count returns 50 (at limit)
         mock_daily_count = MagicMock()
         mock_daily_count.scalar_one.return_value = 50
-        mock_session.execute = AsyncMock(
-            side_effect=[mock_email_count, mock_daily_count]
-        )
+        mock_session.execute = AsyncMock(side_effect=[mock_email_count, mock_daily_count])
         mock_session.add = MagicMock()
         mock_session.commit = AsyncMock()
 

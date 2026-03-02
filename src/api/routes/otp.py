@@ -56,9 +56,7 @@ async def request_otp(request: Request, body: OtpRequestBody) -> OtpRequestRespo
         # Global daily cap
         today_start = datetime.now(tz=UTC).replace(hour=0, minute=0, second=0, microsecond=0)
         daily_result = await session.execute(
-            select(func.count())
-            .select_from(OtpCode)
-            .where(OtpCode.created_at >= today_start)
+            select(func.count()).select_from(OtpCode).where(OtpCode.created_at >= today_start)
         )
         daily_count = daily_result.scalar_one()
         if daily_count >= settings.otp_daily_limit:
