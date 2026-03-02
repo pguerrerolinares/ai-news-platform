@@ -8,10 +8,11 @@ import type { NewsItem } from '@/lib/types'
 interface TopicGroupProps {
   topic: string
   items: NewsItem[]
+  defaultExpanded?: boolean
 }
 
-export function TopicGroup({ topic, items }: TopicGroupProps) {
-  const [open, setOpen] = useState(false)
+export function TopicGroup({ topic, items, defaultExpanded }: TopicGroupProps) {
+  const [open, setOpen] = useState(defaultExpanded ?? false)
   const label = TOPIC_LABELS[topic] ?? topic
 
   return (

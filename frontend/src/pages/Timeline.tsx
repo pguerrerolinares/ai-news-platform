@@ -23,7 +23,9 @@ export default function Timeline() {
   const [heatmapData, setHeatmapData] = useState<StatsDateItem[]>([])
   const [heatmapLoading, setHeatmapLoading] = useState(true)
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    () => new Date().toISOString().split('T')[0],
+  )
   const [dayItems, setDayItems] = useState<NewsItem[]>([])
   const [dayLoading, setDayLoading] = useState(false)
   const [dayError, setDayError] = useState('')
@@ -59,6 +61,14 @@ export default function Timeline() {
   useEffect(() => {
     fetchMonthData()
   }, [fetchMonthData])
+
+  // Fetch items for today on mount
+  useEffect(() => {
+    if (selectedDate) {
+      fetchDayItems(selectedDate)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Fetch items for the selected date
   const fetchDayItems = useCallback(async (date: string) => {
@@ -179,19 +189,14 @@ export default function Timeline() {
 
           {!dayLoading && !dayError && groupedByTopic.length > 0 && (
             <div className="space-y-3">
-              {groupedByTopic.map(([topic, items]) => (
-                <TopicGroup key={topic} topic={topic} items={items} />
+              {groupedByTopic.map(([topic, items], i) => (
+                <TopicGroup key={topic} topic={topic} items={items} defaultExpanded={i < 2} />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {!selectedDate && !heatmapLoading && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Select a date on the calendar to see items
-        </p>
-      )}
     </div>
   )
 }

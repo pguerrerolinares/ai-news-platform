@@ -154,18 +154,22 @@ export function CalendarHeatmap({
           const count = countMap.get(iso) ?? 0
           const intensity = getIntensity(count, maxCount)
           const isSelected = selectedDate === iso
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const isFuture = d > today
 
           return (
             <button
               key={iso}
               type="button"
-              onClick={() => onSelectDate?.(iso)}
+              disabled={isFuture}
+              onClick={() => !isFuture && onSelectDate?.(iso)}
               title={`${iso}: ${count} items`}
               className={`aspect-square rounded text-[10px] transition-colors ${INTENSITY_CLASSES[intensity]} ${
                 isSelected
                   ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
                   : ''
-              } hover:ring-1 hover:ring-foreground/30`}
+              } ${isFuture ? 'opacity-30 cursor-not-allowed' : 'hover:ring-1 hover:ring-foreground/30'}`}
             >
               {d.getDate()}
             </button>
