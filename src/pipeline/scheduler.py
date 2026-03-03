@@ -122,3 +122,25 @@ async def cleanup_expired_otps() -> None:
         await session.commit()
         if result.rowcount:
             logger.info("otp_cleanup_done", deleted=result.rowcount)
+
+
+if __name__ == "__main__":
+    import asyncio
+    import signal
+
+    scheduler = create_scheduler()
+    if scheduler is None:
+        logger.info("scheduler_disabled_exiting")
+    else:
+        scheduler.start()
+        logger.info("scheduler_running")
+
+        loop = asyncio.get_event_loop()
+        stop = loop.create_future()
+
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, stop.set_result, None)
+
+        loop.run_until_complete(stop)
+        scheduler.shutdown(wait=False)
+        logger.info("scheduler_stopped")
