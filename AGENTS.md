@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 1015+ passed, 92% coverage
+- **Tests**: 1,179+ passed, 92% coverage
 
 ## Architecture
 
@@ -101,7 +101,8 @@ ai-news-platform/
 │   │   ├── database.py               # Async SQLAlchemy engine + get_async_session()
 │   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction, WebAuthnCredential
 │   │   ├── logging.py                # structlog + correlation IDs
-│   │   └── metrics.py                # Prometheus counters + histograms
+│   │   ├── metrics.py                # Prometheus counters + histograms
+│   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
 │   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper[httpx+readability])
 │   ├── classifiers/                  # Keyword + LLM classifiers, event dedup
 │   ├── validators/                   # CredibilityValidator
@@ -136,7 +137,7 @@ ai-news-platform/
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
 │       └── pages/                    # Login, Dashboard, Trending, Search, Timeline, Chat, Settings
-├── tests/                            # 1054+ unit + 35 E2E (Playwright)
+├── tests/                            # 1,179+ unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, rescore_composite, rescore_all
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
@@ -224,7 +225,7 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (1015+ passed)
+**Current coverage**: 92% (1,179+ passed)
 **E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
 
 ## CI/CD Pipeline

@@ -39,7 +39,7 @@ cp .env.example .env  # Rellenar secretos
 
 # Entorno de desarrollo
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[api,pipeline,dev]"
 
 # Base de datos
 docker compose up db -d
@@ -72,14 +72,14 @@ ai-news-platform/
 │   ├── extractors/    # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper)
 │   ├── classifiers/   # LLM + keyword classifiers, event dedup
 │   ├── validators/    # Credibility validation
-│   ├── pipeline/      # Orchestrator, scheduler, composite scoring, circuit breaker
+│   ├── pipeline/      # Orchestrator + 5 stages (extract/classify/score/store/notify), scheduler, scoring
 │   ├── feed/          # Feed algorithm (variant collapse, MMR diversification)
 │   ├── rag/           # Embeddings, retriever, chat service (SSE)
 │   ├── notifiers/     # Telegram notifications + alerts
 │   ├── mcp/           # MCP server + client
 │   └── core/          # Config, models, database, logging, metrics
 ├── frontend/          # React 19 + Vite + Shadcn UI (6 paginas)
-├── tests/             # 1,015+ tests (unit + E2E Playwright), 92% coverage
+├── tests/             # 1,179+ tests (unit + E2E Playwright), 92% coverage
 ├── alembic/           # 9 migraciones de DB
 ├── docs/              # Arquitectura, ADRs, planes, runbooks
 └── scripts/           # Backup, health check, rescore
@@ -106,14 +106,14 @@ bandit -r src/                           # Seguridad
 
 | Metrica | Valor |
 |---------|-------|
-| Commits | 437 |
-| Backend (Python) | ~8,600 LOC |
-| Frontend (TypeScript) | ~4,870 LOC |
-| Tests | ~17,160 LOC |
-| Tests passing | 1,015+ |
+| Commits | 480 |
+| Backend (Python) | ~8,800 LOC |
+| Frontend (TypeScript) | ~5,400 LOC |
+| Tests | ~17,700 LOC |
+| Tests passing | 1,179+ |
 | Coverage | 92% |
-| Design docs | ~75 |
-| Tiempo de desarrollo | ~2 semanas |
+| Design docs | ~80 |
+| Tiempo de desarrollo | ~2.5 semanas |
 | Codigo humano | 0 lineas |
 
 ## Licencia
