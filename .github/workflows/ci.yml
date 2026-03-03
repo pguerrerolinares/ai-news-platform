@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[api,pipeline,dev]"
       - name: Ruff check
         run: ruff check .
       - name: Ruff format
@@ -47,7 +47,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[api,pipeline,dev]"
       - name: Pyright
         run: pyright .
 
@@ -80,7 +80,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[api,pipeline,dev]"
       - name: Alembic migrate
         run: alembic upgrade head
       - name: Alembic check (no drift)
@@ -119,7 +119,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[api,pipeline,dev]"
       - name: Alembic migrate
         run: alembic upgrade head
       - name: Integration tests

@@ -110,8 +110,6 @@ ignore = [
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-venvPath = "."
-venv = ".venv"
 # Suppress noisy false positives from SQLAlchemy, ASGI, structlog, and test mocks
 reportArgumentType = "warning"
 reportAttributeAccessIssue = "warning"
