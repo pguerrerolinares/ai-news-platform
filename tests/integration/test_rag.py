@@ -83,8 +83,8 @@ class TestEmbeddingStorage:
 
 class TestEmbedNewItems:
     async def test_new_items_get_embeddings(self, db_session):
-        """_embed_new_items stores vectors for items without embeddings."""
-        from src.pipeline.pipeline import _embed_new_items
+        """embed_new_items stores vectors for items without embeddings."""
+        from src.pipeline.stages.store import embed_new_items
 
         for i in range(3):
             await seed_news_item(
@@ -97,7 +97,7 @@ class TestEmbedNewItems:
         mock_embed.prepare_text = EmbeddingService.prepare_text
         mock_embed.embed_batch.return_value = [[0.3] * 1536] * 3
 
-        count = await _embed_new_items(db_session, embed_service=mock_embed)
+        count = await embed_new_items(db_session, embed_service=mock_embed)
 
         assert count == 3
         result = await db_session.execute(select(func.count(ItemEmbedding.item_id)))

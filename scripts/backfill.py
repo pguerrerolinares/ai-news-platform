@@ -461,7 +461,7 @@ def _print_dry_run_summary(
 
 async def phase_embed() -> int:
     """Generate embeddings for items that don't have them yet."""
-    from src.pipeline.pipeline import _embed_new_items as embed_new_items
+    from src.pipeline.stages.store import embed_new_items
     from src.rag.embeddings import EmbeddingService
 
     settings = get_settings()
