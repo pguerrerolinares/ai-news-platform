@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     # HuggingFace
     hf_min_downloads: int = 100
 
-    # WebScraper (crawl4ai)
+    # WebScraper (httpx + readability)
     webscraper_urls: str = ""
     webscraper_max_concurrent: int = 3
     webscraper_page_timeout: int = 30
