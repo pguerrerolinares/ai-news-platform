@@ -138,14 +138,8 @@ async def run_pipeline(
 
         # 10. Embeddings
         if settings.embedding_api_key:
-            try:
-                embedded_count = await embed_new_items(session)
-                logger.info("pipeline_embeddings", count=embedded_count)
-            except Exception as exc:
-                from src.core.metrics import embedding_failures_total
-
-                embedding_failures_total.inc()
-                logger.error("pipeline_embedding_failed", error=str(exc))
+            embedded_count = await embed_new_items(session)
+            logger.info("pipeline_embeddings", count=embedded_count)
 
         pipeline_runs_total.labels(status="success").inc()
         pipeline_duration_seconds.observe(duration)

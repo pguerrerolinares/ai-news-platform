@@ -8,9 +8,7 @@ filtering, and Jaccard-similarity deduplication.
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import re
-import socket
 from urllib.parse import urlparse
 
 import httpx
@@ -18,6 +16,7 @@ import httpx
 from src.classifiers.base import ClassifiedItem
 from src.core.config import get_settings
 from src.core.logging import get_logger
+from src.core.ssrf import is_safe_url as _is_safe_url
 from src.validators.base import BaseValidator
 
 logger = get_logger(__name__)
@@ -236,38 +235,6 @@ def _extract_domain(url: str) -> str | None:
         return parsed.hostname
     except Exception:
         return None
-
-
-async def _is_safe_url(url: str) -> bool:
-    """Check that a URL is safe to fetch (no SSRF to private networks).
-
-    Validates the scheme is http/https, resolves the hostname via DNS
-    (non-blocking), and blocks private, loopback, link-local, and
-    reserved IP addresses.
-    """
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            return False
-
-        hostname = parsed.hostname
-        if not hostname:
-            return False
-
-        # Non-blocking DNS resolution
-        loop = asyncio.get_event_loop()
-        addr_infos = await loop.getaddrinfo(
-            hostname, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM
-        )
-        for addr_info in addr_infos:
-            ip_str = addr_info[4][0]
-            ip = ipaddress.ip_address(ip_str)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                return False
-
-        return True
-    except (socket.gaierror, ValueError, OSError):
-        return False
 
 
 def _score_engagement(item: ClassifiedItem) -> float:

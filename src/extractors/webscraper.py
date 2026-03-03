@@ -24,6 +24,7 @@ from src.core.metrics import (
     extractor_errors_total,
     items_extracted_total,
 )
+from src.core.ssrf import assert_safe_url
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -65,6 +66,7 @@ def _extract_links_from_html(raw_html: str, base_url: str) -> list[dict[str, str
     try:
         tree = lxml_html.fromstring(raw_html)
     except Exception:
+        logger.warning("extract_links_parse_failed", base_url=base_url)
         return []
 
     links: list[dict[str, str]] = []
@@ -156,6 +158,7 @@ def _html_to_text(html_content: str) -> str:
         tree = lxml_html.fromstring(html_content)
         return tree.text_content().strip()
     except Exception:
+        logger.warning("html_to_text_parse_failed", content_length=len(html_content))
         # Fallback: crude regex strip.
         return re.sub(r"<[^>]+>", "", html_content).strip()
 
@@ -225,6 +228,7 @@ class WebScraperExtractor(BaseExtractor):
     ) -> list[ExtractedItem]:
         """Scrape an index page and its discovered article links."""
         # Phase 1: Fetch index page and discover links.
+        await assert_safe_url(index_url)
         resp = await client.get(index_url)
         resp.raise_for_status()
 
@@ -242,6 +246,7 @@ class WebScraperExtractor(BaseExtractor):
 
         for article_url in article_urls[:remaining_budget]:
             try:
+                await assert_safe_url(article_url)
                 article_resp = await client.get(article_url)
                 article_resp.raise_for_status()
             except Exception as exc:

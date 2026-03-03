@@ -10,12 +10,12 @@ import httpx
 import pytest
 
 from src.core.config import Settings
+from src.core.ssrf import is_safe_url as _is_safe_url
 from src.validators.credibility import (
     CredibilityValidator,
     _analyze_news_tone,
     _extract_domain,
     _is_duplicate_or_similar,
-    _is_safe_url,
     _jaccard_similarity,
     _score_engagement,
     _tokenize,
@@ -72,7 +72,7 @@ def _mock_loop_getaddrinfo(return_value=None, side_effect=None):
     """Create a patch for asyncio.get_event_loop().getaddrinfo."""
     mock_loop = MagicMock()
     mock_loop.getaddrinfo = AsyncMock(return_value=return_value, side_effect=side_effect)
-    return patch("src.validators.credibility.asyncio.get_event_loop", return_value=mock_loop)
+    return patch("src.core.ssrf.asyncio.get_event_loop", return_value=mock_loop)
 
 
 class TestIsSafeUrl:
