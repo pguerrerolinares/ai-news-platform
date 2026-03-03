@@ -128,19 +128,22 @@ if __name__ == "__main__":
     import asyncio
     import signal
 
-    scheduler = create_scheduler()
-    if scheduler is None:
-        logger.info("scheduler_disabled_exiting")
-    else:
+    async def _main() -> None:
+        scheduler = create_scheduler()
+        if scheduler is None:
+            logger.info("scheduler_disabled_exiting")
+            return
+
         scheduler.start()
         logger.info("scheduler_running")
 
-        loop = asyncio.get_event_loop()
-        stop = loop.create_future()
+        stop: asyncio.Future[None] = asyncio.get_running_loop().create_future()
 
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, stop.set_result, None)
+            asyncio.get_running_loop().add_signal_handler(sig, stop.set_result, None)
 
-        loop.run_until_complete(stop)
+        await stop
         scheduler.shutdown(wait=False)
         logger.info("scheduler_stopped")
+
+    asyncio.run(_main())
