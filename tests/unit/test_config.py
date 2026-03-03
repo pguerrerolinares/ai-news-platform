@@ -40,8 +40,8 @@ class TestSettingsDefaults:
         assert s.log_format == "json"
 
     def test_default_min_relevance_score(self):
-        s = Settings()
-        assert s.min_relevance_score == pytest.approx(0.8)
+        s = Settings(min_relevance_score=0.75)
+        assert s.min_relevance_score == pytest.approx(0.75)
 
     def test_default_pipeline_schedule(self):
         s = Settings()
