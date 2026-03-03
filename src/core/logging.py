@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from contextvars import ContextVar
 from typing import Any
@@ -41,6 +42,12 @@ def add_correlation_id(logger: Any, method_name: str, event_dict: dict[str, Any]
 def setup_logging() -> None:
     """Configure structlog for the application."""
     settings = get_settings()
+
+    # Configure stdlib logging level so structlog messages are not silently dropped.
+    # structlog uses stdlib.LoggerFactory, which delegates to Python's logging module;
+    # without this, the root logger stays at WARNING and filters out INFO messages.
+    log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    logging.basicConfig(format="%(message)s", level=log_level)
 
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,

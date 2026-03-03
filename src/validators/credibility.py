@@ -194,8 +194,10 @@ _STOPWORDS = frozenset(
 _SOURCE_CREDIBILITY: dict[str, float] = {
     "arxiv": 0.3,
     "rss": 0.25,
-    "hackernews": 0.1,
-    "reddit": 0.05,
+    "hackernews": 0.2,
+    "github": 0.2,
+    "huggingface": 0.2,
+    "reddit": 0.1,
 }
 
 _ENGAGEMENT_THRESHOLDS: list[tuple[int, float]] = [
@@ -363,7 +365,7 @@ class CredibilityValidator(BaseValidator):
     - Tone analysis adjustment (suspicious -0.1 each, professional +0.05 each)
 
     Filtering:
-    - Remove items with credibility < 0.4
+    - Remove items with credibility < 0.3
     - Remove low engagement items (score < 5) from HackerNews/Reddit
     - Jaccard similarity dedup (threshold 0.65) with EN+ES+AI stopwords
     """
@@ -472,7 +474,7 @@ class CredibilityValidator(BaseValidator):
 
         for item in items:
             # Rule 1: credibility threshold
-            if (item.credibility_score or 0.0) < 0.4:
+            if (item.credibility_score or 0.0) < 0.3:
                 logger.debug(
                     "item_filtered_low_credibility",
                     title=item.item.title[:60],

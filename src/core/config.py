@@ -100,7 +100,7 @@ class Settings(BaseSettings):
 
     # --- Topics ---
     topics: str = "models,tools,papers,products,open_source,agents,regulation"
-    min_relevance_score: float = 0.8
+    min_relevance_score: float = 0.75
 
     # --- Composite Scoring Weights (must sum to 1.0 for each mode) ---
     composite_w_velocity: float = 0.35

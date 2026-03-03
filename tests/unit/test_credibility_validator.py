@@ -510,7 +510,7 @@ class TestNoiseFiltering:
                 item=make_extracted_item(source="reddit", score=100),
             ),
         ]
-        items[0].credibility_score = 0.3  # Below 0.4 threshold
+        items[0].credibility_score = 0.2  # Below 0.3 threshold
         result = validator._filter_noise(items)
         assert len(result) == 0
 
