@@ -119,13 +119,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
 
     # Start scheduler if enabled (deferred import avoids circular dependency
-    # and import-time side effects from APScheduler)
-    from src.pipeline.scheduler import create_scheduler
+    # and import-time side effects from APScheduler).
+    # The API-only Docker image does not include apscheduler, so handle
+    # ImportError gracefully — the API runs without the scheduler.
+    scheduler = None
+    try:
+        from src.pipeline.scheduler import create_scheduler
 
-    scheduler = create_scheduler()
-    if scheduler is not None:
-        scheduler.start()
-        logger.info("scheduler_started")
+        scheduler = create_scheduler()
+        if scheduler is not None:
+            scheduler.start()
+            logger.info("scheduler_started")
+    except ImportError:
+        logger.info("scheduler_not_available", reason="apscheduler not installed")
 
     yield
 
