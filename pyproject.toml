@@ -27,25 +27,30 @@ dependencies = [
     # Logging & monitoring
     "structlog~=24.4.0",
     "prometheus-client~=0.21.0",
-    # Notifications
-    "python-telegram-bot~=21.9",
+    # Auth
+    "python-jose[cryptography]~=3.3.0",
+    "passlib[bcrypt]~=1.7.0",
+]
+
+[project.optional-dependencies]
+api = [
+    # Rate limiting
+    "slowapi~=0.1.0",
+    # WebAuthn passkeys
+    "webauthn~=2.5.0",
+    # MCP server
+    "mcp~=1.6.0",
+]
+pipeline = [
     # RSS parsing
     "feedparser~=6.0.0",
     # Web scraping (lightweight: no Chromium)
     "readability-lxml~=0.8",
-    # Auth
-    "python-jose[cryptography]~=3.3.0",
-    "passlib[bcrypt]~=1.7.0",
-    "webauthn~=2.5.0",
-    # Rate limiting
-    "slowapi~=0.1.0",
+    # Telegram notifications
+    "python-telegram-bot~=21.9",
     # Scheduling
     "apscheduler~=3.10",
-    # MCP server
-    "mcp~=1.6.0",
 ]
-
-[project.optional-dependencies]
 dev = [
     # Linting & formatting
     "ruff~=0.8.0",
