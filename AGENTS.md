@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-03-01 | **Current milestone**: CI/CD Auto-Deploy | **Status**: Complete
+> **Last updated**: 2026-03-03 | **Current milestone**: Lightweight Pipeline | **Status**: Complete
 
 ## Project Overview
 
@@ -60,7 +60,7 @@ Feed Pipeline (query-time):
 git clone <repo> && cd ai-news-platform
 cp .env.example .env  # Fill in secrets
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[api,pipeline,dev]"
 git config core.hooksPath .githooks
 
 # Database (requires Docker for PostgreSQL)
@@ -92,7 +92,7 @@ python -m src.main
 ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
-├── Dockerfile / docker-compose.yml / nginx.conf
+├── Dockerfile.api / Dockerfile.pipeline / docker-compose.coolify.yml
 ├── alembic/                          # DB migrations (9 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
@@ -102,7 +102,7 @@ ai-news-platform/
 │   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction, WebAuthnCredential
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   └── metrics.py                # Prometheus counters + histograms
-│   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper)
+│   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper[httpx+readability])
 │   ├── classifiers/                  # Keyword + LLM classifiers, event dedup
 │   ├── validators/                   # CredibilityValidator
 │   ├── notifiers/                    # Telegram notifier + AlertService
@@ -118,10 +118,16 @@ ai-news-platform/
 │   │   ├── mmr_ranker.py             # MMR diversification (quality vs source diversity)
 │   │   └── feed_builder.py           # Orchestrator: candidates→collapse→MMR→paginate
 │   ├── pipeline/
-│   │   ├── pipeline.py               # extract→dedup→classify→variant_collapse→validate→embed→store→notify
+│   │   ├── pipeline.py               # Thin orchestrator: runs stages in sequence
 │   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
 │   │   ├── scheduler.py              # APScheduler 3-tier (15m/HN+Reddit, 60m/RSS+GH+HF+WS, daily/arXiv)
-│   │   └── circuit_breaker.py        # Per-source failure tracking
+│   │   ├── circuit_breaker.py        # Per-source failure tracking
+│   │   └── stages/                   # Composable pipeline stages
+│   │       ├── extract.py            # Source extraction + dedup + circuit breaker
+│   │       ├── classify.py           # LLM classification + variant collapse + validation
+│   │       ├── score.py              # Composite scoring (velocity + relevance + recency + topic)
+│   │       ├── store.py              # DB upsert + embedding generation
+│   │       └── notify.py             # Telegram notifications + daily briefing
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
 │   └── mcp/                          # MCP server + client
 ├── frontend/                         # React 19 (Vite + Shadcn UI + Tailwind CSS 4)

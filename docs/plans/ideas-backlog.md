@@ -88,20 +88,15 @@
 
 ### Tier 1 — High Impact (Pipeline Performance)
 
-- [ ] **Separate Dockerfiles: API vs Pipeline** — Two images: `Dockerfile.api` (no crawl4ai,
-  feedparser, telegram) and `Dockerfile.pipeline` (full deps). API image drops from ~1.2GB
-  to ~300MB. Faster builds, less RAM.
-  See `2026-03-02-architecture-retrospective-design.md`.
+- [x] **Separate Dockerfiles: API vs Pipeline** — Done (2026-03-03). Two images: `Dockerfile.api`
+  (core + api deps only) and `Dockerfile.pipeline` (core + pipeline deps). API image ~300MB.
 
-- [ ] **Replace Crawl4AI with httpx + readability** — Chromium consumes 500MB-1GB on a 4GB VPS.
-  For manually-configured URLs that are mostly static HTML blogs, httpx + readability-lxml
-  is sufficient at ~0 overhead. Keep Crawl4AI as optional separate service if JS rendering
-  is needed later.
+- [x] **Replace Crawl4AI with httpx + readability** — Done (2026-03-03). Chromium removed,
+  WebScraperExtractor now uses httpx + readability-lxml at ~0 overhead.
 
-- [ ] **Break pipeline.py into composable stages** — Current: 469 LOC monolithic function with
-  9 inline steps. Proposed: `stages/extract.py`, `stages/classify.py`, `stages/score.py`,
-  `stages/store.py`, `stages/notify.py` + thin orchestrator. Each stage independently
-  testable, profilable, parallelizable.
+- [x] **Break pipeline.py into composable stages** — Done (2026-03-03). Five stage modules in
+  `src/pipeline/stages/`: extract, classify, score, store, notify. Thin orchestrator in
+  `pipeline.py`.
 
 ### Tier 2 — Medium Impact (Tech Debt)
 
