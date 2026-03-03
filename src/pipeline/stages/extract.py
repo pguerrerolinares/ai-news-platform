@@ -53,7 +53,6 @@ async def run_extraction(
     alerts: AlertService | None = None,
 ) -> list[ExtractedItem]:
     """Run all extractors concurrently and collect results."""
-    settings = get_settings()
     if alerts is None:
         alerts = AlertService()
 

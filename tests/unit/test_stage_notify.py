@@ -31,11 +31,13 @@ class TestRunNotification:
         settings = _mock_settings()
         items = [_make_classified()]
 
-        with patch("src.pipeline.stages.notify.get_settings", return_value=settings):
-            with patch("src.pipeline.stages.notify.TelegramNotifier") as mock_cls:
-                mock_notifier = AsyncMock()
-                mock_cls.return_value = mock_notifier
-                await run_notification(items, duration_seconds=1.5)
+        with (
+            patch("src.pipeline.stages.notify.get_settings", return_value=settings),
+            patch("src.pipeline.stages.notify.TelegramNotifier") as mock_cls,
+        ):
+            mock_notifier = AsyncMock()
+            mock_cls.return_value = mock_notifier
+            await run_notification(items, duration_seconds=1.5)
 
         mock_notifier.send_briefing.assert_called_once()
 

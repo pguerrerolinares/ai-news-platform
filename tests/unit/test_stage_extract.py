@@ -56,9 +56,7 @@ class TestRunExtraction:
 
         settings = _mock_settings()
         with patch("src.pipeline.stages.extract.get_settings", return_value=settings):
-            result = await run_extraction(
-                extractors=[mock_extractor], since_hours=24
-            )
+            result = await run_extraction(extractors=[mock_extractor], since_hours=24)
 
         assert len(result) == 1
 
@@ -69,9 +67,7 @@ class TestRunExtraction:
 
         settings = _mock_settings()
         with patch("src.pipeline.stages.extract.get_settings", return_value=settings):
-            result = await run_extraction(
-                extractors=[mock_extractor], since_hours=24
-            )
+            result = await run_extraction(extractors=[mock_extractor], since_hours=24)
 
         assert result == []
 
