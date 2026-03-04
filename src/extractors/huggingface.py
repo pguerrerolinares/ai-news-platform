@@ -20,6 +20,16 @@ API_URL = "https://huggingface.co/api/models"
 DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
 
 
+def _is_quantized_reupload(model: dict) -> bool:
+    """Check if a model is a quantization/re-upload based on HF API metadata."""
+    tags = model.get("tags", [])
+    if any(tag.startswith("base_model:quantized:") for tag in tags):
+        return True
+    if model.get("library_name") is None:
+        return True
+    return False
+
+
 class HuggingFaceExtractor(BaseExtractor):
     """Extracts trending AI models from HuggingFace Hub API."""
 
@@ -105,6 +115,9 @@ class HuggingFaceExtractor(BaseExtractor):
                     for model in models:
                         downloads = model.get("downloads", 0)
                         if downloads < min_downloads:
+                            continue
+
+                        if _is_quantized_reupload(model):
                             continue
 
                         model_id = model.get("modelId") or model.get("id", "")

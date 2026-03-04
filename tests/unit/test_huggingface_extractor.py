@@ -28,8 +28,10 @@ def _make_model(
     tags: list[str] | None = None,
     last_modified: str | None = None,
     card_data: dict | None = None,
+    library_name: str | None = "transformers",
+    created_at: str | None = None,
 ) -> dict:
-    return {
+    result = {
         "modelId": model_id,
         "id": model_id,
         "author": author,
@@ -40,6 +42,11 @@ def _make_model(
         "lastModified": last_modified or _recent_iso(),
         "cardData": card_data,
     }
+    if library_name is not None:
+        result["library_name"] = library_name
+    if created_at is not None:
+        result["createdAt"] = created_at
+    return result
 
 
 def _mock_settings(**overrides):
@@ -399,3 +406,73 @@ class TestEdgeCases:
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         assert result == []
+
+
+class TestQuantizationFiltering:
+    """Tests for filtering quantized/re-upload models."""
+
+    @respx.mock
+    async def test_skips_model_with_quantized_tag(self):
+        """Models with base_model:quantized:* tag should be filtered out."""
+        original = _make_model(
+            "Qwen/Qwen3.5-35B-A3B",
+            downloads=5000,
+            tags=[
+                "transformers",
+                "safetensors",
+                "base_model:Qwen/Qwen3.5-35B-A3B-Base",
+            ],
+        )
+        quantized = _make_model(
+            "unsloth/Qwen3.5-35B-A3B-GGUF",
+            downloads=6000,
+            tags=[
+                "gguf",
+                "base_model:Qwen/Qwen3.5-35B-A3B",
+                "base_model:quantized:Qwen/Qwen3.5-35B-A3B",
+            ],
+            library_name=None,
+        )
+        respx.get(API_URL).mock(
+            return_value=httpx.Response(200, json=[original, quantized])
+        )
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        titles = [item.title for item in result]
+        assert "Qwen/Qwen3.5-35B-A3B" in titles
+        assert "unsloth/Qwen3.5-35B-A3B-GGUF" not in titles
+
+    @respx.mock
+    async def test_skips_model_without_library_name(self):
+        """Models with library_name=None are likely quantization wrappers."""
+        model = _make_model("unsloth/Model-GGUF", downloads=5000, library_name=None)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert len(result) == 0
+
+    @respx.mock
+    async def test_keeps_model_with_library_and_no_quantized_tag(self):
+        """Original models with library_name should pass through."""
+        model = _make_model(
+            "Qwen/Qwen3.5-35B",
+            downloads=5000,
+            library_name="transformers",
+            tags=["transformers", "safetensors"],
+        )
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert len(result) == 1
+
+    @respx.mock
+    async def test_daily_papers_not_affected_by_filter(self):
+        """Daily papers should pass through regardless of filtering."""
+        quantized = _make_model("unsloth/Model-GGUF", downloads=5000, library_name=None)
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[quantized]))
+        papers = [_make_daily_paper("Cool Paper", "2401.00001", upvotes=50)]
+        respx.get(DAILY_PAPERS_URL).mock(return_value=httpx.Response(200, json=papers))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert len(result) == 1
+        assert result[0].title == "Cool Paper"
