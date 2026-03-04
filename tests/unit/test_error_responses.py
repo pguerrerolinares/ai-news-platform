@@ -54,9 +54,9 @@ class TestErrorFormat:
 
     async def test_404_returns_error_object(self, api_client: AsyncClient):
         """404 should return {"error": {"code": ..., "message": ...}}."""
-        from src.api.auth import require_auth
+        from src.api.auth import require_auth_or_guest
 
-        app.dependency_overrides[require_auth] = lambda: "test-user"
+        app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
         try:
             resp = await api_client.get("/api/briefings/1999-01-01")
             assert resp.status_code == 404
@@ -64,4 +64,4 @@ class TestErrorFormat:
             assert "error" in data
             assert data["error"]["code"] == "BRIEFING_NOT_FOUND"
         finally:
-            app.dependency_overrides.pop(require_auth, None)
+            app.dependency_overrides.pop(require_auth_or_guest, None)
