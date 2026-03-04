@@ -20,8 +20,8 @@ class TestNormalizeModelName:
     @pytest.mark.parametrize(
         ("title", "expected"),
         [
-            ("TheBloke/Llama-2-7B-GGUF", "llama-2-7b"),
-            ("bartowski/Mistral-7B-GPTQ", "mistral-7b"),
+            ("TheBloke/Llama-2-7B-GGUF", "llama-2"),
+            ("bartowski/Mistral-7B-GPTQ", "mistral"),
             ("turboderp/Phi-3-AWQ", "phi-3"),
             ("mradermacher/Qwen-2-EXL2", "qwen-2"),
             ("user/SomeModel-ONNX", "somemodel"),
@@ -34,12 +34,25 @@ class TestNormalizeModelName:
     @pytest.mark.parametrize(
         ("title", "expected"),
         [
-            ("meta-llama/Llama-2-7B", "llama-2-7b"),
-            ("mistralai/Mistral-7B-v0.1", "mistral-7b-v0.1"),
-            ("google/gemma-2b", "gemma-2b"),
+            ("meta-llama/Llama-2-7B", "llama-2"),
+            ("mistralai/Mistral-7B-v0.1", "mistral-v0.1"),
+            ("google/gemma-2b", "gemma"),
         ],
     )
     def test_preserves_original_model_names(self, title: str, expected: str) -> None:
+        assert normalize_model_name(title) == expected
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("nvidia/Qwen3.5-27B-FP8", "qwen3.5"),
+            ("user/Model-FP16", "model"),
+            ("nvidia/Model-NVFP4", "model"),
+            ("huihui-ai/Model-abliterated", "model"),
+            ("user/Model-censored", "model"),
+        ],
+    )
+    def test_strips_extended_suffixes(self, title: str, expected: str) -> None:
         assert normalize_model_name(title) == expected
 
     @pytest.mark.parametrize(
@@ -117,3 +130,31 @@ class TestCollapseVariants:
         result = collapse_variants([a, b])
         assert len(result) == 1
         assert result[0] is b
+
+
+# --- size normalization ---
+
+
+class TestSizeNormalization:
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("Qwen/Qwen3.5-0.8B", "qwen3.5"),
+            ("Qwen/Qwen3.5-27B", "qwen3.5"),
+            ("Qwen/Qwen3.5-397B-A17B", "qwen3.5"),
+            ("Qwen/Qwen3.5-35B-A3B", "qwen3.5"),
+            ("meta-llama/Llama-3-8B", "llama-3"),
+            ("meta-llama/Llama-3-70B", "llama-3"),
+        ],
+    )
+    def test_normalizes_parameter_size(self, title: str, expected: str) -> None:
+        assert normalize_model_name(title) == expected
+
+
+class TestCollapseVariantsSizeNormalization:
+    def test_collapses_different_sizes_same_family(self) -> None:
+        small = _make_item(source="huggingface", title="Qwen/Qwen3.5-0.8B", score=100)
+        large = _make_item(source="huggingface", title="Qwen/Qwen3.5-27B", score=200)
+        result = collapse_variants([small, large])
+        assert len(result) == 1
+        assert result[0] is large

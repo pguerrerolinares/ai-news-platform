@@ -9,7 +9,13 @@ from src.core.logging import get_logger
 log = get_logger(__name__)
 
 # Known quantization/format suffixes to strip
-_SUFFIXES = re.compile(r"-(GGUF|GPTQ|AWQ|ONNX|EXL2|MLX)$", re.IGNORECASE)
+_SUFFIXES = re.compile(
+    r"-(GGUF|GPTQ|AWQ|ONNX|EXL2|MLX|FP8|FP16|NVFP4|abliterated|censored)$",
+    re.IGNORECASE,
+)
+
+# Parameter size pattern: -0.8B, -7B, -27B, -397B-A17B, -35B-A3B, etc.
+_PARAM_SIZE = re.compile(r"-\d+\.?\d*B(-A\d+\.?\d*B)?", re.IGNORECASE)
 
 # Known re-upload publishers (strip these to find base model name)
 _QUANT_PUBLISHERS = frozenset(
@@ -35,6 +41,9 @@ def normalize_model_name(title: str) -> str | None:
 
     # Strip quantization suffix
     model = _SUFFIXES.sub("", model)
+
+    # Strip parameter size
+    model = _PARAM_SIZE.sub("", model)
 
     return model.lower()
 
