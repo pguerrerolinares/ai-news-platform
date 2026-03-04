@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Last updated**: 2026-03-02 | **Status**: Production (pguerrero.me)
+> **Last updated**: 2026-03-05 | **Status**: Production (pguerrero.me)
 
 ## System Architecture
 
@@ -147,7 +147,7 @@ flowchart LR
 
     subgraph FastAPI
         MW[Middleware<br/>CORS + Security Headers<br/>+ Body Limit + Metrics]
-        AUTH[JWT Auth<br/>require_auth]
+        AUTH[JWT Auth<br/>require_auth / require_auth_or_guest]
         ROUTE[Route Handler]
     end
 
@@ -218,7 +218,7 @@ classDiagram
 
 ## Authentication Flow
 
-Three auth methods coexist, all producing the same JWT tokens:
+Two access tiers: guest tokens for public read-only access, and full auth (OTP + WebAuthn) for protected features.
 
 ```mermaid
 sequenceDiagram
@@ -227,6 +227,11 @@ sequenceDiagram
     participant A as API
     participant R as Resend
     participant DB as PostgreSQL
+
+    Note over U,DB: Guest Access (automatic)
+    F->>A: POST /auth/guest
+    A-->>F: access_token (role=guest, 24h TTL)
+    Note over F: Read-only access to items, search, stats
 
     Note over U,DB: Method 1 — Email OTP (primary)
     U->>F: Enter email
@@ -248,11 +253,6 @@ sequenceDiagram
     F->>A: POST /auth/webauthn/login/verify
     A->>DB: Verify credential + update sign_count
     A-->>F: access_token + refresh_token
-
-    Note over U,DB: Method 3 — Shared Password (fallback)
-    U->>F: Enter password
-    F->>A: POST /auth/token
-    A-->>F: access_token + refresh_token (role=reader)
 ```
 
 ## Database Schema
@@ -339,11 +339,13 @@ erDiagram
 
 ## Security Model
 
-- **Auth**: Passwordless OTP + WebAuthn passkeys + shared password fallback → JWT (30min access + 7d refresh with rotation)
+- **Auth**: Guest tokens (public, read-only, 24h TTL) + Passwordless OTP + WebAuthn passkeys → JWT (30min access + 7d refresh with rotation)
+- **Access tiers**: Public endpoints use `require_auth_or_guest`, protected endpoints (chat, settings) use `require_auth`
 - **SSRF**: All external URL fetches check for private IP ranges
 - **Headers**: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS
 - **Body limit**: 1MB max request body (ASGI middleware)
-- **Rate limiting**: slowapi per-endpoint (IP-based via X-Forwarded-For with anti-spoofing)
+- **Rate limiting**: JWT-aware slowapi — guest by `jti` (30 req/min), user by `sub` (120 req/min), fallback to IP
+- **Scanner blocking**: Nginx returns 444 (connection drop) for wp-admin, phpMyAdmin, .env, .git probes
 - **Secrets**: `.env` file, never committed, validated at startup (fail-fast on insecure defaults)
 - **Scanning**: bandit in CI, ruff security rules (S-series)
 - **Network**: Nginx/Traefik TLS termination, HTTPS via Let's Encrypt
