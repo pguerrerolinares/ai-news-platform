@@ -453,3 +453,70 @@ class TestRequireAdmin:
             with pytest.raises(APIError) as exc_info:
                 await require_admin(user)
             assert exc_info.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Guest tokens
+# ---------------------------------------------------------------------------
+class TestGuestTokens:
+    """Tests for guest token creation and require_auth_or_guest."""
+
+    def test_create_guest_token_has_guest_role(self):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            from src.api.auth import create_guest_token
+
+            token = create_guest_token()
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert payload["role"] == "guest"
+        assert payload["sub"].startswith("guest:")
+        assert payload["type"] == "access"
+
+    def test_create_guest_token_has_jti(self):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            from src.api.auth import create_guest_token
+
+            token = create_guest_token()
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert "exp" in payload
+        assert "jti" in payload
+
+    async def test_require_auth_or_guest_accepts_guest_token(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from src.api.auth import create_guest_token, require_auth_or_guest
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_guest_token()
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user = await require_auth_or_guest(creds)
+        assert user.role == "guest"
+        assert user.sub.startswith("guest:")
+
+    async def test_require_auth_or_guest_accepts_regular_token(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from src.api.auth import require_auth_or_guest
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(subject="user-uuid", role="reader", email="u@test.com")
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user = await require_auth_or_guest(creds)
+        assert user.role == "reader"
+
+    async def test_require_auth_rejects_guest_token(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from src.api.auth import create_guest_token, require_auth
+        from src.api.errors import APIError
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_guest_token()
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            with pytest.raises(APIError) as exc_info:
+                await require_auth(creds)
+            assert exc_info.value.status_code == 401
