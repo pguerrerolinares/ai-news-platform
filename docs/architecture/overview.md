@@ -99,8 +99,8 @@ flowchart LR
         E1[HackerNews<br/>every 15min]
         E2[Reddit<br/>every 15min]
         E3[RSS<br/>every 60min]
-        E4[GitHub<br/>every 60min]
-        E5[HuggingFace<br/>every 60min]
+        E4[GitHub<br/>every 60min<br/>pushed>=date]
+        E5[HuggingFace<br/>every 60min<br/>quant filter + papers]
         E6[WebScraper<br/>every 60min]
         E7[arXiv<br/>daily 01:30]
     end
@@ -110,7 +110,7 @@ flowchart LR
         VL[Pre-validation<br/>title + URL required]
         CL[LLM Classify<br/>topic + relevance + summary]
         ED[Event Dedup<br/>LLM grouping]
-        VC[Variant Collapse<br/>HF model dedup]
+        VC[Variant Collapse<br/>HF model dedup<br/>11 suffixes + size norm]
         CS[Composite Score<br/>velocity + relevance<br/>+ recency + topic]
         CR[Credibility<br/>Validation]
     end
