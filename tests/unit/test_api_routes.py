@@ -9,7 +9,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
-from src.api.auth import require_auth, require_auth_or_guest
+from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
 
 
