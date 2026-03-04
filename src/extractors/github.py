@@ -83,7 +83,7 @@ class GitHubExtractor(BaseExtractor):
         min_stars: int,
         seen_urls: set[str],
     ) -> tuple[list[ExtractedItem], httpx.Response]:
-        q = f"{query} stars:>{min_stars} pushed:>{since_date}"
+        q = f"{query} stars:>{min_stars} pushed:>={since_date}"
         params = {"q": q, "sort": "stars", "order": "desc", "per_page": 30}
 
         resp = await client.get(SEARCH_URL, params=params)

@@ -315,6 +315,16 @@ class TestExtract:
         assert result[0].metadata["search_query"] == "machine-learning"
 
     @respx.mock
+    async def test_search_query_uses_gte_for_pushed_date(self):
+        """Verify pushed: uses >= (not >) to include today's repos."""
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([])))
+        with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
+            await GitHubExtractor().extract()
+        request = respx.calls.last.request
+        query_param = str(request.url.params.get("q", ""))
+        assert "pushed:>=" in query_param, f"Expected pushed:>= but got: {query_param}"
+
+    @respx.mock
     async def test_title_with_no_description(self):
         repo = _make_repo("bare-repo", description=None)
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
