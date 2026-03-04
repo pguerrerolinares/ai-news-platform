@@ -41,3 +41,14 @@ export function clearTokens(): void {
 export function hasTokens(): boolean {
   return getAccessToken() !== null && getRefreshToken() !== null
 }
+
+export function isGuestToken(): boolean {
+  const token = getAccessToken()
+  if (!token) return false
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.role === 'guest'
+  } catch {
+    return false
+  }
+}

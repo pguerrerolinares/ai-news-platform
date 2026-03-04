@@ -1,8 +1,8 @@
-import { NavLink } from 'react-router'
+import { NavLink, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useScrollDirection } from '@/hooks/use-scroll-direction'
-import { IconLogout, IconSettings } from '@tabler/icons-react'
+import { IconLogin, IconLogout, IconSettings } from '@tabler/icons-react'
 import { motion } from 'motion/react'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -14,8 +14,9 @@ const links = [
 ]
 
 export function AppNav() {
-  const { logout } = useAuth()
+  const { isFullUser, logout } = useAuth()
   const scrollDir = useScrollDirection()
+  const navigate = useNavigate()
 
   return (
     <header
@@ -29,14 +30,28 @@ export function AppNav() {
         </NavLink>
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
-          <NavLink to="/settings">
-            <Button variant="ghost" size="icon" className="size-8" aria-label="Settings">
-              <IconSettings className="size-4" />
+          {isFullUser ? (
+            <>
+              <NavLink to="/settings">
+                <Button variant="ghost" size="icon" className="size-8" aria-label="Settings">
+                  <IconSettings className="size-4" />
+                </Button>
+              </NavLink>
+              <Button variant="ghost" size="icon" className="size-8" onClick={logout} aria-label="Log out">
+                <IconLogout className="size-4" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-sm"
+              onClick={() => navigate('/login')}
+            >
+              <IconLogin className="size-4" />
+              Sign in
             </Button>
-          </NavLink>
-          <Button variant="ghost" size="icon" className="size-8" onClick={logout} aria-label="Log out">
-            <IconLogout className="size-4" />
-          </Button>
+          )}
         </div>
       </div>
       <nav className="mx-auto flex max-w-2xl gap-1 px-4 pb-2">

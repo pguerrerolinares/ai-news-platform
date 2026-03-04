@@ -234,7 +234,6 @@ class TestAuthConfig:
 def test_otp_daily_limit_default():
     s = Settings(
         jwt_secret="x",
-        shared_password="x",
         database_url="postgresql+asyncpg://x:x@localhost/x",
         database_url_sync="postgresql://x:x@localhost/x",
     )
@@ -244,7 +243,6 @@ def test_otp_daily_limit_default():
 def test_otp_daily_limit_custom():
     s = Settings(
         jwt_secret="x",
-        shared_password="x",
         database_url="postgresql+asyncpg://x:x@localhost/x",
         database_url_sync="postgresql://x:x@localhost/x",
         otp_daily_limit=80,

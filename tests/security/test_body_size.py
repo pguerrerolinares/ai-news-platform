@@ -15,28 +15,28 @@ class TestBodySizeLimit:
 
     async def test_oversized_body_rejected(self, security_client: AsyncClient):
         """Body > 1MB must be rejected with 413."""
-        oversized = "A" * (_MAX_BODY + 1)
+        oversized = b"A" * (_MAX_BODY + 1)
         resp = await security_client.post(
-            "/api/auth/token",
-            content=f'{{"password": "{oversized}"}}'.encode(),
-            headers={"Content-Type": "application/json"},
+            "/api/auth/guest",
+            content=oversized,
+            headers={"Content-Type": "application/octet-stream"},
         )
         assert resp.status_code == 413
 
     async def test_normal_body_accepted(self, security_client: AsyncClient):
-        """Normal-sized body must be accepted (not blocked by size limit)."""
-        resp = await security_client.post("/api/auth/token", json={"password": "test-password"})
-        # Should get 401 (wrong password), not 413
-        assert resp.status_code == 401
+        """Normal-sized body on guest endpoint must be accepted."""
+        resp = await security_client.post("/api/auth/guest")
+        # Should get 200 (guest token) — not 413
+        assert resp.status_code == 200
 
     async def test_boundary_body_accepted(self, security_client: AsyncClient):
         """Body exactly at 1MB limit must be accepted."""
-        # Create a body that's exactly 1MB (including JSON structure)
-        padding = "A" * (_MAX_BODY - 20)  # leave room for JSON wrapper
+        # Create a body that's exactly 1MB
+        padding = b"A" * (_MAX_BODY - 20)  # leave room for overhead
         resp = await security_client.post(
-            "/api/auth/token",
-            content=f'{{"password": "{padding}"}}'.encode(),
-            headers={"Content-Type": "application/json"},
+            "/api/auth/guest",
+            content=padding,
+            headers={"Content-Type": "application/octet-stream"},
         )
-        # Should be 401 (wrong password), not 413
-        assert resp.status_code == 401
+        # Should be 200 (ignores body), not 413
+        assert resp.status_code == 200

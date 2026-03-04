@@ -10,7 +10,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
-from src.api.auth import require_auth
+from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
 
 
@@ -84,10 +84,10 @@ def _override_dependencies():
     Auth is bypassed. Session is set to empty by default (individual tests
     can override the session dependency again).
     """
-    app.dependency_overrides[require_auth] = lambda: "test-user"
+    app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
     app.dependency_overrides[get_session] = _mock_get_session_empty
     yield
-    app.dependency_overrides.pop(require_auth, None)
+    app.dependency_overrides.pop(require_auth_or_guest, None)
     app.dependency_overrides.pop(get_session, None)
 
 
@@ -152,7 +152,7 @@ class TestSearchAuth:
     async def test_search_requires_auth(self, api_client: AsyncClient):
         """Without auth override, search should return 403 (no token)."""
         # Remove the auth override so the real dependency runs
-        app.dependency_overrides.pop(require_auth, None)
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/search", params={"q": "test"})
         assert resp.status_code == 403
 

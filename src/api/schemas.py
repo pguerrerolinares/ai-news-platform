@@ -49,10 +49,6 @@ class BriefingResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class TokenRequest(BaseModel):
-    password: str
-
-
 class CountResponse(BaseModel):
     count: int
 
@@ -87,6 +83,12 @@ class ErrorWrapper(BaseModel):
 class TokenResponseV2(BaseModel):
     access_token: str
     refresh_token: str
+    expires_in: int
+    token_type: str = "bearer"
+
+
+class GuestTokenResponse(BaseModel):
+    access_token: str
     expires_in: int
     token_type: str = "bearer"
 

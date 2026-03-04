@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-03-03 | **Current milestone**: Lightweight Pipeline | **Status**: Complete
+> **Last updated**: 2026-03-05 | **Current milestone**: Public Access | **Status**: Complete
 
 ## Project Overview
 
@@ -9,7 +9,7 @@
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
 **Key facts**:
-- **Audience**: Semi-public (5-10 people), passwordless email OTP auth + WebAuthn passkeys + JWT (shared password fallback)
+- **Audience**: Public (guest tokens for read-only access) + registered users (OTP + WebAuthn passkeys)
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
@@ -109,7 +109,7 @@ ai-news-platform/
 │   ├── notifiers/                    # Telegram notifier + AlertService
 │   ├── api/
 │   │   ├── app.py                    # FastAPI app, middleware, lifespan
-│   │   ├── auth.py                   # JWT + refresh tokens, require_auth, require_admin
+│   │   ├── auth.py                   # JWT + refresh tokens, require_auth, require_auth_or_guest, require_admin, create_guest_token
 │   │   ├── otp.py                    # OTP generation + Resend API
 │   │   ├── schemas.py                # Pydantic response models
 │   │   ├── webauthn.py                # WebAuthn challenge store
@@ -163,7 +163,7 @@ ai-news-platform/
 |--------|------|------|-------------|
 | GET | /health | No | Health check (200/503) |
 | GET | /metrics | No | Prometheus (localhost only) |
-| POST | /api/auth/token | No | Login (shared password) → JWT |
+| POST | /api/auth/guest | No | Get guest token (read-only, 24h TTL, 10/min) |
 | POST | /api/auth/refresh | No | Refresh access token (rotation, 10/min) |
 | POST | /api/auth/otp/request | No | Send OTP email (3/min) |
 | POST | /api/auth/otp/verify | No | Verify OTP → JWT (5/min) |
@@ -174,24 +174,26 @@ ai-news-platform/
 | GET | /api/auth/webauthn/credentials | JWT | List user's passkeys (10/min) |
 | DELETE | /api/auth/webauthn/credentials/{id} | JWT | Delete a passkey (3/min) |
 | GET | /api/auth/me | JWT | Current user info |
-| GET | /api/items | JWT | List items (filters: source, topic, date, limit, offset) |
-| GET | /api/items/count | JWT | Count matching items |
-| GET | /api/items/latest | JWT | Latest items (sort=relevance uses FeedBuilder with time filter + live rescore + MMR, sort=recent is chronological with 48h window) |
-| GET | /api/items/today | JWT | Today's items by effective date |
-| GET | /api/items/by-date/{date} | JWT | Items for specific date |
-| GET | /api/items/trending | JWT | Trending items |
-| GET | /api/items/top | JWT | Top items by composite_score (normalized across sources) |
-| GET | /api/items/{id}/similar | JWT | Similar via pgvector cosine |
-| GET | /api/briefings/{date} | JWT | Daily briefing (resilient — synthesizes if no row) |
-| GET | /api/briefings | JWT | Recent briefings |
-| GET | /api/search | JWT | Full-text search (FTS, sort_by) |
-| GET | /api/sources | JWT | Sources with item counts |
-| GET | /api/stats/* | JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution |
-| POST | /api/chat | JWT | RAG Q&A (SSE streaming, 10/min) |
+| GET | /api/items | Guest/JWT | List items (filters: source, topic, date, limit, offset) |
+| GET | /api/items/count | Guest/JWT | Count matching items |
+| GET | /api/items/latest | Guest/JWT | Latest items (sort=relevance uses FeedBuilder with time filter + live rescore + MMR, sort=recent is chronological with 48h window) |
+| GET | /api/items/today | Guest/JWT | Today's items by effective date |
+| GET | /api/items/by-date/{date} | Guest/JWT | Items for specific date |
+| GET | /api/items/trending | Guest/JWT | Trending items |
+| GET | /api/items/top | Guest/JWT | Top items by composite_score (normalized across sources) |
+| GET | /api/items/{id}/similar | Guest/JWT | Similar via pgvector cosine |
+| GET | /api/briefings/{date} | Guest/JWT | Daily briefing (resilient — synthesizes if no row) |
+| GET | /api/briefings | Guest/JWT | Recent briefings |
+| GET | /api/search | Guest/JWT | Full-text search (FTS, sort_by) |
+| GET | /api/sources | Guest/JWT | Sources with item counts |
+| GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution |
+| POST | /api/chat | JWT | RAG Q&A (SSE streaming, 10/min) — requires full auth |
 
 Pagination: all paginated endpoints return `X-Total-Count` header.
 Errors: `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}`.
-Auth: access token (30min) + refresh token (7d with rotation). `Authorization: Bearer`.
+Auth: Guest token (24h, read-only) or access token (30min) + refresh token (7d with rotation). `Authorization: Bearer`.
+Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests).
+Rate limiting: JWT-aware — guest by `jti`, user by `sub`, fallback to IP. Guests: 30 req/min, users: 120 req/min.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 
 ## Configuration
@@ -203,7 +205,7 @@ Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MU
 Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
 Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
 Scheduler: HN+Reddit every 15min, RSS+GitHub+HF every 60min, arXiv daily 01:30 UTC. Circuit breaker: 3 failures → 1h cooldown.
-Auth: Passwordless OTP via Resend API + WebAuthn passkeys (biometric). `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. Shared password fallback (role=reader). WebAuthn config: `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`.
+Auth: Guest tokens (public, read-only) + Passwordless OTP via Resend API + WebAuthn passkeys (biometric). `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. WebAuthn config: `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`.
 
 ## Testing
 

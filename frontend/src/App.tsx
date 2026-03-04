@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router'
 import { AuthProvider, RequireAuth } from '@/hooks/use-auth'
 import { Layout } from '@/components/layout'
 import Latest from '@/pages/Trending'
@@ -15,13 +15,15 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="login" element={<Login />} />
-          <Route element={<RequireAuth><Layout /></RequireAuth>}>
+          <Route element={<Layout />}>
             <Route index element={<Latest />} />
             <Route path="top" element={<Top />} />
             <Route path="search" element={<Search />} />
-            <Route path="chat" element={<Chat />} />
             <Route path="timeline" element={<Timeline />} />
-            <Route path="settings" element={<Settings />} />
+            <Route element={<RequireAuth><Outlet /></RequireAuth>}>
+              <Route path="chat" element={<Chat />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

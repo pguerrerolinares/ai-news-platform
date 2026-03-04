@@ -1,4 +1,4 @@
-"""Tests for JWT authentication -- token endpoint and auth dependency."""
+"""Tests for JWT authentication -- auth dependency and refresh tokens."""
 
 from __future__ import annotations
 
@@ -14,10 +14,9 @@ from src.api.auth import UserClaims, create_access_token
 from src.core.config import Settings
 
 # ---------------------------------------------------------------------------
-# Test settings with known secret and password
+# Test settings with known secret
 # ---------------------------------------------------------------------------
 TEST_SECRET = "test-jwt-secret-key"
-TEST_PASSWORD = "test-password-123"
 TEST_ALGORITHM = "HS256"
 
 
@@ -28,7 +27,6 @@ def _make_test_settings(**overrides) -> Settings:
         "jwt_algorithm": TEST_ALGORITHM,
         "jwt_access_expire_minutes": 30,
         "jwt_refresh_expire_days": 7,
-        "shared_password": TEST_PASSWORD,
         "database_url": "postgresql+asyncpg://x:x@localhost/x",
         "database_url_sync": "postgresql://x:x@localhost/x",
         "telegram_bot_token": "",
@@ -44,7 +42,7 @@ def _make_test_settings(**overrides) -> Settings:
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def _override_settings():
-    """Override get_settings so every test uses a deterministic secret/password.
+    """Override get_settings so every test uses a deterministic secret.
 
     Also disables the rate limiter so tests aren't throttled.
     """
@@ -74,82 +72,6 @@ async def api_client() -> AsyncClient:
 
 
 # ---------------------------------------------------------------------------
-# POST /api/auth/token -- success
-# ---------------------------------------------------------------------------
-class TestTokenEndpointSuccess:
-    """Tests for successful authentication."""
-
-    async def test_correct_password_returns_200(self, api_client: AsyncClient):
-        """POST with the correct password should return HTTP 200."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        assert resp.status_code == 200
-
-    async def test_correct_password_returns_access_token(self, api_client: AsyncClient):
-        """Response should contain an access_token field."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        data = resp.json()
-        assert "access_token" in data
-        assert len(data["access_token"]) > 0
-
-    async def test_correct_password_returns_bearer_type(self, api_client: AsyncClient):
-        """Response token_type should be 'bearer'."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        data = resp.json()
-        assert data["token_type"] == "bearer"
-
-    async def test_token_is_decodable(self, api_client: AsyncClient):
-        """Returned JWT should be decodable with the configured secret."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        token = resp.json()["access_token"]
-        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
-        assert isinstance(payload, dict)
-
-    async def test_token_contains_sub_claim(self, api_client: AsyncClient):
-        """Decoded JWT should contain a 'sub' claim."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        token = resp.json()["access_token"]
-        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
-        assert "sub" in payload
-        assert payload["sub"] == "legacy"
-
-    async def test_token_contains_exp_claim(self, api_client: AsyncClient):
-        """Decoded JWT should contain an 'exp' claim."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        token = resp.json()["access_token"]
-        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
-        assert "exp" in payload
-
-
-# ---------------------------------------------------------------------------
-# POST /api/auth/token -- failure
-# ---------------------------------------------------------------------------
-class TestTokenEndpointFailure:
-    """Tests for failed authentication."""
-
-    async def test_wrong_password_returns_401(self, api_client: AsyncClient):
-        """POST with an incorrect password should return HTTP 401."""
-        resp = await api_client.post("/api/auth/token", json={"password": "wrong-password"})
-        assert resp.status_code == 401
-
-    async def test_wrong_password_has_error_object(self, api_client: AsyncClient):
-        """401 response should include a standardized error object."""
-        resp = await api_client.post("/api/auth/token", json={"password": "wrong-password"})
-        data = resp.json()
-        assert "error" in data
-        assert "code" in data["error"]
-
-    async def test_missing_password_returns_422(self, api_client: AsyncClient):
-        """POST with no password field should return HTTP 422."""
-        resp = await api_client.post("/api/auth/token", json={})
-        assert resp.status_code == 422
-
-    async def test_empty_body_returns_422(self, api_client: AsyncClient):
-        """POST with an empty body should return HTTP 422."""
-        resp = await api_client.post("/api/auth/token")
-        assert resp.status_code == 422
-
-
-# ---------------------------------------------------------------------------
 # require_auth dependency
 # ---------------------------------------------------------------------------
 class TestRequireAuth:
@@ -157,9 +79,10 @@ class TestRequireAuth:
 
     async def test_valid_token_passes(self, api_client: AsyncClient):
         """A protected endpoint should return 200 with a valid token."""
-        # Get a valid token first
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        token = resp.json()["access_token"]
+        # Create a valid token directly
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(subject="test-user", role="reader", email="t@test.com")
 
         # Use it to access a protected route (items endpoint, with session override)
         from src.core.database import get_session
@@ -281,19 +204,13 @@ class TestRequireAuth:
 class TestRefreshTokens:
     """Tests for refresh token functionality."""
 
-    async def test_login_returns_refresh_token(self, api_client: AsyncClient):
-        """Login should return both access_token and refresh_token."""
-        resp = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert "expires_in" in data
-
     async def test_refresh_returns_new_tokens(self, api_client: AsyncClient):
         """Refresh endpoint returns new access and refresh tokens."""
-        login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        refresh_token = login.json()["refresh_token"]
+        from src.api.auth import create_refresh_token
+
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            refresh_token = create_refresh_token(subject="test-user", role="reader")
 
         resp = await api_client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
         assert resp.status_code == 200
@@ -308,8 +225,11 @@ class TestRefreshTokens:
 
     async def test_old_refresh_token_rejected_after_rotation(self, api_client: AsyncClient):
         """After refreshing, the old refresh token should be invalid."""
-        login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        old_refresh = login.json()["refresh_token"]
+        from src.api.auth import create_refresh_token
+
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            old_refresh = create_refresh_token(subject="test-user", role="reader")
 
         # Use the refresh token once
         await api_client.post("/api/auth/refresh", json={"refresh_token": old_refresh})
@@ -320,7 +240,6 @@ class TestRefreshTokens:
 
     async def test_refresh_propagates_claims(self, api_client: AsyncClient):
         """Refreshed tokens should carry the same role/email claims."""
-        # Create tokens with role/email claims
         from src.api.auth import create_refresh_token
 
         test_settings = _make_test_settings()
@@ -352,8 +271,11 @@ class TestRefreshTokens:
 
     async def test_access_token_with_refresh_type_rejected(self, api_client: AsyncClient):
         """Using a refresh token as access token should fail."""
-        login = await api_client.post("/api/auth/token", json={"password": TEST_PASSWORD})
-        refresh_token = login.json()["refresh_token"]
+        from src.api.auth import create_refresh_token
+
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            refresh_token = create_refresh_token(subject="test-user", role="reader")
 
         from unittest.mock import AsyncMock, MagicMock
 
@@ -453,3 +375,140 @@ class TestRequireAdmin:
             with pytest.raises(APIError) as exc_info:
                 await require_admin(user)
             assert exc_info.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Guest tokens
+# ---------------------------------------------------------------------------
+class TestGuestTokens:
+    """Tests for guest token creation and require_auth_or_guest."""
+
+    def test_create_guest_token_has_guest_role(self):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            from src.api.auth import create_guest_token
+
+            token = create_guest_token()
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert payload["role"] == "guest"
+        assert payload["sub"].startswith("guest:")
+        assert payload["type"] == "access"
+
+    def test_create_guest_token_has_jti(self):
+        test_settings = _make_test_settings()
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            from src.api.auth import create_guest_token
+
+            token = create_guest_token()
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert "exp" in payload
+        assert "jti" in payload
+
+    async def test_require_auth_or_guest_accepts_guest_token(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from src.api.auth import create_guest_token, require_auth_or_guest
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_guest_token()
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user = await require_auth_or_guest(creds)
+        assert user.role == "guest"
+        assert user.sub.startswith("guest:")
+
+    async def test_require_auth_or_guest_accepts_regular_token(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from src.api.auth import require_auth_or_guest
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_access_token(subject="user-uuid", role="reader", email="u@test.com")
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user = await require_auth_or_guest(creds)
+        assert user.role == "reader"
+
+    async def test_require_auth_rejects_guest_token(self):
+        test_settings = _make_test_settings()
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from src.api.auth import create_guest_token, require_auth
+        from src.api.errors import APIError
+
+        with patch("src.api.auth.get_settings", return_value=test_settings):
+            token = create_guest_token()
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            with pytest.raises(APIError) as exc_info:
+                await require_auth(creds)
+            assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/guest endpoint
+# ---------------------------------------------------------------------------
+class TestGuestEndpoint:
+    """Tests for POST /api/auth/guest."""
+
+    async def test_guest_endpoint_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.post("/api/auth/guest")
+        assert resp.status_code == 200
+
+    async def test_guest_endpoint_returns_access_token(self, api_client: AsyncClient):
+        resp = await api_client.post("/api/auth/guest")
+        data = resp.json()
+        assert "access_token" in data
+        assert "expires_in" in data
+        assert data["token_type"] == "bearer"
+        # Guest tokens should NOT have refresh tokens
+        assert "refresh_token" not in data
+
+    async def test_guest_token_is_valid_jwt(self, api_client: AsyncClient):
+        resp = await api_client.post("/api/auth/guest")
+        token = resp.json()["access_token"]
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert payload["role"] == "guest"
+        assert payload["sub"].startswith("guest:")
+
+
+# ---------------------------------------------------------------------------
+# Guest flow integration test
+# ---------------------------------------------------------------------------
+class TestGuestFlow:
+    """End-to-end: get guest token, use it on public endpoint, fail on chat."""
+
+    async def test_full_guest_flow(self, api_client: AsyncClient):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from src.core.database import get_session
+
+        # 1. Get guest token
+        resp = await api_client.post("/api/auth/guest")
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        # 2. Access public endpoint
+        async def _mock_session():
+            mock_result = MagicMock()
+            mock_scalars = MagicMock()
+            mock_scalars.all.return_value = []
+            mock_result.scalars.return_value = mock_scalars
+            mock_result.scalar_one.return_value = 0
+            session = AsyncMock()
+            session.execute = AsyncMock(return_value=mock_result)
+            yield session
+
+        app.dependency_overrides[get_session] = _mock_session
+        try:
+            resp = await api_client.get("/api/items", headers={"Authorization": f"Bearer {token}"})
+            assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.pop(get_session, None)
+
+        # 3. Chat should be blocked for guest
+        resp = await api_client.post(
+            "/api/chat",
+            json={"question": "test question"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 401

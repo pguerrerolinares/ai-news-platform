@@ -11,17 +11,17 @@ pytestmark = [pytest.mark.security, pytest.mark.asyncio(loop_scope="session")]
 class TestRateLimiting:
     """Verify rate limits are enforced on brute-force attempts."""
 
-    async def test_auth_brute_force(self, security_client: AsyncClient) -> None:
-        """6th login attempt within a minute must be rate-limited (429)."""
-        for i in range(6):
-            resp = await security_client.post("/api/auth/token", json={"password": f"wrong-{i}"})
+    async def test_guest_brute_force(self, security_client: AsyncClient) -> None:
+        """11th guest token request within a minute must be rate-limited (429)."""
+        for i in range(11):
+            resp = await security_client.post("/api/auth/guest")
             if resp.status_code == 429:
                 # Rate limit hit — test passes
-                assert i >= 5  # Should happen on 6th request (index 5)
+                assert i >= 10  # Should happen on 11th request (index 10)
                 return
 
         # If we got here without 429, the rate limit is not enforced
-        pytest.fail("Expected 429 after 6 requests, but all returned non-429 status")
+        pytest.fail("Expected 429 after 11 requests, but all returned non-429 status")
 
     async def test_chat_rate_limit(self, security_client: AsyncClient) -> None:
         """11th chat request within a minute must be rate-limited (429)."""
@@ -54,9 +54,9 @@ class TestRateLimiting:
 
     async def test_rate_limit_response_format(self, security_client: AsyncClient) -> None:
         """Rate limit response must include useful error information."""
-        # Exhaust the auth limit
-        for _ in range(10):
-            resp = await security_client.post("/api/auth/token", json={"password": "exhaust-limit"})
+        # Exhaust the guest auth limit
+        for _ in range(15):
+            resp = await security_client.post("/api/auth/guest")
             if resp.status_code == 429:
                 # Verify the response has useful rate-limit info
                 assert resp.status_code == 429

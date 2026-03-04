@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
-from src.api.auth import require_auth
+from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
 
 
@@ -33,10 +33,10 @@ async def _mock_get_session():
 
 @pytest.fixture(autouse=True)
 def _override_dependencies():
-    app.dependency_overrides[require_auth] = lambda: "test-user"
+    app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
     app.dependency_overrides[get_session] = _mock_get_session
     yield
-    app.dependency_overrides.pop(require_auth, None)
+    app.dependency_overrides.pop(require_auth_or_guest, None)
     app.dependency_overrides.pop(get_session, None)
 
 
@@ -62,7 +62,7 @@ class TestStatsSummary:
         assert "trending_today" in data
 
     async def test_summary_requires_auth(self, api_client: AsyncClient):
-        app.dependency_overrides.pop(require_auth, None)
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/stats/summary")
         assert resp.status_code == 403
 

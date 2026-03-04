@@ -88,6 +88,20 @@ def create_refresh_token(
     return token
 
 
+def create_guest_token() -> str:
+    """Create a short-lived guest JWT for unauthenticated visitors."""
+    settings = get_settings()
+    expire = datetime.now(tz=UTC) + timedelta(hours=24)
+    payload: dict[str, object] = {
+        "sub": f"guest:{uuid.uuid4().hex[:12]}",
+        "exp": expire,
+        "type": "access",
+        "role": "guest",
+        "jti": uuid.uuid4().hex,
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
 def validate_refresh_token(token: str) -> UserClaims:
     """Validate a refresh token. Returns UserClaims or raises APIError.
 
@@ -138,6 +152,8 @@ async def require_auth(
         )
         if payload.get("type") not in ("access", None):
             raise APIError(401, "INVALID_TOKEN", "Token is not an access token")
+        if payload.get("role") == "guest":
+            raise APIError(401, "GUEST_NOT_ALLOWED", "Authentication required")
         sub: str | None = payload.get("sub")
         if sub is None:
             raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
@@ -157,3 +173,28 @@ async def require_admin(
     if user.role != "admin":
         raise APIError(403, "FORBIDDEN", "Admin access required")
     return user
+
+
+async def require_auth_or_guest(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> UserClaims:
+    """Accept both authenticated users and guest tokens."""
+    settings = get_settings()
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+        )
+        if payload.get("type") not in ("access", None):
+            raise APIError(401, "INVALID_TOKEN", "Token is not an access token")
+        sub: str | None = payload.get("sub")
+        if sub is None:
+            raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
+        return UserClaims(
+            sub=sub,
+            role=payload.get("role", "reader"),
+            email=payload.get("email", ""),
+        )
+    except JWTError:
+        raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None

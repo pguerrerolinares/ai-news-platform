@@ -2,15 +2,15 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { Navigate, useLocation } from 'react-router'
 import type { ReactNode } from 'react'
 import { apiPost } from '@/lib/api'
-import { storeTokens, clearTokens, hasTokens, isTokenExpired } from '@/lib/auth'
+import { storeTokens, clearTokens, hasTokens, isTokenExpired, isGuestToken } from '@/lib/auth'
 import type { AuthTokens } from '@/lib/auth'
 import { loginWithPasskey as webauthnLogin } from '@/lib/webauthn'
 
 interface AuthContextValue {
   isAuthenticated: boolean
+  isFullUser: boolean
   requestOtp: (email: string) => Promise<void>
   verifyOtp: (email: string, code: string) => Promise<void>
-  loginLegacy: (password: string) => Promise<void>
   loginPasskey: (email: string) => Promise<void>
   logout: () => void
 }
@@ -19,6 +19,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => hasTokens() && !isTokenExpired())
+  const isFullUser = isAuthenticated && !isGuestToken()
 
   useEffect(() => {
     const check = () => setIsAuthenticated(hasTokens() && !isTokenExpired())
@@ -36,12 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true)
   }, [])
 
-  const loginLegacy = useCallback(async (password: string) => {
-    const tokens = await apiPost<AuthTokens>('/api/auth/token', { password })
-    storeTokens(tokens)
-    setIsAuthenticated(true)
-  }, [])
-
   const loginPasskey = useCallback(async (email: string) => {
     const tokens = await webauthnLogin(email)
     storeTokens(tokens)
@@ -54,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext value={{ isAuthenticated, requestOtp, verifyOtp, loginLegacy, loginPasskey, logout }}>
+    <AuthContext value={{ isAuthenticated, isFullUser, requestOtp, verifyOtp, loginPasskey, logout }}>
       {children}
     </AuthContext>
   )
@@ -67,10 +62,10 @@ export function useAuth() {
 }
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isFullUser } = useAuth()
   const location = useLocation()
 
-  if (!isAuthenticated) {
+  if (!isFullUser) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

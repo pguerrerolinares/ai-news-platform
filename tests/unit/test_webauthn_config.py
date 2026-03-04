@@ -9,7 +9,6 @@ class TestWebAuthnConfig:
     def test_default_rp_id(self):
         s = Settings(
             jwt_secret="x",
-            shared_password="x",
             database_url="postgresql+asyncpg://x:x@localhost/x",
             database_url_sync="postgresql://x:x@localhost/x",
         )
@@ -18,7 +17,6 @@ class TestWebAuthnConfig:
     def test_default_rp_name(self):
         s = Settings(
             jwt_secret="x",
-            shared_password="x",
             database_url="postgresql+asyncpg://x:x@localhost/x",
             database_url_sync="postgresql://x:x@localhost/x",
         )
@@ -27,7 +25,6 @@ class TestWebAuthnConfig:
     def test_default_origin(self):
         s = Settings(
             jwt_secret="x",
-            shared_password="x",
             database_url="postgresql+asyncpg://x:x@localhost/x",
             database_url_sync="postgresql://x:x@localhost/x",
         )
@@ -36,7 +33,6 @@ class TestWebAuthnConfig:
     def test_custom_values(self):
         s = Settings(
             jwt_secret="x",
-            shared_password="x",
             database_url="postgresql+asyncpg://x:x@localhost/x",
             database_url_sync="postgresql://x:x@localhost/x",
             webauthn_rp_id="pguerrero.me",

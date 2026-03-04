@@ -1,12 +1,14 @@
-"""Tests for rate limiting IP extraction."""
+"""Tests for rate limiting IP extraction and JWT-aware key function."""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+from jose import jwt
 
-from src.api.ratelimit import _is_trusted_proxy, get_client_ip
+from src.api.ratelimit import _is_trusted_proxy, get_client_ip, get_rate_limit_key
+from src.core.config import Settings
 
 
 class TestIsTrustedProxy:
@@ -113,3 +115,75 @@ class TestGetClientIp:
             forwarded_for="85.123.45.67",
         )
         assert get_client_ip(request) == "85.123.45.67"
+
+
+def _make_test_settings(**overrides: object) -> Settings:
+    defaults: dict[str, object] = {
+        "jwt_secret": "test-secret",
+        "database_url": "postgresql+asyncpg://x:x@localhost/x",
+        "database_url_sync": "postgresql://x:x@localhost/x",
+    }
+    defaults.update(overrides)
+    return Settings(**defaults)
+
+
+class TestGetRateLimitKey:
+    """Tests for JWT-aware rate limit key extraction."""
+
+    def test_guest_token_keyed_by_jti(self) -> None:
+        token = jwt.encode(
+            {"sub": "guest:abc", "role": "guest", "jti": "unique-jti-123", "type": "access"},
+            "test-secret",
+            algorithm="HS256",
+        )
+        request = MagicMock()
+        request.headers = {"Authorization": f"Bearer {token}"}
+        request.client = MagicMock()
+        request.client.host = "10.0.1.5"
+
+        with patch("src.api.ratelimit.get_settings", return_value=_make_test_settings()):
+            key = get_rate_limit_key(request)
+        assert key == "guest:unique-jti-123"
+
+    def test_authenticated_token_keyed_by_sub(self) -> None:
+        token = jwt.encode(
+            {"sub": "user-uuid-456", "role": "reader", "type": "access"},
+            "test-secret",
+            algorithm="HS256",
+        )
+        request = MagicMock()
+        request.headers = {"Authorization": f"Bearer {token}"}
+        request.client = MagicMock()
+        request.client.host = "10.0.1.5"
+
+        with patch("src.api.ratelimit.get_settings", return_value=_make_test_settings()):
+            key = get_rate_limit_key(request)
+        assert key == "user:user-uuid-456"
+
+    def test_no_token_falls_back_to_ip(self) -> None:
+        request = MagicMock()
+        request.headers = {}
+        request.client = MagicMock()
+        request.client.host = "1.2.3.4"
+
+        key = get_rate_limit_key(request)
+        assert key == "ip:1.2.3.4"
+
+    def test_invalid_token_falls_back_to_ip(self) -> None:
+        request = MagicMock()
+        request.headers = {"Authorization": "Bearer not-a-valid-jwt"}
+        request.client = MagicMock()
+        request.client.host = "5.6.7.8"
+
+        with patch("src.api.ratelimit.get_settings", return_value=_make_test_settings()):
+            key = get_rate_limit_key(request)
+        assert key == "ip:5.6.7.8"
+
+    def test_no_auth_header_falls_back_to_ip(self) -> None:
+        request = MagicMock()
+        request.headers = {"Content-Type": "application/json"}
+        request.client = MagicMock()
+        request.client.host = "9.8.7.6"
+
+        key = get_rate_limit_key(request)
+        assert key == "ip:9.8.7.6"

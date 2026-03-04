@@ -8,7 +8,7 @@ from slowapi import Limiter
 from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import UserClaims, require_auth
+from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import (
     ErrorWrapper,
@@ -61,7 +61,7 @@ def _build_date_filter(
 async def stats_summary(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> StatsSummaryResponse:
     """Get summary statistics for the platform in a single query."""
     today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
@@ -102,7 +102,7 @@ async def stats_summary(
 async def stats_by_source(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupResponse]:
     """Get item count grouped by source."""
     result = await session.execute(
@@ -122,7 +122,7 @@ async def stats_by_source(
 async def stats_by_topic(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupResponse]:
     """Get item count grouped by topic."""
     result = await session.execute(
@@ -146,7 +146,7 @@ async def stats_by_date(
     date_from: date_type | None = Query(default=None, description="Start date (inclusive)"),
     date_to: date_type | None = Query(default=None, description="End date (inclusive)"),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsDateResponse]:
     """Get item count grouped by date for the last N days, or a custom date range."""
     date_filter = _build_date_filter(date_from, date_to, days)
@@ -176,7 +176,7 @@ async def stats_by_topic_date(
     date_from: date_type | None = Query(default=None, description="Start date (inclusive)"),
     date_to: date_type | None = Query(default=None, description="End date (inclusive)"),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupDateResponse]:
     """Get item count grouped by topic and date for the last N days, or a custom range."""
     date_filter = _build_date_filter(date_from, date_to, days)
@@ -208,7 +208,7 @@ async def stats_by_source_date(
     request: Request,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupDateResponse]:
     """Get item count grouped by source and date for the last N days."""
     since_dt = datetime.combine(
@@ -241,7 +241,7 @@ async def stats_trending_timeline(
     request: Request,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsDateResponse]:
     """Get trending item count by date for the last N days."""
     since_dt = datetime.combine(
@@ -282,7 +282,7 @@ async def stats_score_distribution(
     source: str | None = Query(None, description="Filter by source"),
     topic: str | None = Query(None, description="Filter by topic"),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[ScoreDistributionResponse]:
     """Get score distribution as histogram buckets."""
     since_dt = datetime.combine(

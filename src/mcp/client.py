@@ -10,10 +10,10 @@ import httpx
 class APIClient:
     """Synchronous client that wraps the FastAPI REST API."""
 
-    def __init__(self, base_url: str = "http://localhost:8000", password: str = ""):  # nosec B107
+    def __init__(self, base_url: str = "http://localhost:8000", token: str = ""):
         self.base_url = base_url.rstrip("/")
         self._http = httpx.Client(base_url=self.base_url, timeout=30)
-        self.token = self._authenticate(password)
+        self.token = token or self._acquire_guest_token()
 
     def close(self) -> None:
         self._http.close()
@@ -24,10 +24,10 @@ class APIClient:
     def __exit__(self, *args: object) -> None:
         self.close()
 
-    def _authenticate(self, password: str) -> str:
-        resp = self._http.post("/api/auth/token", json={"password": password})
+    def _acquire_guest_token(self) -> str:
+        resp = self._http.post("/api/auth/guest")
         if resp.status_code != 200:
-            raise RuntimeError(f"MCP authentication failed: {resp.status_code}")
+            raise RuntimeError(f"MCP guest token acquisition failed: {resp.status_code}")
         return resp.json()["access_token"]
 
     @property

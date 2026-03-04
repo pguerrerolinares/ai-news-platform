@@ -6,6 +6,11 @@ import ipaddress
 
 from starlette.requests import Request
 
+from src.core.config import get_settings
+from src.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 _PRIVATE_NETWORKS = (
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
@@ -44,3 +49,34 @@ def get_client_ip(request: Request) -> str:
         return ips[0]
 
     return client_host
+
+
+def get_rate_limit_key(request: Request) -> str:
+    """Extract rate-limit key from JWT (if present) or fall back to IP.
+
+    - Guest tokens: keyed by "guest:{jti}"
+    - Authenticated tokens: keyed by "user:{sub}"
+    - No token: keyed by "ip:{client_ip}"
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            from jose import jwt as jose_jwt
+
+            settings = get_settings()
+            payload = jose_jwt.decode(
+                token,
+                settings.jwt_secret,
+                algorithms=[settings.jwt_algorithm],
+                options={"verify_exp": False},
+            )
+            role = payload.get("role", "")
+            if role == "guest":
+                jti = payload.get("jti", "unknown")
+                return f"guest:{jti}"
+            sub = payload.get("sub", "unknown")
+            return f"user:{sub}"
+        except Exception:
+            logger.debug("jwt_decode_failed_for_rate_limit", token_prefix=token[:10])
+    return f"ip:{get_client_ip(request)}"

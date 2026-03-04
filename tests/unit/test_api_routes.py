@@ -9,7 +9,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
-from src.api.auth import require_auth
+from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
 
 
@@ -54,15 +54,15 @@ async def _mock_get_session():
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def _override_dependencies():
-    """Override get_session and require_auth dependencies for all tests.
+    """Override get_session and require_auth_or_guest dependencies for all tests.
 
     The overrides are removed after each test to avoid leaking state.
     """
     app.dependency_overrides[get_session] = _mock_get_session
-    app.dependency_overrides[require_auth] = lambda: "test-user"
+    app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
     yield
     app.dependency_overrides.pop(get_session, None)
-    app.dependency_overrides.pop(require_auth, None)
+    app.dependency_overrides.pop(require_auth_or_guest, None)
 
 
 @pytest.fixture()
@@ -311,7 +311,7 @@ class TestItemsByDate:
         assert resp.status_code == 422
 
     async def test_by_date_requires_auth(self, api_client: AsyncClient):
-        app.dependency_overrides.pop(require_auth, None)
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/items/by-date/2026-02-22")
         assert resp.status_code == 403
 
@@ -389,7 +389,7 @@ class TestTrendingItems:
         assert resp.status_code == 422
 
     async def test_trending_requires_auth(self, api_client: AsyncClient):
-        app.dependency_overrides.pop(require_auth, None)
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/items/trending")
         assert resp.status_code == 403
 
@@ -416,7 +416,7 @@ class TestSimilarItems:
         assert resp.status_code == 422
 
     async def test_similar_requires_auth(self, api_client: AsyncClient):
-        app.dependency_overrides.pop(require_auth, None)
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         item_id = str(uuid.uuid4())
         resp = await api_client.get(f"/api/items/{item_id}/similar")
         assert resp.status_code == 403
@@ -450,6 +450,6 @@ class TestTopItems:
         assert resp.status_code == 422
 
     async def test_requires_auth(self, api_client: AsyncClient):
-        app.dependency_overrides.pop(require_auth, None)
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/items/top")
         assert resp.status_code == 403

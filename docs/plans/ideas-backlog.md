@@ -193,10 +193,17 @@
 
 - [x] ~~**Multi-user auth**~~ — Done (see Done section above)
 
-- [ ] **Per-user rate limiting** — Rate limiting is IP-based (`slowapi` + `get_remote_address`).
-  If users share a network (VPN, office), they share limits. Switch to JWT-based
-  rate limiting using `jti` or user identifier from token.
+- [x] **Per-user rate limiting** — Done (2026-03-04). Rate limiting now JWT-based:
+  guest tokens keyed by `jti`, authenticated users by `sub`, fallback to IP.
+  See `src/api/ratelimit.py:get_rate_limit_key()`.
+
+- [x] **Public access with guest tokens** — Done (2026-03-04). `POST /api/auth/guest`
+  issues 24h read-only JWTs. Public endpoints use `require_auth_or_guest`. Chat
+  requires full auth. See `docs/plans/2026-03-04-public-access-design.md`.
+
+- [x] **Remove legacy shared-password auth** — Done (2026-03-04). `POST /api/auth/token`
+  and `shared_password` config removed. Only OTP and passkey login remain.
 
 ---
 
-*Last updated: 2 de marzo de 2026*
+*Last updated: 4 de marzo de 2026*

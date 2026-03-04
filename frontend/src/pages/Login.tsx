@@ -4,20 +4,17 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { IconEye, IconEyeOff } from '@tabler/icons-react'
 import { useAuth } from '@/hooks/use-auth'
 
-type Step = 'email' | 'code' | 'legacy'
+type Step = 'email' | 'code'
 
 export default function Login() {
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { requestOtp, verifyOtp, loginLegacy, loginPasskey } = useAuth()
+  const { requestOtp, verifyOtp, loginPasskey } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
@@ -85,21 +82,6 @@ export default function Login() {
     }
   }
 
-  async function handleLegacyLogin(e: React.FormEvent) {
-    e.preventDefault()
-    if (!password.trim()) return
-    setError('')
-    setLoading(true)
-    try {
-      await loginLegacy(password)
-      navigate(from, { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('login.authError'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="flex min-h-svh items-start justify-center px-4 pt-[20vh] pb-8">
       <Card className="w-full max-w-sm">
@@ -108,7 +90,6 @@ export default function Login() {
           <CardDescription>
             {step === 'email' && t('login.description')}
             {step === 'code' && t('login.codeSent', { email })}
-            {step === 'legacy' && t('login.sharedPassword')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -140,13 +121,6 @@ export default function Login() {
               >
                 {loading ? t('login.passkeyLoading') : t('login.passkeyLogin')}
               </Button>
-              <button
-                type="button"
-                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => { setError(''); setStep('legacy') }}
-              >
-                {t('login.passwordAccess')}
-              </button>
             </form>
           )}
 
@@ -196,40 +170,6 @@ export default function Login() {
                   {t('login.resendCode')}
                 </button>
               </div>
-            </form>
-          )}
-
-          {step === 'legacy' && (
-            <form onSubmit={handleLegacyLogin} className="space-y-4">
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={t('login.password')}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  disabled={loading}
-                  aria-label={t('login.password')}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowPassword(prev => !prev)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                </button>
-              </div>
-              <Button type="submit" className="w-full" disabled={loading || !password.trim()}>
-                {loading ? t('login.signingIn') : t('login.signIn')}
-              </Button>
-              <button
-                type="button"
-                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => { setError(''); setStep('email') }}
-              >
-                {t('login.emailAccess')}
-              </button>
             </form>
           )}
         </CardContent>
