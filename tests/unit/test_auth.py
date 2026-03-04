@@ -520,3 +520,30 @@ class TestGuestTokens:
             with pytest.raises(APIError) as exc_info:
                 await require_auth(creds)
             assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/guest endpoint
+# ---------------------------------------------------------------------------
+class TestGuestEndpoint:
+    """Tests for POST /api/auth/guest."""
+
+    async def test_guest_endpoint_returns_200(self, api_client: AsyncClient):
+        resp = await api_client.post("/api/auth/guest")
+        assert resp.status_code == 200
+
+    async def test_guest_endpoint_returns_access_token(self, api_client: AsyncClient):
+        resp = await api_client.post("/api/auth/guest")
+        data = resp.json()
+        assert "access_token" in data
+        assert "expires_in" in data
+        assert data["token_type"] == "bearer"
+        # Guest tokens should NOT have refresh tokens
+        assert "refresh_token" not in data
+
+    async def test_guest_token_is_valid_jwt(self, api_client: AsyncClient):
+        resp = await api_client.post("/api/auth/guest")
+        token = resp.json()["access_token"]
+        payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
+        assert payload["role"] == "guest"
+        assert payload["sub"].startswith("guest:")

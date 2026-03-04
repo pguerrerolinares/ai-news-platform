@@ -91,6 +91,12 @@ class TokenResponseV2(BaseModel):
     token_type: str = "bearer"
 
 
+class GuestTokenResponse(BaseModel):
+    access_token: str
+    expires_in: int
+    token_type: str = "bearer"
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
