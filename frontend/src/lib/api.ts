@@ -1,4 +1,4 @@
-import { getAccessToken, getRefreshToken, storeTokens, clearTokens, type AuthTokens } from './auth'
+import { getAccessToken, getRefreshToken, storeTokens, clearTokens, hasTokens, isTokenExpired, isGuestToken, type AuthTokens } from './auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -33,6 +33,22 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+async function ensureToken(): Promise<void> {
+  if (getAccessToken() && !isTokenExpired()) return
+  if (!getRefreshToken()) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/guest`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('auth_access_token', data.access_token)
+        localStorage.setItem('auth_expires_at', String(Date.now() + data.expires_in * 1000))
+      }
+    } catch {
+      // Guest token fetch failed — continue without token
+    }
+  }
+}
+
 function authHeaders(): Record<string, string> {
   const token = getAccessToken()
   if (!token) return {}
@@ -44,6 +60,7 @@ async function request<T>(
   options: RequestInit = {},
   retry = true,
 ): Promise<{ data: T; totalCount: number | null; response: Response }> {
+  await ensureToken()
   const url = `${BASE_URL}${path}`
   const res = await fetch(url, {
     ...options,
@@ -57,6 +74,11 @@ async function request<T>(
   if (res.status === 401 && retry) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
+      return request<T>(path, options, false)
+    }
+    if (isGuestToken() || !hasTokens()) {
+      clearTokens()
+      await ensureToken()
       return request<T>(path, options, false)
     }
     clearTokens()
@@ -113,6 +135,7 @@ export async function apiStream(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<Response> {
+  await ensureToken()
   const url = `${BASE_URL}${path}`
   const res = await fetch(url, {
     method: 'POST',
@@ -136,6 +159,9 @@ export async function apiStream(
         body: JSON.stringify(body),
         signal,
       })
+    }
+    if (isGuestToken()) {
+      throw new ApiError(401, 'UNAUTHORIZED', 'Chat requires authentication')
     }
     clearTokens()
     window.location.replace('/login')
