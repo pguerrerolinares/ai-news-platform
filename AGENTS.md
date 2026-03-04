@@ -39,7 +39,7 @@ Docker Compose on Hetzner VPS
 ### Data Flow
 
 ```
-Sources -> Extract -> Dedup -> Classify (LLM) -> Variant Collapse -> Validate -> Store (PostgreSQL)
+Sources -> Extract (+ quant filter on HF) -> Dedup -> Classify (LLM) -> Variant Collapse -> Validate -> Store (PostgreSQL)
                                                                                        |
                                                                           FastAPI API <-+-> React UI
                                                                                        |
@@ -104,6 +104,9 @@ ai-news-platform/
 │   │   ├── metrics.py                # Prometheus counters + histograms
 │   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
 │   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper[httpx+readability])
+│   │   │                            # GitHub: uses pushed:>= date filter (search API, optional GITHUB_TOKEN)
+│   │   │                            # HuggingFace: trending models (filtered: skips quantized re-uploads via
+│   │   │                            #   base_model:quantized:* tag + library_name=None check) + daily papers (arxiv)
 │   ├── classifiers/                  # Keyword + LLM classifiers, event dedup
 │   ├── validators/                   # CredibilityValidator
 │   ├── notifiers/                    # Telegram notifier + AlertService
@@ -115,7 +118,7 @@ ai-news-platform/
 │   │   ├── webauthn.py                # WebAuthn challenge store
 │   │   └── routes/                   # auth, otp, webauthn, items, briefings, search, chat, stats, sources
 │   ├── feed/                           # Feed algorithm (query-time ranking)
-│   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ)
+│   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ/FP8/FP16/NVFP4/abliterated/censored + param size normalization)
 │   │   ├── mmr_ranker.py             # MMR diversification (quality vs source diversity)
 │   │   └── feed_builder.py           # Orchestrator: candidates→collapse→MMR→paginate
 │   ├── pipeline/
