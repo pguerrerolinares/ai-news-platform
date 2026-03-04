@@ -37,11 +37,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_expire_minutes: int = 30
     jwt_refresh_expire_days: int = 7
-    shared_password: str = Field(
-        default="change-me-in-production",
-        description="Shared password for login (semi-public app)",
-    )
-
     # --- LLM (Kimi/Moonshot, OpenAI-compatible) ---
     openai_api_key: str = ""
     openai_base_url: str = "https://api.moonshot.cn/v1"

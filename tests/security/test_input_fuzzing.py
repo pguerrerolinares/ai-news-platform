@@ -35,10 +35,10 @@ class TestInputFuzzing:
     """Adversarial inputs that must not crash the application."""
 
     async def test_oversized_json_body(self, security_client: AsyncClient):
-        """1MB password must not cause OOM or 500."""
-        resp = await security_client.post("/api/auth/token", json={"password": "A" * 1_000_000})
-        # Should be 401 (wrong password) or 413/422 (too large) — never 500
-        assert resp.status_code in (401, 413, 422)
+        """1MB body on guest endpoint must not cause OOM or 500."""
+        resp = await security_client.post("/api/auth/guest", content=b"A" * 1_000_000)
+        # Should be 200 (ignores body), 413, or 422 — never 500
+        assert resp.status_code in (200, 413, 422)
         assert resp.status_code != 500
 
     async def test_unicode_edge_cases(
@@ -119,10 +119,10 @@ class TestInputFuzzing:
     async def test_malformed_content_type(self, security_client: AsyncClient):
         """Malformed Content-Type header must be handled gracefully."""
         resp = await security_client.post(
-            "/api/auth/token",
-            content=b'{"password": "test"}',
+            "/api/auth/guest",
+            content=b"{}",
             headers={"Content-Type": "application/json; charset=evil"},
         )
-        # Should parse JSON or reject — never 500
-        assert resp.status_code in (200, 401, 415, 422)
+        # Should succeed or reject — never 500
+        assert resp.status_code in (200, 415, 422)
         assert resp.status_code != 500

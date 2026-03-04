@@ -49,10 +49,6 @@ class BriefingResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class TokenRequest(BaseModel):
-    password: str
-
-
 class CountResponse(BaseModel):
     count: int
 

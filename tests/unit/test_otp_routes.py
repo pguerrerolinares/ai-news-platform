@@ -12,7 +12,6 @@ from src.api.app import app
 from src.core.config import Settings
 
 TEST_SECRET = "test-jwt-secret-key"
-TEST_PASSWORD = "test-password-123"
 
 
 def _make_test_settings(**overrides) -> Settings:
@@ -21,7 +20,6 @@ def _make_test_settings(**overrides) -> Settings:
         "jwt_algorithm": "HS256",
         "jwt_access_expire_minutes": 30,
         "jwt_refresh_expire_days": 7,
-        "shared_password": TEST_PASSWORD,
         "database_url": "postgresql+asyncpg://x:x@localhost/x",
         "database_url_sync": "postgresql://x:x@localhost/x",
         "telegram_bot_token": "",
