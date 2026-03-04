@@ -25,13 +25,23 @@ def _is_quantized_reupload(model: dict) -> bool:
     tags = model.get("tags", [])
     if any(tag.startswith("base_model:quantized:") for tag in tags):
         return True
-    if model.get("library_name") is None:
-        return True
-    return False
+    return model.get("library_name") is None
 
 
 class HuggingFaceExtractor(BaseExtractor):
     """Extracts trending AI models from HuggingFace Hub API."""
+
+    @staticmethod
+    def _build_model_text(model_id: str, model: dict) -> str:
+        """Build descriptive text from model metadata for the classifier."""
+        parts = [model_id]
+        pipeline_tag = model.get("pipeline_tag")
+        if pipeline_tag:
+            parts.append(f"Task: {pipeline_tag}")
+        library = model.get("library_name")
+        if library:
+            parts.append(f"Library: {library}")
+        return " | ".join(parts)
 
     @property
     def source_name(self) -> str:
@@ -152,7 +162,7 @@ class HuggingFaceExtractor(BaseExtractor):
                                 title=model_id,
                                 source=self.source_name,
                                 url=url,
-                                text=model_id,
+                                text=self._build_model_text(model_id, model),
                                 author=model.get(
                                     "author",
                                     model_id.split("/")[0] if "/" in model_id else "unknown",

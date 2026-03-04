@@ -297,6 +297,35 @@ class TestDailyPapers:
         assert result[0].url == "https://arxiv.org/abs/2401.00001"
         assert result[0].source == "huggingface"
 
+
+class TestImprovedModelText:
+    @respx.mock
+    async def test_text_includes_pipeline_tag(self):
+        """text field should include pipeline_tag for better classifier context."""
+        model = _make_model(
+            "org/model-x",
+            downloads=5000,
+            pipeline_tag="text-generation",
+            tags=["transformers", "safetensors", "text-generation"],
+            library_name="transformers",
+        )
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert result[0].text != result[0].title, "text should not just repeat title"
+        assert "text-generation" in result[0].text
+
+    @respx.mock
+    async def test_text_without_pipeline_tag(self):
+        """text field should still work when pipeline_tag is missing."""
+        model = _make_model("org/model-y", downloads=5000, library_name="transformers")
+        del model["pipeline_tag"]
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[model]))
+        with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
+            result = await HuggingFaceExtractor().extract()
+        assert "org/model-y" in result[0].text
+        assert "Library: transformers" in result[0].text
+
     @respx.mock
     async def test_daily_papers_deduped_with_models(self):
         models = [_make_model("org/model-a", downloads=5000)]
@@ -433,9 +462,7 @@ class TestQuantizationFiltering:
             ],
             library_name=None,
         )
-        respx.get(API_URL).mock(
-            return_value=httpx.Response(200, json=[original, quantized])
-        )
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=[original, quantized]))
         with patch("src.extractors.huggingface.get_settings", return_value=_mock_settings()):
             result = await HuggingFaceExtractor().extract()
         titles = [item.title for item in result]
