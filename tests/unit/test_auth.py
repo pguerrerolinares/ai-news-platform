@@ -469,3 +469,46 @@ class TestGuestEndpoint:
         payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
         assert payload["role"] == "guest"
         assert payload["sub"].startswith("guest:")
+
+
+# ---------------------------------------------------------------------------
+# Guest flow integration test
+# ---------------------------------------------------------------------------
+class TestGuestFlow:
+    """End-to-end: get guest token, use it on public endpoint, fail on chat."""
+
+    async def test_full_guest_flow(self, api_client: AsyncClient):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from src.core.database import get_session
+
+        # 1. Get guest token
+        resp = await api_client.post("/api/auth/guest")
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        # 2. Access public endpoint
+        async def _mock_session():
+            mock_result = MagicMock()
+            mock_scalars = MagicMock()
+            mock_scalars.all.return_value = []
+            mock_result.scalars.return_value = mock_scalars
+            mock_result.scalar_one.return_value = 0
+            session = AsyncMock()
+            session.execute = AsyncMock(return_value=mock_result)
+            yield session
+
+        app.dependency_overrides[get_session] = _mock_session
+        try:
+            resp = await api_client.get("/api/items", headers={"Authorization": f"Bearer {token}"})
+            assert resp.status_code == 200
+        finally:
+            app.dependency_overrides.pop(get_session, None)
+
+        # 3. Chat should be blocked for guest
+        resp = await api_client.post(
+            "/api/chat",
+            json={"question": "test question"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 401
