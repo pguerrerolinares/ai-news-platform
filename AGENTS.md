@@ -39,7 +39,7 @@ Docker Compose on Hetzner VPS
 ### Data Flow
 
 ```
-Sources -> Extract (+ quant filter on HF) -> Dedup -> Classify (LLM) -> Variant Collapse -> Validate -> Store (PostgreSQL)
+Sources -> Extract (+ quant filter on HF) -> Dedup -> Seen Filter (DB) -> Classify (LLM) -> Variant Collapse -> Validate -> Store (PostgreSQL, url_hash upsert)
                                                                                        |
                                                                           FastAPI API <-+-> React UI
                                                                                        |

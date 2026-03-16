@@ -357,9 +357,7 @@ class TestRepoAgeFilter:
         """Repos newer than github_max_repo_age_days are kept."""
         from datetime import UTC, datetime, timedelta
 
-        recent_date = (datetime.now(tz=UTC) - timedelta(days=30)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        recent_date = (datetime.now(tz=UTC) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
         new_repo = _make_repo("new-repo", created_at=recent_date)
         respx.get(SEARCH_URL).mock(
             return_value=httpx.Response(200, json=_search_response([new_repo]))
@@ -375,9 +373,7 @@ class TestRepoAgeFilter:
     async def test_none_created_at_passes_filter(self):
         """Repos with unparseable created_at are included (fail open)."""
         repo = _make_repo("no-date-repo", created_at="not-a-date")
-        respx.get(SEARCH_URL).mock(
-            return_value=httpx.Response(200, json=_search_response([repo]))
-        )
+        respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))
         with patch(
             "src.extractors.github.get_settings",
             return_value=_mock_settings(github_max_repo_age_days=90),

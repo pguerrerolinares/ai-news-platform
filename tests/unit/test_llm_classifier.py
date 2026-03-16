@@ -266,9 +266,7 @@ class TestRetryBackoff:
                     response=MagicMock(status_code=429, headers={}),
                     body=None,
                 ),
-                SimpleNamespace(
-                    choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
-                ),
+                SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]),
             ]
         )
         with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
