@@ -70,7 +70,7 @@ async def llm_call(
             last_error = exc
             if attempt < MAX_RETRIES - 1:
                 wait = RETRY_BACKOFF[attempt]
-                jitter = random.uniform(0, wait * 0.3)  # noqa: S311
+                jitter = random.uniform(0, wait * 0.3)  # noqa: S311  # nosec B311
                 logger.warning(
                     "llm_call_retry",
                     attempt=attempt + 1,
