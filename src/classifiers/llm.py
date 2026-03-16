@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import re
 
 import openai
@@ -25,8 +26,8 @@ from src.extractors.base import ExtractedItem
 logger = get_logger(__name__)
 
 BATCH_SIZE = 10
-MAX_RETRIES = 3
-RETRY_BACKOFF = [1, 2, 4]
+MAX_RETRIES = 5
+RETRY_BACKOFF = [2, 5, 15, 30]
 
 SYSTEM_MESSAGE = (
     "You are an AI news classifier. " "Respond ONLY with a valid JSON array, no additional text."
@@ -49,7 +50,7 @@ async def llm_call(
     """Call the LLM with retry logic for transient errors.
 
     Retries up to MAX_RETRIES times on RateLimitError, APITimeoutError,
-    and APIConnectionError with exponential backoff [1, 2, 4] seconds.
+    and APIConnectionError with backoff [2, 5, 15, 30] seconds + 30% jitter.
     Other APIError subclasses are NOT retried.
     """
     last_error: Exception | None = None
@@ -69,13 +70,14 @@ async def llm_call(
             last_error = exc
             if attempt < MAX_RETRIES - 1:
                 wait = RETRY_BACKOFF[attempt]
+                jitter = random.uniform(0, wait * 0.3)  # noqa: S311
                 logger.warning(
                     "llm_call_retry",
                     attempt=attempt + 1,
                     error=str(exc),
-                    wait_seconds=wait,
+                    wait_seconds=round(wait + jitter, 1),
                 )
-                await asyncio.sleep(wait)
+                await asyncio.sleep(wait + jitter)
             else:
                 logger.error(
                     "llm_call_retries_exhausted",

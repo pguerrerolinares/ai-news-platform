@@ -208,7 +208,7 @@ class TestLlmCall:
             pytest.raises(openai.RateLimitError),
         ):
             await llm_call(client, "model", "system", "prompt")
-        assert client.chat.completions.create.call_count == 3
+        assert client.chat.completions.create.call_count == 5
 
     async def test_no_retry_on_other_api_error(self):
         client = _make_mock_client("")
@@ -222,6 +222,79 @@ class TestLlmCall:
         with pytest.raises(openai.BadRequestError):
             await llm_call(client, "model", "system", "prompt")
         assert client.chat.completions.create.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Retry backoff
+# ---------------------------------------------------------------------------
+class TestRetryBackoff:
+    """Tests for retry constants and jitter."""
+
+    def test_max_retries_is_five(self):
+        from src.classifiers.llm import MAX_RETRIES
+
+        assert MAX_RETRIES == 5
+
+    def test_retry_backoff_has_four_elements(self):
+        from src.classifiers.llm import RETRY_BACKOFF
+
+        assert len(RETRY_BACKOFF) == 4
+        assert RETRY_BACKOFF == [2, 5, 15, 30]
+
+    async def test_jitter_applied_to_sleep(self):
+        """Verify sleep duration includes jitter (>= base wait)."""
+        mock_client = _make_mock_client("test")
+        mock_client.chat.completions.create = AsyncMock(
+            side_effect=[
+                openai.RateLimitError(
+                    message="rate limited",
+                    response=MagicMock(status_code=429, headers={}),
+                    body=None,
+                ),
+                openai.RateLimitError(
+                    message="rate limited",
+                    response=MagicMock(status_code=429, headers={}),
+                    body=None,
+                ),
+                openai.RateLimitError(
+                    message="rate limited",
+                    response=MagicMock(status_code=429, headers={}),
+                    body=None,
+                ),
+                openai.RateLimitError(
+                    message="rate limited",
+                    response=MagicMock(status_code=429, headers={}),
+                    body=None,
+                ),
+                SimpleNamespace(
+                    choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+                ),
+            ]
+        )
+        with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            result = await llm_call(mock_client, "model", "system", "prompt")
+        assert result == "ok"
+        assert mock_sleep.await_count == 4
+        for i, call in enumerate(mock_sleep.await_args_list):
+            base = [2, 5, 15, 30][i]
+            assert call.args[0] >= base
+
+    async def test_five_failures_exhausts_retries(self):
+        """After 5 failures, retries are exhausted and exception is raised."""
+        mock_client = _make_mock_client("test")
+        mock_client.chat.completions.create = AsyncMock(
+            side_effect=openai.RateLimitError(
+                message="rate limited",
+                response=MagicMock(status_code=429, headers={}),
+                body=None,
+            )
+        )
+        with (
+            patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock),
+            pytest.raises(openai.RateLimitError),
+        ):
+            await llm_call(mock_client, "model", "system", "prompt")
+        assert mock_client.chat.completions.create.await_count == 5
 
 
 # ---------------------------------------------------------------------------
