@@ -85,6 +85,7 @@ class GitHubExtractor(BaseExtractor):
     ) -> tuple[list[ExtractedItem], httpx.Response]:
         q = f"{query} stars:>{min_stars} pushed:>={since_date}"
         params = {"q": q, "sort": "stars", "order": "desc", "per_page": 30}
+        max_age_days = get_settings().github_max_repo_age_days
 
         resp = await client.get(SEARCH_URL, params=params)
         resp.raise_for_status()
@@ -115,6 +116,14 @@ class GitHubExtractor(BaseExtractor):
                 )
             except (ValueError, AttributeError):
                 created_at_dt = None
+
+            # Repo age filter: skip repos older than configured threshold
+            if (
+                created_at_dt is not None
+                and max_age_days > 0
+                and (datetime.now(tz=UTC) - created_at_dt).days > max_age_days
+            ):
+                continue
 
             items.append(
                 ExtractedItem(

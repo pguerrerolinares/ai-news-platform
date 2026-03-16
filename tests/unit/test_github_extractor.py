@@ -49,7 +49,8 @@ def _mock_settings(**overrides):
     defaults = {
         "github_token": "",
         "github_search_queries": "AI",
-        "github_min_stars": 50,
+        "github_min_stars": 500,
+        "github_max_repo_age_days": 0,
         "max_items_per_source": 50,
         "enabled_sources": "github",
         "telegram_bot_token": "",
@@ -332,6 +333,71 @@ class TestExtract:
             result = await GitHubExtractor().extract()
         assert result[0].title == "bare-repo"
         assert ": " not in result[0].title
+
+
+class TestRepoAgeFilter:
+    """Tests for github_max_repo_age_days filtering."""
+
+    @respx.mock
+    async def test_old_repo_filtered_out(self):
+        """Repos older than github_max_repo_age_days are excluded."""
+        old_repo = _make_repo("old-repo", created_at="2020-01-01T00:00:00Z")
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(200, json=_search_response([old_repo]))
+        )
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_max_repo_age_days=90),
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 0
+
+    @respx.mock
+    async def test_new_repo_passes_filter(self):
+        """Repos newer than github_max_repo_age_days are kept."""
+        from datetime import UTC, datetime, timedelta
+
+        recent_date = (datetime.now(tz=UTC) - timedelta(days=30)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        new_repo = _make_repo("new-repo", created_at=recent_date)
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(200, json=_search_response([new_repo]))
+        )
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_max_repo_age_days=90),
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+
+    @respx.mock
+    async def test_none_created_at_passes_filter(self):
+        """Repos with unparseable created_at are included (fail open)."""
+        repo = _make_repo("no-date-repo", created_at="not-a-date")
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(200, json=_search_response([repo]))
+        )
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_max_repo_age_days=90),
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
+
+    @respx.mock
+    async def test_zero_age_disables_filter(self):
+        """github_max_repo_age_days=0 disables the filter."""
+        old_repo = _make_repo("old-but-allowed", created_at="2020-01-01T00:00:00Z")
+        respx.get(SEARCH_URL).mock(
+            return_value=httpx.Response(200, json=_search_response([old_repo]))
+        )
+        with patch(
+            "src.extractors.github.get_settings",
+            return_value=_mock_settings(github_max_repo_age_days=0),
+        ):
+            result = await GitHubExtractor().extract()
+        assert len(result) == 1
 
 
 class TestSourceCreatedAt:
