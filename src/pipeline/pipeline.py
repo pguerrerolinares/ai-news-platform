@@ -24,6 +24,7 @@ from src.pipeline.stages.classify import run_classification
 from src.pipeline.stages.extract import get_extractors, run_extraction
 from src.pipeline.stages.notify import run_notification
 from src.pipeline.stages.score import run_scoring
+from src.pipeline.stages.seen_filter import filter_already_seen
 from src.pipeline.stages.store import embed_new_items, save_briefing, store_classified_items
 from src.pipeline.validation import validate_extracted_item
 from src.validators.credibility import CredibilityValidator
@@ -79,6 +80,10 @@ async def run_pipeline(
         logger.info("pipeline_dedup", input_count=items_extracted)
         unique_items = deduplicate_items(all_items)
         items_after_dedup = len(unique_items)
+
+        # 2.5. Filter already seen (persistent DB dedup)
+        unique_items = await filter_already_seen(session, unique_items)
+        logger.info("pipeline_seen_filter", count=len(unique_items))
 
         # 3. Pre-validate
         valid_items = []
