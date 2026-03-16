@@ -167,6 +167,13 @@
 - [ ] **Reddit extractor** — Disabled via `ENABLED_SOURCES` env var (Reddit changed API terms,
   requires paid API key). Keep the code in place, re-enable when API access is resolved.
 
+- [ ] **WebScraper extractor** — Not in `ENABLED_SOURCES`. Two issues: (1) add `webscraper` to
+  env var, (2) the 3 configured URLs (Anthropic/research, DeepMind, Meta AI blog) are JS-heavy
+  SPAs that won't work with readability-lxml. Options: replace URLs with static-HTML blogs,
+  or integrate the `browserless` container already running in production to render JS before
+  extraction. Since these blogs are already covered by RSS, most value would come from scraping
+  sites WITHOUT RSS feeds (TechCrunch AI, The Verge AI, VentureBeat AI).
+
 - [ ] **Database retention policy** — `news_items` grows indefinitely (~100-200 items/day).
   After 6 months = ~30K rows + embeddings. Options:
   - Soft archive: move items older than N days to `news_items_archive` table (cheaper queries)
