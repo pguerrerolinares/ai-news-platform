@@ -95,6 +95,12 @@ class NewsItem(Base):
         Index("idx_news_items_topic", "topic"),
         Index("idx_news_items_source", "source"),
         Index("idx_news_items_url_hash", "url_hash"),
+        Index(
+            "uix_news_items_url_hash",
+            "url_hash",
+            unique=True,
+            postgresql_where=text("url_hash IS NOT NULL"),
+        ),
         # M14: Performance indexes
         Index("idx_news_items_score", "score"),
         Index("idx_news_items_source_date", "source", "published_at"),
