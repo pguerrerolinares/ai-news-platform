@@ -55,7 +55,8 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
         )
 
         if item.url_hash is not None:
-            # Upsert: update scores if new values are higher
+            # Upsert: update scores only when new values are strictly higher.
+            # WHERE clause ensures rowcount=0 for exact duplicates (no-op update).
             stmt = base_stmt.on_conflict_do_update(
                 index_elements=["url_hash"],
                 index_where=text("url_hash IS NOT NULL"),
@@ -68,6 +69,11 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
                         NewsItem.relevance_score, base_stmt.excluded.relevance_score
                     ),
                 },
+                where=(
+                    (base_stmt.excluded.composite_score > NewsItem.composite_score)
+                    | (base_stmt.excluded.score > NewsItem.score)
+                    | (base_stmt.excluded.relevance_score > NewsItem.relevance_score)
+                ),
             )
         else:
             stmt = base_stmt.on_conflict_do_nothing(index_elements=["content_hash"])
