@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +23,8 @@ _BATCH_COMMIT_SIZE = 25
 async def store_classified_items(session: AsyncSession, items: list[ClassifiedItem]) -> int:
     """Store classified items in PostgreSQL with batch commits.
 
-    Commits every _BATCH_COMMIT_SIZE items to avoid losing all work
-    if a late commit fails. Returns count of new items inserted.
+    Items WITH a URL: upsert on url_hash — update scores if new values are higher.
+    Items WITHOUT a URL: insert with on_conflict_do_nothing on content_hash.
     """
     if not items:
         return 0
@@ -32,31 +32,46 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
     stored = 0
     for i, ci in enumerate(items):
         item = ci.item
-        stmt = (
-            insert(NewsItem)
-            .values(
-                title=item.title,
-                url=item.url,
-                source=item.source,
-                published_at=item.published_at,
-                content_hash=item.content_hash,
-                url_hash=item.url_hash,
-                full_text=item.text,
-                author=item.author,
-                score=item.score,
-                source_created_at=item.source_created_at,
-                metadata_=item.metadata,
-                topic=ci.topic,
-                relevance_score=ci.relevance_score,
-                credibility_score=ci.credibility_score,
-                summary=ci.summary,
-                priority=ci.priority,
-                trending=ci.trending,
-                dev_value_score=ci.dev_value_score,
-                composite_score=ci.composite_score,
-            )
-            .on_conflict_do_nothing(index_elements=["content_hash"])
+        base_stmt = insert(NewsItem).values(
+            title=item.title,
+            url=item.url,
+            source=item.source,
+            published_at=item.published_at,
+            content_hash=item.content_hash,
+            url_hash=item.url_hash,
+            full_text=item.text,
+            author=item.author,
+            score=item.score,
+            source_created_at=item.source_created_at,
+            metadata_=item.metadata,
+            topic=ci.topic,
+            relevance_score=ci.relevance_score,
+            credibility_score=ci.credibility_score,
+            summary=ci.summary,
+            priority=ci.priority,
+            trending=ci.trending,
+            dev_value_score=ci.dev_value_score,
+            composite_score=ci.composite_score,
         )
+
+        if item.url_hash is not None:
+            # Upsert: update scores if new values are higher
+            stmt = base_stmt.on_conflict_do_update(
+                index_elements=["url_hash"],
+                index_where=text("url_hash IS NOT NULL"),
+                set_={
+                    "composite_score": func.greatest(
+                        NewsItem.composite_score, base_stmt.excluded.composite_score
+                    ),
+                    "score": func.greatest(NewsItem.score, base_stmt.excluded.score),
+                    "relevance_score": func.greatest(
+                        NewsItem.relevance_score, base_stmt.excluded.relevance_score
+                    ),
+                },
+            )
+        else:
+            stmt = base_stmt.on_conflict_do_nothing(index_elements=["content_hash"])
+
         result = await session.execute(stmt)
         if result.rowcount and result.rowcount > 0:
             stored += 1

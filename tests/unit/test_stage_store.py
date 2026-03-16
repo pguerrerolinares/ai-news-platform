@@ -32,3 +32,47 @@ class TestStoreClassifiedItems:
         mock_session = AsyncMock()
         stored = await store_classified_items(mock_session, [])
         assert stored == 0
+
+
+class TestUrlHashUpsert:
+    """Tests for url_hash-based upsert-on-better-score."""
+
+    async def test_item_with_url_uses_url_hash_conflict(self):
+        """Items with URL use ON CONFLICT url_hash DO UPDATE."""
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 1
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.commit = AsyncMock()
+
+        item = _make_classified(title="Test", url="https://example.com/repo")
+        await store_classified_items(mock_session, [item])
+
+        call_args = mock_session.execute.call_args_list[0]
+        stmt = call_args.args[0]
+        # Import the dialect for compilation
+        from sqlalchemy.dialects.postgresql import dialect as pg_dialect
+
+        compiled = stmt.compile(dialect=pg_dialect())
+        sql = str(compiled)
+        assert "ON CONFLICT" in sql
+        assert "DO UPDATE" in sql
+
+    async def test_item_without_url_uses_content_hash_conflict(self):
+        """Items without URL use ON CONFLICT content_hash DO NOTHING."""
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 1
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.commit = AsyncMock()
+
+        item = _make_classified(title="No URL Item", url=None)
+        await store_classified_items(mock_session, [item])
+
+        call_args = mock_session.execute.call_args_list[0]
+        stmt = call_args.args[0]
+        from sqlalchemy.dialects.postgresql import dialect as pg_dialect
+
+        compiled = stmt.compile(dialect=pg_dialect())
+        sql = str(compiled)
+        assert "DO NOTHING" in sql
