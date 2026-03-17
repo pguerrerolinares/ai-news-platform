@@ -104,9 +104,8 @@
   `ix_item_embeddings_hnsw` (duplicate of ORM-declared `idx_embeddings_hnsw`).
   Saves 56MB RAM/disk.
 
-- [ ] **Increase HN poll interval 15min→30min** — HN extracts 2-3 items per run, seen
-  filter discards almost all. 12 Algolia queries every 15min yield 0 new items most runs.
-  Doubling interval halves HTTP requests with no coverage loss. Config change only.
+- [x] **Increase HN poll interval 15min→30min** — Done (2026-03-17). Config change only.
+  Halves Algolia requests with no coverage loss (seen filter catches repeats).
 
 - [ ] **Event dedup without LLM (fuzzy matching)** — `event_dedup.py` uses a full Kimi
   call per topic to group items by event. Currently removes ~3/15 items (20%) per Tier 2

@@ -137,7 +137,7 @@ class Settings(BaseSettings):
 
     # --- Scheduler ---
     scheduler_enabled: bool = True
-    hn_poll_interval_minutes: int = 15
+    hn_poll_interval_minutes: int = 30
     reddit_poll_interval_minutes: int = 15
     rss_poll_interval_minutes: int = 60
     github_poll_interval_minutes: int = 60
