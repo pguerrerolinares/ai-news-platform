@@ -155,12 +155,10 @@
   arXiv API (`arxiv.org/abs/{id}`) as a second pass, giving the LLM classifier and embeddings
   richer content. Low priority: pipeline dedup may already have the arXiv version with abstract.
 
-- [ ] **Cross-source event grouping** — Same news covered by multiple sources (e.g., an
-  OpenAI announcement on HN + Reddit + RSS + arXiv) should be grouped as one "event"
-  with multiple source links. Currently `event_dedup.py` groups within a single pipeline
-  run using LLM, but doesn't detect cross-source duplicates from different tiers/times.
-  Approaches: pgvector cosine similarity on embeddings (threshold ~0.92), or
-  title similarity (Jaccard/fuzzy). Would improve dashboard by reducing noise.
+- [x] **Cross-source event grouping** — Done (2026-03-17). `seen_filter.py` now has
+  two passes: URL hash (exact) + title similarity (SequenceMatcher ≥0.80 against recent
+  DB titles). If HN and RSS bring the same news in different tiers, the second one is
+  filtered out. No new dependencies.
 
 - [ ] **Content freshness indicator** — Expose when the pipeline last ran successfully
   per source. New endpoint `GET /api/pipeline/status` returning last-run timestamps,
