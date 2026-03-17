@@ -23,7 +23,7 @@ def _mock_settings(**overrides):
     return Settings(**defaults)
 
 
-def _fake_embedding(dims: int = 1536) -> list[float]:
+def _fake_embedding(dims: int = 512) -> list[float]:
     return [0.1] * dims
 
 
@@ -37,7 +37,7 @@ class TestEmbedText:
             service = EmbeddingService(client=mock_client)
             result = await service.embed_text("test query")
         assert isinstance(result, list)
-        assert len(result) == 1536
+        assert len(result) == 512
 
     async def test_calls_openai_with_correct_model(self):
         mock_client = AsyncMock()
@@ -98,7 +98,7 @@ class TestEmbedBatch:
             service = EmbeddingService(client=mock_client)
             result = await service.embed_batch(["text one", "text two"])
         assert len(result) == 2
-        assert all(len(e) == 1536 for e in result)
+        assert all(len(e) == 512 for e in result)
 
     async def test_batches_large_input(self):
         texts = [f"text {i}" for i in range(150)]

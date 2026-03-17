@@ -57,7 +57,7 @@ class TestEmbeddingStorage:
             url="https://x.com/topic-b",
         )
 
-        vec = [0.5] * 1536
+        vec = [0.5] * 512
         await seed_embedding(db_session, item_a, vector=vec)
         await seed_embedding(db_session, item_b, vector=vec)
 
@@ -73,7 +73,7 @@ class TestEmbeddingStorage:
     async def test_retrieve_empty_table(self, db_session):
         """Retriever returns [] when no embeddings exist."""
         mock_embed = AsyncMock(spec=EmbeddingService)
-        mock_embed.embed_text.return_value = [0.1] * 1536
+        mock_embed.embed_text.return_value = [0.1] * 512
 
         retriever = Retriever(embedding_service=mock_embed)
         results = await retriever.retrieve(db_session, "anything")
@@ -95,7 +95,7 @@ class TestEmbedNewItems:
 
         mock_embed = AsyncMock(spec=EmbeddingService)
         mock_embed.prepare_text = EmbeddingService.prepare_text
-        mock_embed.embed_batch.return_value = [[0.3] * 1536] * 3
+        mock_embed.embed_batch.return_value = [[0.3] * 512] * 3
 
         count = await embed_new_items(db_session, embed_service=mock_embed)
 
@@ -109,11 +109,11 @@ class TestChatStream:
         """ChatService.chat_stream yields SSE token + sources + [DONE]."""
         # Seed item + embedding
         item = await seed_news_item(db_session, title="Chat Context Item", url="https://x.com/chat")
-        await seed_embedding(db_session, item, vector=[0.5] * 1536)
+        await seed_embedding(db_session, item, vector=[0.5] * 512)
 
         # Mock embedding service (for retriever query embedding)
         mock_embed = AsyncMock(spec=EmbeddingService)
-        mock_embed.embed_text.return_value = [0.5] * 1536
+        mock_embed.embed_text.return_value = [0.5] * 512
 
         # Mock LLM stream: one chunk with content, then stop
         mock_chunk = MagicMock()

@@ -180,7 +180,7 @@ async def seed_embedding(
     emb = ItemEmbedding(
         item_id=item.id,
         model=model,
-        embedding=vector or [0.1] * 1536,
+        embedding=vector or [0.1] * 512,
     )
     session.add(emb)
     await session.flush()

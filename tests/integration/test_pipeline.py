@@ -176,7 +176,7 @@ class TestEmbedNewItems:
 
         mock_embed = AsyncMock(spec=EmbeddingService)
         mock_embed.prepare_text = EmbeddingService.prepare_text
-        mock_embed.embed_batch.return_value = [[0.5] * 1536] * 3
+        mock_embed.embed_batch.return_value = [[0.5] * 512] * 3
 
         count = await embed_new_items(db_session, embed_service=mock_embed)
 

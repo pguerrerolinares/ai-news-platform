@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 from src.rag.retriever import Retriever
 
 
-def _fake_embedding(dims: int = 1536) -> list[float]:
+def _fake_embedding(dims: int = 512) -> list[float]:
     return [0.1] * dims
 
 

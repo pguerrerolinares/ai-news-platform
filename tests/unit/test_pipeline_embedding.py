@@ -48,7 +48,7 @@ class TestEmbedNewItems:
         session.execute.return_value = mock_result
 
         mock_embed_service = AsyncMock()
-        mock_embed_service.embed_batch.return_value = [[0.1] * 1536, [0.2] * 1536]
+        mock_embed_service.embed_batch.return_value = [[0.1] * 512, [0.2] * 512]
         mock_embed_service.prepare_text.side_effect = lambda t, s: f"{t}\n{s}" if s else t
 
         with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
@@ -92,7 +92,7 @@ class TestEmbedNewItems:
         session.execute.return_value = mock_result
 
         mock_embed_service = AsyncMock()
-        mock_embed_service.embed_batch.return_value = [[0.1] * 1536]
+        mock_embed_service.embed_batch.return_value = [[0.1] * 512]
         mock_embed_service.prepare_text.return_value = "Title\nSummary"
 
         with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
