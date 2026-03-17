@@ -7,6 +7,7 @@ Revises: 013
 from __future__ import annotations
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
 
 from alembic import op
 
@@ -23,13 +24,13 @@ def upgrade() -> None:
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("duration_seconds", sa.Float(), nullable=False),
         sa.Column("status", sa.String(20), nullable=False),
-        sa.Column("sources", sa.JSON(), nullable=False),
-        sa.Column("items_extracted", sa.Integer(), server_default=sa.text("0")),
-        sa.Column("items_after_dedup", sa.Integer(), server_default=sa.text("0")),
-        sa.Column("items_seen_filtered", sa.Integer(), server_default=sa.text("0")),
-        sa.Column("items_classified", sa.Integer(), server_default=sa.text("0")),
-        sa.Column("items_validated", sa.Integer(), server_default=sa.text("0")),
-        sa.Column("items_stored", sa.Integer(), server_default=sa.text("0")),
+        sa.Column("sources", JSONB(), nullable=False),
+        sa.Column("items_extracted", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("items_after_dedup", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("items_seen_filtered", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("items_classified", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("items_validated", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("items_stored", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("correlation_id", sa.String(12), nullable=True),
     )
