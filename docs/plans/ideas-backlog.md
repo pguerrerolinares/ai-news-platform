@@ -160,10 +160,9 @@
   DB titles). If HN and RSS bring the same news in different tiers, the second one is
   filtered out. No new dependencies.
 
-- [ ] **Content freshness indicator** — Expose when the pipeline last ran successfully
-  per source. New endpoint `GET /api/pipeline/status` returning last-run timestamps,
-  items extracted, circuit breaker state. Frontend shows a "last updated X min ago"
-  badge. Users know if data is stale.
+- [x] **Content freshness indicator** — Done (2026-03-17). `GET /api/admin/freshness`
+  returns per-source last_item_at, hours_ago, and status (ok/stale/dead).
+  TODO: surface in frontend as "last updated" badges.
 
 - [ ] **LLM fallback visibility** — When LLM API is down, classifier falls back to
   keyword-based. No user-visible indicator. Add a flag to news items or briefing
@@ -222,7 +221,7 @@
 
 ### Layer A — Project-Specific Audit (custom, lives in ai-news-platform)
 
-- [ ] **Admin audit endpoint** (`GET /api/admin/audit`) — JSON endpoint returning:
+- [x] **Admin audit endpoint** (`GET /api/admin/audit`) — Done (2026-03-17). JSON endpoint returning:
   items/day/source (14 days), duplicate count, source gaps (0-item sources),
   pipeline health (runs, avg duration, error rate), seen filter stats, LLM
   fallback rate (keyword vs LLM classification). Replaces the manual

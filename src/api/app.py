@@ -16,6 +16,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.api.errors import APIError, api_error_handler, http_exception_handler
 from src.api.ratelimit import get_client_ip
+from src.api.routes.admin import router as admin_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
@@ -184,6 +185,7 @@ app.include_router(chat_router)
 app.include_router(topics_router)
 app.include_router(sources_router)
 app.include_router(stats_router)
+app.include_router(admin_router)
 
 
 @app.middleware("http")
