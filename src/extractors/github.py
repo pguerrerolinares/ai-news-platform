@@ -84,7 +84,7 @@ class GitHubExtractor(BaseExtractor):
         seen_urls: set[str],
     ) -> tuple[list[ExtractedItem], httpx.Response]:
         q = f"{query} stars:>{min_stars} pushed:>={since_date}"
-        params = {"q": q, "sort": "stars", "order": "desc", "per_page": 30}
+        params = {"q": q, "sort": "updated", "order": "desc", "per_page": 30}
         max_age_days = get_settings().github_max_repo_age_days
 
         resp = await client.get(SEARCH_URL, params=params)

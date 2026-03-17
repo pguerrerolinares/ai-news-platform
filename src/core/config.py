@@ -83,8 +83,8 @@ class Settings(BaseSettings):
     # GitHub
     github_token: str = ""
     github_search_queries: str = "AI,LLM,machine-learning,generative-AI"
-    github_min_stars: int = 500
-    github_max_repo_age_days: int = 90
+    github_min_stars: int = 200
+    github_max_repo_age_days: int = 180
     seen_window_days: int = 7
 
     # HuggingFace

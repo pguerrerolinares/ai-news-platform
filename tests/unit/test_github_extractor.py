@@ -49,7 +49,7 @@ def _mock_settings(**overrides):
     defaults = {
         "github_token": "",
         "github_search_queries": "AI",
-        "github_min_stars": 500,
+        "github_min_stars": 200,
         "github_max_repo_age_days": 0,
         "max_items_per_source": 50,
         "enabled_sources": "github",
