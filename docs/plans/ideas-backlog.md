@@ -117,11 +117,9 @@
   Captures what's actually popular TODAY. Hybrid: keep Search for new repos,
   add Trending for signal. Medium effort.
 
-- [ ] **Two-phase classification (keyword pre-filter → LLM)** — Run `classify_by_keywords()`
-  first on all items. High confidence (≥3 keyword matches) → accept directly with topic.
-  Zero matches → reject. Only ambiguous items (1-2 keywords) go to Kimi. Saves ~1 LLM
-  batch/cycle. Trade-off: lose Kimi summary on auto-accepted items; mitigate by generating
-  summaries in a single batch only for stored items (4-5/cycle, 1 call).
+- [x] **Two-phase classification (keyword pre-filter → LLM)** — Done (2026-03-17).
+  ≥3 keyword matches → auto-accept (no LLM). 0 matches → reject. 1-2 → LLM.
+  Saves ~1 LLM batch/cycle. Auto-accepted items have no summary (trade-off).
 
 - [ ] **Reduce embedding dimensions 1536→512** — `text-embedding-3-small` supports native
   `dimensions=512` parameter. ~1% precision loss, 3x less storage. Current HNSW index:

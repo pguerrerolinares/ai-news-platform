@@ -246,7 +246,7 @@ async def phase_classify(
     # Keyword pre-filter (lenient, 0.3 threshold)
     filtered: list[ExtractedItem] = []
     for ei in extracted:
-        topic, relevance = classify_by_keywords(ei)
+        topic, relevance, _count = classify_by_keywords(ei)
         if topic is not None and relevance >= 0.15:
             filtered.append(ei)
 

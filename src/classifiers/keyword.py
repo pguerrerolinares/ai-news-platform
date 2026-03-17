@@ -217,34 +217,39 @@ def _calculate_priority(item: ExtractedItem, relevance: float) -> int:
     return max(1, min(5, priority_score))
 
 
-def classify_by_keywords(item: ExtractedItem) -> tuple[str | None, float]:
+def classify_by_keywords(item: ExtractedItem) -> tuple[str | None, float, int]:
     """Classify a single item by keyword matching.
 
     Returns:
-        Tuple of (topic, relevance_score) or (None, 0.0) if no match.
+        Tuple of (topic, relevance_score, match_count) or (None, 0.0, 0) if no match.
     """
     text = f"{item.title} {(item.text or '')[:500]}".lower()
-    scores: dict[str, float] = {}
+    scores: dict[str, int] = {}
 
     for topic, data in TOPIC_DEFINITIONS.items():
         keywords = data["keywords"]
         if not isinstance(keywords, list):
             continue
-        score = 0
+        count = 0
         for keyword in keywords:
             pattern = r"\b" + re.escape(keyword.lower()) + r"\b"
             if re.search(pattern, text):
-                score += 1
-        scores[topic] = score / len(keywords)
+                count += 1
+        scores[topic] = count
 
     if scores:
         best_topic = max(scores, key=lambda k: scores[k])
-        score = min(scores[best_topic] * 3, 1.0)
-        if score < 0.1:
-            return None, 0.0
-        return best_topic, score
+        match_count = scores[best_topic]
+        if match_count == 0:
+            return None, 0.0, 0
+        keywords_list = TOPIC_DEFINITIONS[best_topic]["keywords"]
+        total = len(keywords_list) if isinstance(keywords_list, list) else 1
+        relevance = min(match_count / total * 3, 1.0)
+        if relevance < 0.1:
+            return None, 0.0, 0
+        return best_topic, relevance, match_count
 
-    return None, 0.0
+    return None, 0.0, 0
 
 
 class KeywordClassifier(BaseClassifier):
@@ -265,7 +270,7 @@ class KeywordClassifier(BaseClassifier):
 
         results: list[ClassifiedItem] = []
         for item in items:
-            topic, relevance = classify_by_keywords(item)
+            topic, relevance, _match_count = classify_by_keywords(item)
 
             if topic is None or relevance < min_relevance:
                 continue

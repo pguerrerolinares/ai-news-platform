@@ -66,7 +66,7 @@ class TestClassifyByKeywords:
             title="New GPT-5 LLM achieves SOTA on MMLU benchmark",
             text="The transformer model uses a novel attention architecture with 1T parameters",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "models"
         assert score > 0.1
 
@@ -75,7 +75,7 @@ class TestClassifyByKeywords:
             title="LangChain releases new SDK for RAG pipeline deployment",
             text="The framework integrates with vLLM for serving and HuggingFace embeddings",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "tools"
         assert score > 0.1
 
@@ -85,7 +85,7 @@ class TestClassifyByKeywords:
             text="This research paper presents findings from ablation experiments "
             "on arxiv preprint",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "papers"
         assert score > 0.1
 
@@ -95,7 +95,7 @@ class TestClassifyByKeywords:
             text="The product release includes assistant pricing "
             "for general availability subscription",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "products"
         assert score > 0.1
 
@@ -104,7 +104,7 @@ class TestClassifyByKeywords:
             title="Llama 4 released as open source with MIT license on GitHub",
             text="Self-hosted local weights available for the community under Apache license",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "open_source"
         assert score > 0.1
 
@@ -113,7 +113,7 @@ class TestClassifyByKeywords:
             title="New MCP agent framework for autonomous multi-agent workflows",
             text="Agentic tool use with function calling and chain of thought reasoning",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "agents"
         assert score > 0.1
 
@@ -122,7 +122,7 @@ class TestClassifyByKeywords:
             title="EU AI Act regulation policy update on safety and alignment",
             text="Governance compliance for deepfake and misinformation risk ethics",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic == "regulation"
         assert score > 0.1
 
@@ -131,7 +131,7 @@ class TestClassifyByKeywords:
             title="Best pizza recipe for dinner tonight",
             text="Use mozzarella cheese and basil for the perfect margherita",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert topic is None
         assert score == 0.0
 
@@ -141,7 +141,7 @@ class TestClassifyByKeywords:
             title="Something about a local restaurant update",
             text="The new menu has a novel approach to cooking.",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         # With such few keyword matches, score * 3 should be < 0.1
         # or if it barely passes, at least it's a very low score
         # The key test is that truly irrelevant content gets filtered
@@ -156,7 +156,7 @@ class TestClassifyByKeywords:
             text="architecture context window vision language "
             "Gemini Claude Qwen DeepSeek perplexity",
         )
-        topic, score = classify_by_keywords(item)
+        topic, score, _count = classify_by_keywords(item)
         assert score <= 1.0
 
     def test_text_truncated_to_500_chars(self):
@@ -167,7 +167,7 @@ class TestClassifyByKeywords:
             title="General news article",
             text=padding + "GPT LLM transformer model benchmark MMLU SOTA",
         )
-        topic, _ = classify_by_keywords(item)
+        topic, _, _count = classify_by_keywords(item)
         # Title has no keywords and text keywords are beyond 500 chars cutoff
         assert topic is None
 
