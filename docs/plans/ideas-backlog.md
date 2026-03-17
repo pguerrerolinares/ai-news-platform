@@ -37,10 +37,8 @@
 
 ## Frontend — UX Improvements
 
-- [ ] **Pagination UI controls**: Infinite scroll or pagination buttons for:
-  - Dashboard news list
-  - Search results
-  - Trending lists
+- [x] **Pagination UI controls** — Done. Infinite scroll / pagination implemented in
+  Dashboard and Trending pages.
 
 - [ ] **"Related news" sidebar**: Use `/api/items/{id}/similar` to show related items
   when clicking on a news card
@@ -59,9 +57,8 @@
   - Empty dashboard when pipeline hasn't run yet (first-run experience)
   - Chat errors (SSE connection lost, rate limit hit)
 
-- [ ] **Loading skeletons** — Replace blank loading states with animated skeleton
-  placeholders for: news cards, trending list, search results, chat messages.
-  Use Shadcn `Skeleton` component for consistency.
+- [x] **Loading skeletons** — Done. Shadcn `Skeleton` used in Dashboard, Trending, Timeline,
+  and calendar-heatmap components.
 
 - [ ] **Mobile responsiveness audit** — Verify all 5 pages render well on 360px-428px
   viewports. Key areas: news card layout, chat input, search filters, nav Sheet
@@ -98,6 +95,43 @@
   `src/pipeline/stages/`: extract, classify, score, store, notify. Thin orchestrator in
   `pipeline.py`.
 
+### Tier 1.5 — High Impact (Pipeline Efficiency, from 2026-03-17 analysis)
+
+> Post-deploy analysis: seen filter + GitHub fixes reduced LLM calls ~80%, Tier 2
+> pipeline from 100s→23.5s. These are the next wave of optimizations.
+
+- [ ] **Drop duplicate HNSW index** — `ix_item_embeddings_hnsw` and `idx_embeddings_hnsw`
+  are identical (56MB each). Drop one via Alembic migration. Instant 56MB RAM/disk savings.
+  Effort: 10 min. Risk: none.
+
+- [ ] **Increase HN poll interval 15min→30min** — HN extracts 2-3 items per run, seen
+  filter discards almost all. 12 Algolia queries every 15min yield 0 new items most runs.
+  Doubling interval halves HTTP requests with no coverage loss. Config change only.
+
+- [ ] **Event dedup without LLM (fuzzy matching)** — `event_dedup.py` uses a full Kimi
+  call per topic to group items by event. Currently removes ~3/15 items (20%) per Tier 2
+  cycle. Replace with `rapidfuzz` title similarity (threshold ~0.85) or cosine similarity
+  on lightweight sentence embeddings. Saves 1-2 LLM calls/cycle. Kimi event dedup becomes
+  optional fallback for edge cases.
+
+- [x] **Tune GitHub extractor** — Done (2026-03-17). min_stars 500→200, age 90→180 days,
+  sort stars→updated. Remaining idea: add `GitHubTrendingExtractor` scraping
+  `github.com/trending?since=daily` (HTML is server-rendered, no browserless needed).
+  Captures what's actually popular TODAY. Hybrid: keep Search for new repos,
+  add Trending for signal. Medium effort.
+
+- [ ] **Two-phase classification (keyword pre-filter → LLM)** — Run `classify_by_keywords()`
+  first on all items. High confidence (≥3 keyword matches) → accept directly with topic.
+  Zero matches → reject. Only ambiguous items (1-2 keywords) go to Kimi. Saves ~1 LLM
+  batch/cycle. Trade-off: lose Kimi summary on auto-accepted items; mitigate by generating
+  summaries in a single batch only for stored items (4-5/cycle, 1 call).
+
+- [ ] **Reduce embedding dimensions 1536→512** — `text-embedding-3-small` supports native
+  `dimensions=512` parameter. ~1% precision loss, 3x less storage. Current HNSW index:
+  56MB → ~19MB. Requires: migration to rebuild index, re-embed all items (~7K calls,
+  ~$0.01), update `Vector(1536)` → `Vector(512)` in model. Best done alongside HNSW
+  dedup fix above.
+
 ### Tier 2 — Medium Impact (Tech Debt)
 
 - [ ] **Move refresh tokens to PostgreSQL** — `_refresh_tokens` dict in `auth.py` is lost on
@@ -107,15 +141,15 @@
 - [ ] **Replace python-jose with PyJWT** — python-jose last release 2022, unmaintained.
   PyJWT is actively maintained, near drop-in replacement. Security-critical dependency.
 
-- [ ] **Multi-stage Dockerfile** (if not doing separate Dockerfiles) — At minimum, builder
-  stage to reduce final image size.
+- [x] ~~**Multi-stage Dockerfile**~~ — Obsolete (separate `Dockerfile.api` + `Dockerfile.pipeline`
+  already exist, see Tier 1 Done above).
 
 ### Tier 3 — Low Impact (Nice to Have)
 
 - [ ] **Split Settings into sub-configs** — `PipelineSettings`, `AuthSettings`, `FeedSettings`,
   `ScraperSettings`. 50 settings in one flat class with 13 `*_list` properties is unwieldy.
 
-- [ ] **Clean up dead code** — Remove `web/` (Angular) if still tracked. Remove unused imports.
+- [x] ~~**Clean up dead code**~~ — `web/` (Angular) already removed. Unused imports cleaned.
 
 - [ ] **psycopg2-binary → psycopg3** — Modern driver supporting both async and sync in one
   package. Eliminates need for asyncpg + psycopg2-binary dual dependency.
@@ -181,13 +215,6 @@
   - Tiered: keep 90 days hot, archive to cold storage
   Needs: Alembic migration for archive table (if soft), APScheduler cleanup job, config setting.
 
-- [ ] **Monitoring dashboard** — Prometheus metrics exist (extractor duration, items stored,
-  pipeline runs, API request latency) but no visualization. Options:
-  - Grafana (full-featured, needs separate container, ~100MB RAM)
-  - Simple `/api/admin/dashboard` endpoint returning JSON stats (lightweight, custom UI)
-  - Prometheus built-in expression browser (zero extra infra, ugly)
-  Constraint: 4GB VPS, already running PostgreSQL + API + Nginx.
-
 - [ ] **Health check page** — Extend `/health` to return per-component status:
   DB connectivity, scheduler running, last pipeline run per source, circuit breaker
   state, LLM API reachable. Frontend admin page or just JSON endpoint.
@@ -195,6 +222,60 @@
 - [ ] **Backup verification** — `scripts/backup.sh` runs pg_dump to Backblaze B2 but
   no automated restore test. Add a periodic restore-and-verify job or at least
   a script that validates backup integrity.
+
+## Observability & Monitoring (from 2026-03-17 production audit)
+
+> Two layers: (A) project-specific audit queries for domain knowledge,
+> (B) generic traceability using existing tooling. Telegram alerts to be removed.
+
+### Layer A — Project-Specific Audit (custom, lives in ai-news-platform)
+
+- [ ] **Admin audit endpoint** (`GET /api/admin/audit`) — JSON endpoint returning:
+  items/day/source (14 days), duplicate count, source gaps (0-item sources),
+  pipeline health (runs, avg duration, error rate), seen filter stats, LLM
+  fallback rate (keyword vs LLM classification). Replaces the manual
+  SSH→docker→psql queries done during the 2026-03-17 audit. Admin-only.
+
+- [ ] **Pipeline run log table** — Persist each pipeline run individually (not just
+  `daily_briefings` aggregated by day). New table `pipeline_runs`: run_id, started_at,
+  duration, sources, items_extracted, items_after_dedup, items_seen_filtered,
+  items_classified, items_stored, llm_fallback_used, errors. Endpoint
+  `GET /api/admin/pipeline-runs` with pagination. Replaces Telegram success/failure
+  messages with queryable, persistent data.
+
+- [ ] **Frontend admin page** — Charts + stats consuming the audit and pipeline-runs
+  endpoints. Items/day/source stacked bar, pipeline duration trend, error timeline,
+  source health indicators. Admin-only route in React.
+
+- [ ] **Remove Telegram alerts** — Delete `src/notifiers/alerts.py`, `AlertService`,
+  and all call sites in pipeline.py, scheduler.py, stages/notify.py. Remove
+  `telegram_bot_token`, `telegram_chat_id`, `telegram_alerts_enabled` config.
+  Pipeline run log table + admin page replaces this entirely.
+
+### Layer B — Generic Traceability (external tooling, reusable across projects)
+
+- [ ] **Grafana Cloud free tier** — Ship structlog JSON + Prometheus metrics to
+  Grafana Cloud (free: 50GB logs/month, 10K metrics series). Covers log search,
+  dashboards, and alerting without local RAM cost. Already have structlog JSON
+  output and `/metrics` Prometheus endpoint — just needs a shipper.
+
+- [ ] **Grafana Alloy log shipper** (~30MB RAM) — Lightweight agent that reads
+  Docker stdout logs and ships to Grafana Cloud Loki. Also scrapes `/metrics`
+  and remote_writes to Grafana Cloud Prometheus. Single binary, replaces need
+  for full Grafana+Loki+Prometheus stack locally.
+
+- [ ] **Request logging middleware** (inspired by a11y-crawler-v2) — FastAPI
+  middleware that persists every API request to a `request_logs` table: method,
+  path, status, duration, IP, user-agent, request/response body (truncated,
+  sanitized). Endpoint `GET /api/admin/logs` with filters. Useful for debugging
+  API issues, rate limit analysis, and usage patterns. Can coexist with or be
+  replaced by Grafana Cloud log search.
+
+- [ ] **OpenTelemetry integration** (future, optional) — Replace custom
+  correlation_id + Prometheus metrics with OTEL SDK. Auto-instruments FastAPI,
+  httpx, SQLAlchemy. Sends traces to any OTEL-compatible backend (Grafana Tempo,
+  Jaeger, Datadog). Higher effort but industry standard. Evaluate after Grafana
+  Cloud is running — may not be needed if Loki+Prometheus suffice.
 
 ## Security
 
@@ -213,4 +294,4 @@
 
 ---
 
-*Last updated: 4 de marzo de 2026*
+*Last updated: 17 de marzo de 2026*
