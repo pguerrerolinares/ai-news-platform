@@ -44,6 +44,7 @@ class EmbeddingService:
         response = await self._client.embeddings.create(
             model=self._model,
             input=truncated,
+            dimensions=512,
         )
         return response.data[0].embedding
 
@@ -58,6 +59,7 @@ class EmbeddingService:
             response = await self._client.embeddings.create(
                 model=self._model,
                 input=batch,
+                dimensions=512,
             )
             all_embeddings.extend([d.embedding for d in response.data])
 

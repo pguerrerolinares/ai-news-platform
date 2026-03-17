@@ -121,11 +121,10 @@
   ≥3 keyword matches → auto-accept (no LLM). 0 matches → reject. 1-2 → LLM.
   Saves ~1 LLM batch/cycle. Auto-accepted items have no summary (trade-off).
 
-- [ ] **Reduce embedding dimensions 1536→512** — `text-embedding-3-small` supports native
-  `dimensions=512` parameter. ~1% precision loss, 3x less storage. Current HNSW index:
-  56MB → ~19MB. Requires: migration to rebuild index, re-embed all items (~7K calls,
-  ~$0.01), update `Vector(1536)` → `Vector(512)` in model. Best done alongside HNSW
-  dedup fix above.
+- [x] **Reduce embedding dimensions 1536→512** — Done (2026-03-17). Migration 013 drops
+  old embeddings, alters column to vector(512), recreates HNSW index. Embedding service
+  passes dimensions=512 to API. ~3x storage savings, ~1% precision loss. Embeddings
+  auto-regenerate on next pipeline runs (~7K items, ~$0.01).
 
 ### Tier 2 — Medium Impact (Tech Debt)
 

@@ -147,7 +147,7 @@ class ItemEmbedding(Base):
         primary_key=True,
     )
     model: Mapped[str] = mapped_column(Text, primary_key=True, nullable=False)
-    embedding = mapped_column(Vector(1536))
+    embedding = mapped_column(Vector(512))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
