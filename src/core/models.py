@@ -136,6 +136,35 @@ class DailyBriefing(Base):
     )
 
 
+class PipelineRun(Base):
+    """Individual pipeline execution record with per-stage stats."""
+
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # success, empty, error
+    sources: Mapped[list] = mapped_column(JSONB, nullable=False)
+    items_extracted: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    items_after_dedup: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    items_seen_filtered: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    items_classified: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    items_validated: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    items_stored: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    correlation_id: Mapped[str | None] = mapped_column(String(12))
+
+    __table_args__ = (
+        Index("idx_pipeline_runs_started_at", "started_at"),
+        Index("idx_pipeline_runs_status", "status"),
+    )
+
+
 class ItemEmbedding(Base):
     """Vector embeddings for RAG search."""
 

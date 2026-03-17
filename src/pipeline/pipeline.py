@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
-from src.core.logging import get_logger, set_correlation_id
+from src.core.logging import get_correlation_id, get_logger, set_correlation_id
 from src.core.metrics import (
     items_validated_total,
     items_validation_failed_total,
@@ -18,6 +18,7 @@ from src.core.metrics import (
     pipeline_runs_total,
     validation_duration_seconds,
 )
+from src.core.models import PipelineRun
 from src.notifiers.alerts import AlertService
 from src.pipeline.dedup import deduplicate_items
 from src.pipeline.stages.classify import run_classification
@@ -74,6 +75,17 @@ async def run_pipeline(
             logger.warning("pipeline_no_items")
             await alerts.pipeline_failure("No items extracted from any source", stage="extraction")
             pipeline_runs_total.labels(status="empty").inc()
+            duration = (datetime.now(tz=UTC) - start).total_seconds()
+            session.add(
+                PipelineRun(
+                    started_at=start,
+                    duration_seconds=duration,
+                    status="empty",
+                    sources=sources_used,
+                    correlation_id=get_correlation_id(),
+                )
+            )
+            await session.commit()
             return False
 
         # 2. Dedup
@@ -82,6 +94,7 @@ async def run_pipeline(
         items_after_dedup = len(unique_items)
 
         # 2.5. Filter already seen (persistent DB dedup)
+        before_seen = len(unique_items)
         unique_items = await filter_already_seen(session, unique_items)
         logger.info("pipeline_seen_filter", count=len(unique_items))
 
@@ -159,6 +172,25 @@ async def run_pipeline(
             sources=sources_used,
         )
 
+        # Persist pipeline run stats
+        items_seen_filtered = before_seen - len(unique_items)
+        session.add(
+            PipelineRun(
+                started_at=start,
+                duration_seconds=duration,
+                status="success",
+                sources=sources_used,
+                items_extracted=items_extracted,
+                items_after_dedup=items_after_dedup,
+                items_seen_filtered=items_seen_filtered,
+                items_classified=len(classified),
+                items_validated=len(validated),
+                items_stored=items_stored,
+                correlation_id=get_correlation_id(),
+            )
+        )
+        await session.commit()
+
         await alerts.pipeline_success(
             items_count=items_stored,
             duration_seconds=duration,
@@ -170,5 +202,19 @@ async def run_pipeline(
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         pipeline_runs_total.labels(status="error").inc()
         logger.error("pipeline_failed", error=str(exc), duration_seconds=round(duration, 1))
+        try:
+            session.add(
+                PipelineRun(
+                    started_at=start,
+                    duration_seconds=duration,
+                    status="error",
+                    sources=sources_used,
+                    error_message=str(exc)[:500],
+                    correlation_id=get_correlation_id(),
+                )
+            )
+            await session.commit()
+        except Exception:
+            logger.warning("pipeline_run_save_failed", exc_info=True)
         await alerts.pipeline_failure(str(exc), stage="unknown")
         raise

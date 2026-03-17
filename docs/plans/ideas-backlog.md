@@ -228,12 +228,11 @@
   fallback rate (keyword vs LLM classification). Replaces the manual
   SSH→docker→psql queries done during the 2026-03-17 audit. Admin-only.
 
-- [ ] **Pipeline run log table** — Persist each pipeline run individually (not just
-  `daily_briefings` aggregated by day). New table `pipeline_runs`: run_id, started_at,
-  duration, sources, items_extracted, items_after_dedup, items_seen_filtered,
-  items_classified, items_stored, llm_fallback_used, errors. Endpoint
-  `GET /api/admin/pipeline-runs` with pagination. Replaces Telegram success/failure
-  messages with queryable, persistent data.
+- [x] **Pipeline run log table** — Done (2026-03-17). `PipelineRun` model + migration 014.
+  Persists every run: started_at, duration, status, sources, items at each stage
+  (extracted, dedup, seen_filtered, classified, validated, stored), error_message,
+  correlation_id. Saved at success/empty/error paths in pipeline.py.
+  TODO: add `GET /api/admin/pipeline-runs` endpoint + frontend page.
 
 - [ ] **Frontend admin page** — Charts + stats consuming the audit and pipeline-runs
   endpoints. Items/day/source stacked bar, pipeline duration trend, error timeline,
