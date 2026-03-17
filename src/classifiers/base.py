@@ -22,6 +22,7 @@ class ClassifiedItem:
     trending: bool = False
     source_count: int = 1
     composite_score: float | None = None  # 0.0-1.0, computed by CompositeScorer
+    classifier: str = "keyword"  # "keyword" or "llm"
 
 
 class BaseClassifier(ABC):

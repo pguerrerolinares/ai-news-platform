@@ -163,10 +163,9 @@
   returns per-source last_item_at, hours_ago, and status (ok/stale/dead).
   TODO: surface in frontend as "last updated" badges.
 
-- [ ] **LLM fallback visibility** — When LLM API is down, classifier falls back to
-  keyword-based. No user-visible indicator. Add a flag to news items or briefing
-  metadata showing which classifier was used. Frontend could show a subtle badge
-  "AI-classified" vs "auto-classified".
+- [x] **LLM fallback visibility** — Done (2026-03-17). `classifier` field added to
+  `ClassifiedItem` ("llm" or "keyword"). Stored in news_items metadata JSONB.
+  Frontend can show badge based on `metadata.classifier`.
 
 ## Backend — Future Endpoints
 

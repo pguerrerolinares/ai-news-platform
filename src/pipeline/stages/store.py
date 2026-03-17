@@ -43,7 +43,7 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
             author=item.author,
             score=item.score,
             source_created_at=item.source_created_at,
-            metadata_=item.metadata,
+            metadata_={**item.metadata, "classifier": ci.classifier},
             topic=ci.topic,
             relevance_score=ci.relevance_score,
             credibility_score=ci.credibility_score,

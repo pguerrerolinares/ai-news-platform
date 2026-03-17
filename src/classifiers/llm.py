@@ -296,6 +296,7 @@ class LLMClassifier(BaseClassifier):
                     relevance_score=relevance,
                     summary=summary,
                     priority=priority,
+                    classifier="llm",
                 )
             )
 
