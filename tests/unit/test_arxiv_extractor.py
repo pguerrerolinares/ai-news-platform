@@ -57,9 +57,6 @@ def _mock_settings(**overrides):
         "arxiv_keywords": "LLM,transformer,language model",
         "max_items_per_source": 50,
         "enabled_sources": "arxiv",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

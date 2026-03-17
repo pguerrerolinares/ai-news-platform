@@ -21,9 +21,6 @@ def _mock_settings(**overrides):
     defaults = {
         "max_items_per_source": 50,
         "enabled_sources": "github",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

@@ -15,9 +15,6 @@ def _mock_settings(**overrides):
     defaults = {
         "enabled_sources": "hackernews",
         "openai_api_key": "",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

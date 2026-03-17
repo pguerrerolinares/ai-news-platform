@@ -56,9 +56,6 @@ def _mock_settings(**overrides):
         "max_items_per_source": 50,
         "extraction_since_hours": 24,
         "enabled_sources": "hackernews",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

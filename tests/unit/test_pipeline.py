@@ -27,9 +27,6 @@ def _mock_settings(**overrides):
 
     defaults = {
         "enabled_sources": "hackernews",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)
@@ -565,15 +562,10 @@ class TestRunPipeline:
                 return_value=_classified_items,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = _classified_items
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -612,15 +604,10 @@ class TestRunPipeline:
                 return_value=_classified_items,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = _classified_items
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -659,15 +646,10 @@ class TestRunPipeline:
                 return_value=_classified_items,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = _classified_items
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -707,15 +689,10 @@ class TestRunPipeline:
                 return_value=_classified_items,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = _classified_items
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -755,217 +732,15 @@ class TestRunPipeline:
                 return_value=_classified_items,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = _classified_items
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
         assert result is True
         mock_validator.validate.assert_called_once_with(_classified_items)
-
-    @pytest.mark.asyncio
-    async def test_pipeline_notifies_when_telegram_configured(
-        self,
-        _extracted_items,
-        _classified_items,
-    ):
-        """Pipeline should call run_notification when telegram is configured."""
-        settings = _mock_settings(
-            enabled_sources="hackernews",
-            openai_api_key="",
-            enable_news_validation=False,
-            telegram_bot_token="bot-token-123",
-            telegram_chat_id="chat-456",
-            telegram_alerts_enabled=True,
-        )
-        session = _mock_session()
-
-        with (
-            patch("src.pipeline.pipeline.get_settings", return_value=settings),
-            patch(
-                "src.pipeline.pipeline.run_extraction",
-                new_callable=AsyncMock,
-                return_value=_extracted_items,
-            ),
-            patch("src.pipeline.pipeline.deduplicate_items", return_value=_extracted_items),
-            patch(
-                "src.pipeline.pipeline.run_classification",
-                new_callable=AsyncMock,
-                return_value=_classified_items,
-            ),
-            patch(
-                "src.pipeline.pipeline.run_scoring",
-                return_value=_classified_items,
-            ),
-            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock) as mock_notify,
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
-        ):
-            mock_validator = AsyncMock()
-            mock_validator.validate.return_value = _classified_items
-            mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
-            result = await run_pipeline(session)
-
-        assert result is True
-        mock_notify.assert_called_once()
-        # Check that validated items and duration were passed
-        call_args = mock_notify.call_args
-        assert call_args[0][0] == _classified_items  # first positional arg: items
-        assert "duration_seconds" in call_args[1]  # keyword arg
-
-    @pytest.mark.asyncio
-    async def test_pipeline_skips_notify_when_no_telegram(
-        self,
-        _extracted_items,
-        _classified_items,
-    ):
-        """Pipeline should still call run_notification (it checks internally)."""
-        settings = _mock_settings(
-            enabled_sources="hackernews",
-            openai_api_key="",
-            enable_news_validation=False,
-            telegram_bot_token="",
-            telegram_chat_id="",
-        )
-        session = _mock_session()
-
-        with (
-            patch("src.pipeline.pipeline.get_settings", return_value=settings),
-            patch(
-                "src.pipeline.pipeline.run_extraction",
-                new_callable=AsyncMock,
-                return_value=_extracted_items,
-            ),
-            patch("src.pipeline.pipeline.deduplicate_items", return_value=_extracted_items),
-            patch(
-                "src.pipeline.pipeline.run_classification",
-                new_callable=AsyncMock,
-                return_value=_classified_items,
-            ),
-            patch(
-                "src.pipeline.pipeline.run_scoring",
-                return_value=_classified_items,
-            ),
-            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock) as mock_notify,
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
-        ):
-            mock_validator = AsyncMock()
-            mock_validator.validate.return_value = _classified_items
-            mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
-            result = await run_pipeline(session)
-
-        assert result is True
-        # run_notification is always called; it checks telegram config internally
-        mock_notify.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_pipeline_handles_notification_failure_gracefully(
-        self,
-        _extracted_items,
-        _classified_items,
-    ):
-        """Pipeline should succeed even when notification fails."""
-        settings = _mock_settings(
-            enabled_sources="hackernews",
-            openai_api_key="",
-            enable_news_validation=False,
-            telegram_bot_token="bot-token-123",
-            telegram_chat_id="chat-456",
-            telegram_alerts_enabled=True,
-        )
-        session = _mock_session()
-
-        with (
-            patch("src.pipeline.pipeline.get_settings", return_value=settings),
-            patch(
-                "src.pipeline.pipeline.run_extraction",
-                new_callable=AsyncMock,
-                return_value=_extracted_items,
-            ),
-            patch("src.pipeline.pipeline.deduplicate_items", return_value=_extracted_items),
-            patch(
-                "src.pipeline.pipeline.run_classification",
-                new_callable=AsyncMock,
-                return_value=_classified_items,
-            ),
-            patch(
-                "src.pipeline.pipeline.run_scoring",
-                return_value=_classified_items,
-            ),
-            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch(
-                "src.pipeline.pipeline.run_notification",
-                new_callable=AsyncMock,
-                side_effect=RuntimeError("Telegram API down"),
-            ),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
-        ):
-            mock_validator = AsyncMock()
-            mock_validator.validate.return_value = _classified_items
-            mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
-            # run_notification raises, but pipeline.py does NOT catch it in a try/except
-            # anymore -- the notification stage itself handles errors internally.
-            # However, if the mock raises, it will propagate. So let's just test
-            # that the pipeline calls run_notification.
-            # Actually, looking at pipeline.py, run_notification is called without
-            # try/except. The error handling is inside run_notification itself.
-            # Since we're mocking it to raise, the exception will propagate.
-            # Let's verify the pipeline still works by not raising.
-            # Fix: don't make the mock raise -- the stage handles errors internally.
-            pass
-
-        # Re-test: run_notification handles errors internally, so mock it normally
-        with (
-            patch("src.pipeline.pipeline.get_settings", return_value=settings),
-            patch(
-                "src.pipeline.pipeline.run_extraction",
-                new_callable=AsyncMock,
-                return_value=_extracted_items,
-            ),
-            patch("src.pipeline.pipeline.deduplicate_items", return_value=_extracted_items),
-            patch(
-                "src.pipeline.pipeline.run_classification",
-                new_callable=AsyncMock,
-                return_value=_classified_items,
-            ),
-            patch(
-                "src.pipeline.pipeline.run_scoring",
-                return_value=_classified_items,
-            ),
-            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
-        ):
-            mock_validator = AsyncMock()
-            mock_validator.validate.return_value = _classified_items
-            mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
-            result = await run_pipeline(session)
-
-        assert result is True
 
     @pytest.mark.asyncio
     async def test_pipeline_returns_false_on_no_items(self):
@@ -983,11 +758,7 @@ class TestRunPipeline:
                 new_callable=AsyncMock,
                 return_value=[],
             ),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
             result = await run_pipeline(session)
 
         assert result is False
@@ -1039,15 +810,10 @@ class TestRunPipeline:
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
             patch("src.pipeline.pipeline.save_briefing", new_callable=AsyncMock) as mock_save,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = classified_items
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -1071,9 +837,7 @@ class TestExtractAll:
         extractor.source_name = "hackernews"
         extractor.extract.return_value = items
 
-        alerts = AsyncMock()
-
-        result = await run_extraction([extractor], since_hours=24, alerts=alerts)
+        result = await run_extraction([extractor], since_hours=24)
 
         assert len(result) == 1
         assert result[0].title == "Story 1"
@@ -1092,9 +856,7 @@ class TestExtractAll:
         ext_arxiv.source_name = "arxiv"
         ext_arxiv.extract.return_value = items_arxiv
 
-        alerts = AsyncMock()
-
-        result = await run_extraction([ext_hn, ext_arxiv], since_hours=24, alerts=alerts)
+        result = await run_extraction([ext_hn, ext_arxiv], since_hours=24)
 
         assert len(result) == 2
 
@@ -1111,14 +873,10 @@ class TestExtractAll:
         ext_bad.source_name = "arxiv"
         ext_bad.extract.side_effect = RuntimeError("Connection refused")
 
-        alerts = AsyncMock()
-
-        result = await run_extraction([ext_good, ext_bad], since_hours=24, alerts=alerts)
+        result = await run_extraction([ext_good, ext_bad], since_hours=24)
 
         assert len(result) == 1
         assert result[0].title == "Good Story"
-        # Alert should have been called for the failed extractor
-        alerts.extractor_empty.assert_called_once_with("arxiv")
 
     @pytest.mark.asyncio
     async def test_all_extractors_fail_returns_empty(self):
@@ -1131,40 +889,20 @@ class TestExtractAll:
         ext2.source_name = "arxiv"
         ext2.extract.side_effect = RuntimeError("fail")
 
-        alerts = AsyncMock()
-
-        result = await run_extraction([ext1, ext2], since_hours=24, alerts=alerts)
+        result = await run_extraction([ext1, ext2], since_hours=24)
 
         assert result == []
-        assert alerts.extractor_empty.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_empty_extractor_triggers_alert(self):
-        """When an extractor returns [], alerts.extractor_empty should be called."""
+    async def test_empty_extractor_returns_empty(self):
+        """When an extractor returns [], result is empty."""
         ext = AsyncMock()
         ext.source_name = "reddit"
         ext.extract.return_value = []
 
-        alerts = AsyncMock()
-
-        result = await run_extraction([ext], since_hours=24, alerts=alerts)
+        result = await run_extraction([ext], since_hours=24)
 
         assert result == []
-        alerts.extractor_empty.assert_called_once_with("reddit")
-
-    @pytest.mark.asyncio
-    async def test_extract_all_creates_default_alerts_if_none(self):
-        """When alerts is None, run_extraction creates its own AlertService."""
-        ext = AsyncMock()
-        ext.source_name = "hackernews"
-        ext.extract.return_value = [_make_extracted_item()]
-
-        with patch("src.pipeline.stages.extract.AlertService") as mock_alerts_cls:
-            mock_alerts_cls.return_value = AsyncMock()
-            result = await run_extraction([ext], since_hours=24)
-
-        assert len(result) == 1
-        mock_alerts_cls.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -1196,20 +934,13 @@ class TestRunPipelineExceptionPath:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("LLM exploded"),
             ),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
+            pytest.raises(RuntimeError, match="LLM exploded"),
         ):
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
-            with pytest.raises(RuntimeError, match="LLM exploded"):
-                await run_pipeline(session)
-
-            # Verify alert was sent about the failure
-            mock_alerts.pipeline_failure.assert_called_once()
+            await run_pipeline(session)
 
     @pytest.mark.asyncio
     async def test_pipeline_exception_path_increments_error_metric(self):
-        """Pipeline exception should increment error metric and call alerts."""
+        """Pipeline exception should increment error metric."""
         settings = _mock_settings(
             enabled_sources="hackernews",
             openai_api_key="",
@@ -1236,19 +967,13 @@ class TestRunPipelineExceptionPath:
                 return_value=[_make_classified_item()],
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.side_effect = ValueError("Validation crashed")
             mock_validator_cls.return_value = mock_validator
 
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
             with pytest.raises(ValueError, match="Validation crashed"):
                 await run_pipeline(session)
-
-            mock_alerts.pipeline_failure.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -1291,17 +1016,12 @@ class TestPipelineEdgeCases:
                 "src.pipeline.pipeline.store_classified_items", new_callable=AsyncMock
             ) as mock_store,
             patch("src.pipeline.pipeline.save_briefing", new_callable=AsyncMock) as mock_briefing,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = []
             mock_validator_cls.return_value = mock_validator
 
             mock_store.return_value = 0
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -1347,17 +1067,12 @@ class TestPipelineEdgeCases:
                 "src.pipeline.pipeline.store_classified_items", new_callable=AsyncMock
             ) as mock_store,
             patch("src.pipeline.pipeline.save_briefing", new_callable=AsyncMock) as mock_briefing,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = []  # <-- validator filters everything
             mock_validator_cls.return_value = mock_validator
 
             mock_store.return_value = 0
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -1403,20 +1118,15 @@ class TestPipelineEdgeCases:
                 return_value=classified,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = classified
             mock_validator_cls.return_value = mock_validator
 
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
-
             with pytest.raises(IntegrityError):
                 await run_pipeline(session)
 
             # Alert should fire for the unhandled DB error
-            mock_alerts.pipeline_failure.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_embedding_skipped_when_api_key_not_set(self):
@@ -1453,15 +1163,10 @@ class TestPipelineEdgeCases:
                 "src.pipeline.pipeline.embed_new_items",
                 new_callable=AsyncMock,
             ) as mock_embed,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = classified
             mock_validator_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session)
 
@@ -1542,8 +1247,6 @@ class TestRunPipelineWithSources:
                 return_value=classified,
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_val_cls,
-            patch("src.pipeline.pipeline.run_notification", new_callable=AsyncMock),
-            patch("src.pipeline.pipeline.AlertService") as mock_alerts_cls,
         ):
             mock_ext = MagicMock()
             mock_ext.source_name = "hackernews"
@@ -1552,9 +1255,6 @@ class TestRunPipelineWithSources:
             mock_validator = AsyncMock()
             mock_validator.validate.return_value = classified
             mock_val_cls.return_value = mock_validator
-
-            mock_alerts = AsyncMock()
-            mock_alerts_cls.return_value = mock_alerts
 
             result = await run_pipeline(session, sources=["hackernews"])
 

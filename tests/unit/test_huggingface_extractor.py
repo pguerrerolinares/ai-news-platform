@@ -54,9 +54,6 @@ def _mock_settings(**overrides):
         "hf_min_downloads": 100,
         "max_items_per_source": 50,
         "enabled_sources": "huggingface",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

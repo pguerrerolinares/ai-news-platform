@@ -16,9 +16,6 @@ class TestCreateScheduler:
 
         settings = Settings(
             scheduler_enabled=True,
-            telegram_bot_token="",
-            telegram_chat_id="",
-            telegram_alerts_enabled=False,
         )
         with patch("src.pipeline.scheduler.get_settings", return_value=settings):
             scheduler = create_scheduler()
@@ -37,9 +34,6 @@ class TestCreateScheduler:
 
         settings = Settings(
             scheduler_enabled=False,
-            telegram_bot_token="",
-            telegram_chat_id="",
-            telegram_alerts_enabled=False,
         )
         with patch("src.pipeline.scheduler.get_settings", return_value=settings):
             scheduler = create_scheduler()
@@ -56,9 +50,6 @@ class TestOtpCleanupJob:
 
         settings = Settings(
             scheduler_enabled=True,
-            telegram_bot_token="",
-            telegram_chat_id="",
-            telegram_alerts_enabled=False,
         )
         with patch("src.pipeline.scheduler.get_settings", return_value=settings):
             scheduler = create_scheduler()

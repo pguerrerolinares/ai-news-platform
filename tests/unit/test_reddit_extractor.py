@@ -77,9 +77,6 @@ def _mock_settings(**overrides):
         "reddit_top_limit": 25,
         "max_items_per_source": 50,
         "enabled_sources": "reddit",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

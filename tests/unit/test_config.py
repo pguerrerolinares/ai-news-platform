@@ -150,11 +150,6 @@ class TestEnvVarOverride:
         s = Settings()
         assert s.log_level == "DEBUG"
 
-    def test_override_telegram_bot_token(self, monkeypatch):
-        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:ABC")
-        s = Settings()
-        assert s.telegram_bot_token == "123:ABC"
-
     def test_override_min_relevance_score(self, monkeypatch):
         monkeypatch.setenv("MIN_RELEVANCE_SCORE", "0.5")
         s = Settings()
@@ -170,18 +165,13 @@ class TestSchedulerConfig:
     def test_scheduler_enabled_default(self):
         from src.core.config import Settings
 
-        s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
+        s = Settings()
         assert s.scheduler_enabled is True
 
     def test_poll_interval_defaults(self):
         from src.core.config import Settings
 
-        s = Settings(
-            telegram_bot_token="",
-            telegram_chat_id="",
-            telegram_alerts_enabled=False,
-            hn_poll_interval_minutes=30,
-        )
+        s = Settings(hn_poll_interval_minutes=30)
         assert s.hn_poll_interval_minutes == 30
         assert s.reddit_poll_interval_minutes == 15
         assert s.rss_poll_interval_minutes == 60
@@ -193,7 +183,7 @@ class TestSchedulerConfig:
     def test_reddit_oauth_defaults_empty(self):
         from src.core.config import Settings
 
-        s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
+        s = Settings()
         assert s.reddit_client_id == ""
         assert s.reddit_client_secret == ""
 

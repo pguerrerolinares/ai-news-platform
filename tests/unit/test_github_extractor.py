@@ -53,9 +53,6 @@ def _mock_settings(**overrides):
         "github_max_repo_age_days": 0,
         "max_items_per_source": 50,
         "enabled_sources": "github",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

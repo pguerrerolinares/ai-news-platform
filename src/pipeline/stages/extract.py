@@ -14,7 +14,6 @@ from src.extractors.huggingface import HuggingFaceExtractor
 from src.extractors.reddit import RedditExtractor
 from src.extractors.rss import RSSExtractor
 from src.extractors.webscraper import WebScraperExtractor
-from src.notifiers.alerts import AlertService
 
 logger = get_logger(__name__)
 
@@ -50,11 +49,8 @@ def get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
 async def run_extraction(
     extractors: list[BaseExtractor],
     since_hours: int,
-    alerts: AlertService | None = None,
 ) -> list[ExtractedItem]:
     """Run all extractors concurrently and collect results."""
-    if alerts is None:
-        alerts = AlertService()
 
     async def _run_one(extractor: BaseExtractor) -> list[ExtractedItem]:
         try:
@@ -64,8 +60,6 @@ async def run_extraction(
                 source=extractor.source_name,
                 count=len(items),
             )
-            if not items:
-                await alerts.extractor_empty(extractor.source_name)
             return items
         except Exception as exc:
             logger.error(
@@ -73,7 +67,6 @@ async def run_extraction(
                 source=extractor.source_name,
                 error=str(exc),
             )
-            await alerts.extractor_empty(extractor.source_name)
             return []
 
     results = await asyncio.gather(*[_run_one(ext) for ext in extractors])

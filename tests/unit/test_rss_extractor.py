@@ -78,9 +78,6 @@ def _mock_settings(**overrides):
         "rss_feeds": FEED_URL_OPENAI,
         "max_items_per_source": 50,
         "enabled_sources": "rss",
-        "telegram_bot_token": "",
-        "telegram_chat_id": "",
-        "telegram_alerts_enabled": False,
     }
     defaults.update(overrides)
     return Settings(**defaults)

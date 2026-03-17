@@ -21,9 +21,6 @@ from tests.factories import make_classified_item, make_extracted_item
 # that calls get_settings() at module level.
 # ---------------------------------------------------------------------------
 os.environ["TESTING"] = "1"
-os.environ["TELEGRAM_BOT_TOKEN"] = ""
-os.environ["TELEGRAM_CHAT_ID"] = ""
-os.environ["TELEGRAM_ALERTS_ENABLED"] = "false"
 
 
 # ---------------------------------------------------------------------------
@@ -42,9 +39,6 @@ def settings():
         database_url="postgresql+asyncpg://ainews:ainews@localhost:5432/ainews_test",
         database_url_sync="postgresql://ainews:ainews@localhost:5432/ainews_test",
         debug=True,
-        telegram_bot_token="",
-        telegram_chat_id="",
-        telegram_alerts_enabled=False,
         log_format="console",
     )
 

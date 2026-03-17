@@ -47,11 +47,6 @@ class Settings(BaseSettings):
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
 
-    # --- Telegram ---
-    telegram_bot_token: str = ""
-    telegram_chat_id: str = ""
-    telegram_alerts_enabled: bool = True
-
     # --- Sources ---
     enabled_sources: str = "hackernews,arxiv,reddit,rss,github,huggingface,webscraper"
     max_items_per_source: int = 50

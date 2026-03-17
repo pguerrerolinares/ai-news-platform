@@ -81,16 +81,6 @@ items_filtered_total = Counter(
     ["reason"],
 )
 
-# Notification metrics
-notification_duration_seconds = Histogram(
-    "ainews_notification_duration_seconds",
-    "Notification execution duration",
-)
-notification_errors_total = Counter(
-    "ainews_notification_errors_total",
-    "Total notification errors",
-)
-
 # Pipeline validation metrics (M14)
 items_validation_failed_total = Counter(
     "ainews_items_validation_failed_total",

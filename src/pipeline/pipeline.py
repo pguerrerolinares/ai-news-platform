@@ -1,6 +1,6 @@
 """Pipeline orchestrator — chains composable stages.
 
-extract -> dedup -> validate -> classify -> score -> validate -> store -> notify -> embed
+extract -> dedup -> seen_filter -> validate -> classify -> score -> validate -> store -> embed
 """
 
 from __future__ import annotations
@@ -19,11 +19,9 @@ from src.core.metrics import (
     validation_duration_seconds,
 )
 from src.core.models import PipelineRun
-from src.notifiers.alerts import AlertService
 from src.pipeline.dedup import deduplicate_items
 from src.pipeline.stages.classify import run_classification
 from src.pipeline.stages.extract import get_extractors, run_extraction
-from src.pipeline.stages.notify import run_notification
 from src.pipeline.stages.score import run_scoring
 from src.pipeline.stages.seen_filter import filter_already_seen
 from src.pipeline.stages.store import embed_new_items, save_briefing, store_classified_items
@@ -43,18 +41,17 @@ async def run_pipeline(
     Steps:
     1. Extract from enabled sources (parallel)
     2. Deduplicate by hash (content + URL)
+    2.5. Filter already seen (persistent DB dedup)
     3. Pre-validate (reject items without title/URL)
-    4. Classify (LLM or keyword) + event dedup + variant collapse
+    4. Classify (keyword pre-filter + LLM) + event dedup + variant collapse
     5. Composite scoring
     6. Credibility validation
     7. Store in PostgreSQL
     8. Save daily briefing stats
-    9. Notify via Telegram
-    10. Generate embeddings
+    9. Generate embeddings
     """
     cid = set_correlation_id()
     start = datetime.now(tz=UTC)
-    alerts = AlertService()
     settings = get_settings()
 
     sources_used: list[str] = []
@@ -69,12 +66,11 @@ async def run_pipeline(
         effective_since = (
             since_hours if since_hours is not None else settings.extraction_since_hours
         )
-        all_items = await run_extraction(extractors, effective_since, alerts=alerts)
+        all_items = await run_extraction(extractors, effective_since)
         items_extracted = len(all_items)
 
         if not all_items:
             logger.warning("pipeline_no_items")
-            await alerts.pipeline_failure("No items extracted from any source", stage="extraction")
             pipeline_runs_total.labels(status="empty").inc()
             duration = (datetime.now(tz=UTC) - start).total_seconds()
             session.add(
@@ -152,10 +148,7 @@ async def run_pipeline(
             trending_count=trending_count,
         )
 
-        # 9. Notify
-        await run_notification(validated, duration_seconds=duration)
-
-        # 10. Embeddings
+        # 9. Embeddings
         if settings.embedding_api_key:
             embedded_count = await embed_new_items(session)
             logger.info("pipeline_embeddings", count=embedded_count)
@@ -192,11 +185,6 @@ async def run_pipeline(
         )
         await session.commit()
 
-        await alerts.pipeline_success(
-            items_count=items_stored,
-            duration_seconds=duration,
-            sources=sources_used,
-        )
         return True
 
     except Exception as exc:
@@ -217,5 +205,4 @@ async def run_pipeline(
             await session.commit()
         except Exception:
             logger.warning("pipeline_run_save_failed", exc_info=True)
-        await alerts.pipeline_failure(str(exc), stage="unknown")
         raise
