@@ -8,7 +8,7 @@ from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.extractors.arxiv import ArxivExtractor
 from src.extractors.base import BaseExtractor, ExtractedItem
-from src.extractors.github import GitHubExtractor
+from src.extractors.github_trending import GitHubTrendingExtractor
 from src.extractors.hackernews import HackerNewsExtractor
 from src.extractors.huggingface import HuggingFaceExtractor
 from src.extractors.reddit import RedditExtractor
@@ -38,7 +38,7 @@ def get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
     if "rss" in enabled:
         extractors.append(RSSExtractor())
     if "github" in enabled:
-        extractors.append(GitHubExtractor())
+        extractors.append(GitHubTrendingExtractor())
     if "huggingface" in enabled:
         extractors.append(HuggingFaceExtractor())
     if "webscraper" in enabled:

@@ -176,8 +176,13 @@ class TestSchedulerConfig:
     def test_poll_interval_defaults(self):
         from src.core.config import Settings
 
-        s = Settings(telegram_bot_token="", telegram_chat_id="", telegram_alerts_enabled=False)
-        assert s.hn_poll_interval_minutes == 15
+        s = Settings(
+            telegram_bot_token="",
+            telegram_chat_id="",
+            telegram_alerts_enabled=False,
+            hn_poll_interval_minutes=30,
+        )
+        assert s.hn_poll_interval_minutes == 30
         assert s.reddit_poll_interval_minutes == 15
         assert s.rss_poll_interval_minutes == 60
         assert s.github_poll_interval_minutes == 60
