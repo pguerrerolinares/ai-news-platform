@@ -100,9 +100,9 @@
 > Post-deploy analysis: seen filter + GitHub fixes reduced LLM calls ~80%, Tier 2
 > pipeline from 100s→23.5s. These are the next wave of optimizations.
 
-- [ ] **Drop duplicate HNSW index** — `ix_item_embeddings_hnsw` and `idx_embeddings_hnsw`
-  are identical (56MB each). Drop one via Alembic migration. Instant 56MB RAM/disk savings.
-  Effort: 10 min. Risk: none.
+- [x] **Drop duplicate HNSW index** — Done (2026-03-17). Migration 012 drops
+  `ix_item_embeddings_hnsw` (duplicate of ORM-declared `idx_embeddings_hnsw`).
+  Saves 56MB RAM/disk.
 
 - [ ] **Increase HN poll interval 15min→30min** — HN extracts 2-3 items per run, seen
   filter discards almost all. 12 Algolia queries every 15min yield 0 new items most runs.
