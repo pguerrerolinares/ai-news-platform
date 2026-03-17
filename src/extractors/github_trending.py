@@ -15,7 +15,7 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
 
-TRENDING_URL = "https://github.com/trending"
+TRENDING_URL = "https://github.com/trending"  # SSRF: safe — hardcoded URL, not user-controlled
 
 # Keywords to filter AI/ML-related repos from general trending
 _AI_KEYWORDS = re.compile(
@@ -107,11 +107,17 @@ class GitHubTrendingExtractor(BaseExtractor):
                         headers={"User-Agent": "AI-News-Platform/1.0"},
                     )
                     resp.raise_for_status()
-            except Exception as exc:
+            except httpx.HTTPError as exc:
                 logger.warning("github_trending_fetch_failed", error=str(exc))
                 return []
 
             all_repos = _parse_trending_html(resp.text)
+            if not all_repos and len(resp.text) > 10000:
+                logger.warning(
+                    "github_trending_parse_empty",
+                    response_length=len(resp.text),
+                    hint="HTML structure may have changed",
+                )
             ai_repos = [r for r in all_repos if _is_ai_related(r)]
 
             items: list[ExtractedItem] = []

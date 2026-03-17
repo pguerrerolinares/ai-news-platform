@@ -1,6 +1,11 @@
-"""Admin API routes — pipeline audit, runs, and source freshness."""
+"""Admin API routes — pipeline audit, runs, and source freshness.
+
+NOTE: No `from __future__ import annotations` — slowapi @limiter.limit
+breaks with PEP 563 deferred evaluation. See src/api/routes/otp.py.
+"""
 
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
@@ -154,7 +159,7 @@ async def admin_audit(
 async def admin_pipeline_runs(
     request: Request,
     limit: int = Query(50, ge=1, le=500),
-    status: str | None = Query(None, description="Filter by status: success, empty, error"),
+    status: Literal["success", "empty", "error"] | None = Query(None),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_admin),
 ) -> list[PipelineRunResponse]:

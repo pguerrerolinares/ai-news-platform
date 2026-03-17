@@ -6,14 +6,11 @@ best item per group, and marks winners as trending with a priority boost.
 
 from __future__ import annotations
 
-from difflib import SequenceMatcher
-
 from src.classifiers.base import ClassifiedItem
 from src.core.logging import get_logger
+from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 
 logger = get_logger(__name__)
-
-SIMILARITY_THRESHOLD = 0.80
 
 
 def _pick_winner(group: list[ClassifiedItem]) -> ClassifiedItem:
@@ -29,11 +26,6 @@ def _pick_winner(group: list[ClassifiedItem]) -> ClassifiedItem:
     best.source_count = len(group)
     best.priority = max(1, best.priority - 1)
     return best
-
-
-def _title_similarity(a: str, b: str) -> float:
-    """Compute title similarity ratio using SequenceMatcher."""
-    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
 
 def _group_by_similarity(items: list[ClassifiedItem]) -> list[list[int]]:
@@ -58,7 +50,8 @@ def _group_by_similarity(items: list[ClassifiedItem]) -> list[list[int]]:
 
     for i in range(n):
         for j in range(i + 1, n):
-            if _title_similarity(items[i].item.title, items[j].item.title) >= SIMILARITY_THRESHOLD:
+            sim = title_similarity(items[i].item.title, items[j].item.title)
+            if sim >= TITLE_SIMILARITY_THRESHOLD:
                 union(i, j)
 
     groups: dict[int, list[int]] = {}
@@ -88,6 +81,11 @@ def deduplicate_events(items: list[ClassifiedItem]) -> list[ClassifiedItem]:
 
     for topic, topic_items in by_topic.items():
         if len(topic_items) <= 1:
+            results.extend(topic_items)
+            continue
+
+        if len(topic_items) > 100:
+            logger.warning("event_dedup_topic_too_large", topic=topic, count=len(topic_items))
             results.extend(topic_items)
             continue
 

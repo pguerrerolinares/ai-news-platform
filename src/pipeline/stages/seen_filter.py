@@ -7,19 +7,16 @@ Two passes:
 
 from __future__ import annotations
 
-from difflib import SequenceMatcher
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.models import NewsItem
+from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 from src.extractors.base import ExtractedItem
 
 logger = get_logger(__name__)
-
-_TITLE_SIMILARITY_THRESHOLD = 0.80
 
 
 async def filter_already_seen(
@@ -71,7 +68,13 @@ async def filter_already_seen(
         return []
 
     # --- Pass 2: Title similarity (cross-source event dedup) ---
-    stmt = select(NewsItem.title).where(NewsItem.created_at >= cutoff)
+    # Limit to most recent titles to bound O(N*M) comparison cost
+    stmt = (
+        select(NewsItem.title)
+        .where(NewsItem.created_at >= cutoff)
+        .order_by(NewsItem.created_at.desc())
+        .limit(2000)
+    )
     result = await session.execute(stmt)
     recent_titles = [t.lower() for t in result.scalars().all()]
 
@@ -80,8 +83,7 @@ async def filter_already_seen(
     for item in candidates:
         item_title = item.title.lower()
         is_duplicate = any(
-            SequenceMatcher(None, item_title, rt).ratio() >= _TITLE_SIMILARITY_THRESHOLD
-            for rt in recent_titles
+            title_similarity(item_title, rt) >= TITLE_SIMILARITY_THRESHOLD for rt in recent_titles
         )
         if is_duplicate:
             title_filtered += 1

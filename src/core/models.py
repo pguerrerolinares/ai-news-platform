@@ -94,7 +94,6 @@ class NewsItem(Base):
         Index("idx_news_items_date", "published_at"),
         Index("idx_news_items_topic", "topic"),
         Index("idx_news_items_source", "source"),
-        Index("idx_news_items_url_hash", "url_hash"),
         Index(
             "uix_news_items_url_hash",
             "url_hash",

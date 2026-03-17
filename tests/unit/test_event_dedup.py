@@ -5,9 +5,9 @@ from __future__ import annotations
 from src.classifiers.event_dedup import (
     _group_by_similarity,
     _pick_winner,
-    _title_similarity,
     deduplicate_events,
 )
+from src.core.text_utils import title_similarity
 from tests.factories import make_classified_item, make_extracted_item
 
 
@@ -16,17 +16,17 @@ from tests.factories import make_classified_item, make_extracted_item
 # ---------------------------------------------------------------------------
 class TestTitleSimilarity:
     def test_identical_titles(self):
-        assert _title_similarity("GPT-5 Released", "GPT-5 Released") == 1.0
+        assert title_similarity("GPT-5 Released", "GPT-5 Released") == 1.0
 
     def test_case_insensitive(self):
-        assert _title_similarity("GPT-5 Released", "gpt-5 released") == 1.0
+        assert title_similarity("GPT-5 Released", "gpt-5 released") == 1.0
 
     def test_similar_titles(self):
-        ratio = _title_similarity("GPT-5 Released by OpenAI", "OpenAI Releases GPT-5")
+        ratio = title_similarity("GPT-5 Released by OpenAI", "OpenAI Releases GPT-5")
         assert 0.4 <= ratio < 1.0  # Similar but reworded
 
     def test_different_titles(self):
-        ratio = _title_similarity("GPT-5 Released", "EU AI Act Regulation Update")
+        ratio = title_similarity("GPT-5 Released", "EU AI Act Regulation Update")
         assert ratio < 0.5
 
 
