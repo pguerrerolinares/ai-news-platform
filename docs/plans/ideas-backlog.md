@@ -107,11 +107,9 @@
 - [x] **Increase HN poll interval 15min→30min** — Done (2026-03-17). Config change only.
   Halves Algolia requests with no coverage loss (seen filter catches repeats).
 
-- [ ] **Event dedup without LLM (fuzzy matching)** — `event_dedup.py` uses a full Kimi
-  call per topic to group items by event. Currently removes ~3/15 items (20%) per Tier 2
-  cycle. Replace with `rapidfuzz` title similarity (threshold ~0.85) or cosine similarity
-  on lightweight sentence embeddings. Saves 1-2 LLM calls/cycle. Kimi event dedup becomes
-  optional fallback for edge cases.
+- [x] **Event dedup without LLM (fuzzy matching)** — Done (2026-03-17). Replaced LLM
+  grouping with `difflib.SequenceMatcher` (stdlib, threshold 0.80). Union-find groups
+  similar titles per topic. Saves 1-2 Kimi calls/cycle, zero new dependencies.
 
 - [x] **Tune GitHub extractor** — Done (2026-03-17). min_stars 500→200, age 90→180 days,
   sort stars→updated. Remaining idea: add `GitHubTrendingExtractor` scraping

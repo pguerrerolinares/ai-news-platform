@@ -35,9 +35,9 @@ async def run_classification(items: list[ExtractedItem]) -> list[ClassifiedItem]
     items_classified_total.inc(len(classified))
     logger.info("classification_complete", count=len(classified))
 
-    # 2. Event dedup (only if LLM available and >1 item).
-    if settings.openai_api_key and len(classified) > 1:
-        classified = await deduplicate_events(classified)
+    # 2. Event dedup (fuzzy title matching, no LLM needed).
+    if len(classified) > 1:
+        classified = deduplicate_events(classified)
         logger.info("event_dedup_complete", count=len(classified))
 
     # 3. Variant collapse.

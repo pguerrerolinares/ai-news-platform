@@ -1,105 +1,110 @@
-"""Tests for event deduplication."""
+"""Tests for event deduplication (fuzzy title matching)."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import openai
-import pytest
-
 from src.classifiers.event_dedup import (
-    _build_dedup_prompt,
-    _parse_groups,
+    _group_by_similarity,
     _pick_winner,
+    _title_similarity,
     deduplicate_events,
 )
-from src.core.config import Settings
 from tests.factories import make_classified_item, make_extracted_item
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# _title_similarity
 # ---------------------------------------------------------------------------
-def _make_settings(**overrides) -> Settings:
-    defaults = {
-        "topics": "models,tools,papers,products,open_source,agents,regulation",
-        "min_relevance_score": 0.8,
-        "openai_api_key": "test-key",
-        "openai_base_url": "https://api.test.com/v1",
-        "openai_model": "test-model",
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
+class TestTitleSimilarity:
+    def test_identical_titles(self):
+        assert _title_similarity("GPT-5 Released", "GPT-5 Released") == 1.0
 
+    def test_case_insensitive(self):
+        assert _title_similarity("GPT-5 Released", "gpt-5 released") == 1.0
 
-def _make_mock_client(response_content: str) -> MagicMock:
-    """Create a mock AsyncOpenAI client."""
-    mock_client = MagicMock(spec=openai.AsyncOpenAI)
-    mock_message = SimpleNamespace(content=response_content)
-    mock_choice = SimpleNamespace(message=mock_message)
-    mock_response = SimpleNamespace(choices=[mock_choice])
-    mock_client.chat = MagicMock()
-    mock_client.chat.completions = MagicMock()
-    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-    return mock_client
+    def test_similar_titles(self):
+        ratio = _title_similarity("GPT-5 Released by OpenAI", "OpenAI Releases GPT-5")
+        assert 0.4 <= ratio < 1.0  # Similar but reworded
+
+    def test_different_titles(self):
+        ratio = _title_similarity("GPT-5 Released", "EU AI Act Regulation Update")
+        assert ratio < 0.5
 
 
 # ---------------------------------------------------------------------------
-# _parse_groups
+# _group_by_similarity
 # ---------------------------------------------------------------------------
-class TestParseGroups:
-    def test_valid_groups(self):
-        raw = "[[0, 3, 5], [1], [2, 4]]"
-        result = _parse_groups(raw)
-        assert result == [[0, 3, 5], [1], [2, 4]]
-
-    def test_with_code_fences(self):
-        raw = "```json\n[[0, 1], [2]]\n```"
-        result = _parse_groups(raw)
-        assert result == [[0, 1], [2]]
-
-    def test_with_surrounding_text(self):
-        raw = "Here are the groups:\n[[0, 1], [2]]\nDone."
-        result = _parse_groups(raw)
-        assert result == [[0, 1], [2]]
-
-    def test_invalid_json(self):
-        result = _parse_groups("not json")
-        assert result is None
-
-    def test_not_array_of_arrays(self):
-        result = _parse_groups("[1, 2, 3]")
-        assert result is None
-
-    def test_empty_array(self):
-        result = _parse_groups("[]")
-        assert result == []
-
-    def test_single_group(self):
-        result = _parse_groups("[[0, 1, 2]]")
-        assert result == [[0, 1, 2]]
-
-
-# ---------------------------------------------------------------------------
-# _build_dedup_prompt
-# ---------------------------------------------------------------------------
-class TestBuildDedupPrompt:
-    def test_contains_item_info(self):
+class TestGroupBySimilarity:
+    def test_groups_similar_titles(self):
         items = [
-            make_classified_item(title="GPT-5 Released", source="hackernews", relevance_score=0.9),
-            make_classified_item(title="GPT-5 Launch", source="reddit", relevance_score=0.85),
+            make_classified_item(
+                title="GPT-5 Released by OpenAI",
+                topic="models",
+                item=make_extracted_item(title="GPT-5 Released by OpenAI", score=300),
+            ),
+            make_classified_item(
+                title="GPT-5 Released by OpenAI today",
+                topic="models",
+                item=make_extracted_item(
+                    title="GPT-5 Released by OpenAI today",
+                    score=100,
+                    url="https://example.com/2",
+                ),
+            ),
         ]
-        prompt = _build_dedup_prompt(items)
-        assert "GPT-5 Released" in prompt
-        assert "GPT-5 Launch" in prompt
-        assert "[0]" in prompt
-        assert "[1]" in prompt
+        groups = _group_by_similarity(items)
+        assert len(groups) == 1
+        assert sorted(groups[0]) == [0, 1]
 
-    def test_contains_batch_size(self):
-        items = [make_classified_item() for _ in range(3)]
-        prompt = _build_dedup_prompt(items)
-        assert "3 items" in prompt
+    def test_keeps_different_titles_separate(self):
+        items = [
+            make_classified_item(
+                title="GPT-5 Released",
+                topic="models",
+                item=make_extracted_item(title="GPT-5 Released", score=300),
+            ),
+            make_classified_item(
+                title="Llama 4 Open Source Launch",
+                topic="models",
+                item=make_extracted_item(
+                    title="Llama 4 Open Source Launch",
+                    score=200,
+                    url="https://example.com/llama",
+                ),
+            ),
+        ]
+        groups = _group_by_similarity(items)
+        assert len(groups) == 2
+
+    def test_transitive_grouping(self):
+        """A~B and B~C should put A, B, C in same group."""
+        items = [
+            make_classified_item(
+                title="OpenAI releases GPT-5 model weights",
+                topic="models",
+                item=make_extracted_item(title="OpenAI releases GPT-5 model weights", score=100),
+            ),
+            make_classified_item(
+                title="OpenAI releases GPT-5 model weights today",
+                topic="models",
+                item=make_extracted_item(
+                    title="OpenAI releases GPT-5 model weights today",
+                    score=200,
+                    url="https://example.com/2",
+                ),
+            ),
+            make_classified_item(
+                title="OpenAI releases GPT-5 model weights open source",
+                topic="models",
+                item=make_extracted_item(
+                    title="OpenAI releases GPT-5 model weights open source",
+                    score=50,
+                    url="https://example.com/3",
+                ),
+            ),
+        ]
+        groups = _group_by_similarity(items)
+        assert len(groups) == 1
+        assert sorted(groups[0]) == [0, 1, 2]
 
 
 # ---------------------------------------------------------------------------
@@ -164,28 +169,17 @@ class TestPickWinner:
 # deduplicate_events
 # ---------------------------------------------------------------------------
 class TestDeduplicateEvents:
-    @pytest.fixture(autouse=True)
-    def _patch_settings(self):
-        with patch(
-            "src.classifiers.event_dedup.get_settings",
-            return_value=_make_settings(),
-        ):
-            yield
-
-    async def test_empty_list(self):
-        results = await deduplicate_events([], client=_make_mock_client("[]"))
+    def test_empty_list(self):
+        results = deduplicate_events([])
         assert results == []
 
-    async def test_single_item_no_dedup(self):
+    def test_single_item_no_dedup(self):
         item = make_classified_item(topic="models")
-        client = _make_mock_client("[[0]]")
-        results = await deduplicate_events([item], client=client)
+        results = deduplicate_events([item])
         assert len(results) == 1
-        # Single item in topic: no LLM call needed
-        client.chat.completions.create.assert_not_called()
 
-    async def test_dedup_same_event(self):
-        """Two items about the same event should be deduped to one."""
+    def test_dedup_same_event(self):
+        """Two items with very similar titles should be deduped to one."""
         items = [
             make_classified_item(
                 title="GPT-5 Released by OpenAI",
@@ -195,25 +189,24 @@ class TestDeduplicateEvents:
                 item=make_extracted_item(title="GPT-5 Released by OpenAI", score=300),
             ),
             make_classified_item(
-                title="OpenAI Launches GPT-5",
+                title="GPT-5 Released by OpenAI today",
                 topic="models",
                 relevance_score=0.85,
                 priority=3,
                 item=make_extracted_item(
-                    title="OpenAI Launches GPT-5",
+                    title="GPT-5 Released by OpenAI today",
                     score=100,
                     url="https://example.com/2",
                 ),
             ),
         ]
-        client = _make_mock_client("[[0, 1]]")
-        results = await deduplicate_events(items, client=client)
+        results = deduplicate_events(items)
         assert len(results) == 1
-        assert results[0].item.title == "GPT-5 Released by OpenAI"  # Higher score
+        assert results[0].item.title == "GPT-5 Released by OpenAI"
         assert results[0].trending is True
         assert results[0].source_count == 2
 
-    async def test_dedup_different_events(self):
+    def test_dedup_different_events(self):
         """Items about different events should remain separate."""
         items = [
             make_classified_item(
@@ -233,25 +226,24 @@ class TestDeduplicateEvents:
                 ),
             ),
         ]
-        client = _make_mock_client("[[0], [1]]")
-        results = await deduplicate_events(items, client=client)
+        results = deduplicate_events(items)
         assert len(results) == 2
 
-    async def test_dedup_multiple_topics(self):
+    def test_dedup_multiple_topics(self):
         """Each topic is deduped independently."""
         items = [
             make_classified_item(
-                title="GPT-5 Released",
+                title="GPT-5 Released by OpenAI",
                 topic="models",
                 relevance_score=0.9,
-                item=make_extracted_item(title="GPT-5 Released", score=300),
+                item=make_extracted_item(title="GPT-5 Released by OpenAI", score=300),
             ),
             make_classified_item(
-                title="GPT-5 also here",
+                title="GPT-5 Released by OpenAI today",
                 topic="models",
                 relevance_score=0.85,
                 item=make_extracted_item(
-                    title="GPT-5 also here",
+                    title="GPT-5 Released by OpenAI today",
                     score=100,
                     url="https://example.com/2",
                 ),
@@ -267,172 +259,28 @@ class TestDeduplicateEvents:
                 ),
             ),
         ]
-        # For models: group [0,1]; for regulation: single item, no LLM call
-        client = _make_mock_client("[[0, 1]]")
-        results = await deduplicate_events(items, client=client)
-        assert len(results) == 2  # 1 from models dedup + 1 from regulation
+        results = deduplicate_events(items)
+        assert len(results) == 2
         topics = {r.topic for r in results}
         assert topics == {"models", "regulation"}
 
-    async def test_graceful_fallback_on_llm_failure(self):
-        """On LLM failure, keep all items as-is."""
+    def test_all_items_same_event(self):
+        """All 5 items similar -> 1 winner with trending and source_count=5."""
         items = [
             make_classified_item(
-                title="GPT-5 Released",
-                topic="models",
-                relevance_score=0.9,
-                item=make_extracted_item(title="GPT-5 Released", score=300),
-            ),
-            make_classified_item(
-                title="GPT-5 Launch",
-                topic="models",
-                relevance_score=0.85,
-                item=make_extracted_item(
-                    title="GPT-5 Launch",
-                    score=100,
-                    url="https://example.com/2",
-                ),
-            ),
-        ]
-        client = _make_mock_client("")
-        exc = openai.RateLimitError(
-            message="rate limited",
-            response=MagicMock(status_code=429),
-            body=None,
-        )
-        client.chat.completions.create = AsyncMock(side_effect=exc)
-
-        with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock):
-            results = await deduplicate_events(items, client=client)
-
-        # All items kept on failure
-        assert len(results) == 2
-
-    async def test_graceful_fallback_on_parse_failure(self):
-        """On parse failure, keep all items."""
-        items = [
-            make_classified_item(
-                title="Item 1",
-                topic="models",
-                item=make_extracted_item(title="Item 1", score=100),
-            ),
-            make_classified_item(
-                title="Item 2",
-                topic="models",
-                item=make_extracted_item(
-                    title="Item 2",
-                    score=50,
-                    url="https://example.com/2",
-                ),
-            ),
-        ]
-        client = _make_mock_client("totally invalid json garbage!!!")
-        results = await deduplicate_events(items, client=client)
-        assert len(results) == 2
-
-    async def test_orphaned_items_are_kept(self):
-        """Items not mentioned in any group are kept."""
-        items = [
-            make_classified_item(
-                title="Item 0",
-                topic="models",
-                item=make_extracted_item(title="Item 0", score=100),
-            ),
-            make_classified_item(
-                title="Item 1",
-                topic="models",
-                item=make_extracted_item(
-                    title="Item 1",
-                    score=200,
-                    url="https://example.com/1",
-                ),
-            ),
-            make_classified_item(
-                title="Item 2",
-                topic="models",
-                item=make_extracted_item(
-                    title="Item 2",
-                    score=50,
-                    url="https://example.com/2",
-                ),
-            ),
-        ]
-        # Only groups items 0 and 1, item 2 is orphaned
-        client = _make_mock_client("[[0, 1]]")
-        results = await deduplicate_events(items, client=client)
-        # Group [0,1] -> 1 winner + orphaned item 2 = 2 total
-        assert len(results) == 2
-        titles = {r.item.title for r in results}
-        assert "Item 2" in titles
-
-    async def test_handles_invalid_indices_in_groups(self):
-        """Invalid indices in groups are filtered out."""
-        items = [
-            make_classified_item(
-                title="Item 0",
-                topic="models",
-                item=make_extracted_item(title="Item 0", score=100),
-            ),
-            make_classified_item(
-                title="Item 1",
-                topic="models",
-                item=make_extracted_item(
-                    title="Item 1",
-                    score=200,
-                    url="https://example.com/1",
-                ),
-            ),
-        ]
-        # Index 99 is invalid
-        client = _make_mock_client("[[0, 99], [1]]")
-        results = await deduplicate_events(items, client=client)
-        assert len(results) == 2
-
-    async def test_all_items_same_event(self):
-        """LLM groups all 5 items into one event -> 1 winner with trending and source_count=5."""
-        items = [
-            make_classified_item(
-                title=f"GPT-5 article {i}",
+                title=f"GPT-5 major breakthrough in AI announced #{i}",
                 topic="models",
                 relevance_score=0.85 + i * 0.02,
                 priority=3,
                 item=make_extracted_item(
-                    title=f"GPT-5 article {i}",
+                    title=f"GPT-5 major breakthrough in AI announced #{i}",
                     score=50 + i * 50,
                     url=f"https://example.com/{i}",
                 ),
             )
             for i in range(5)
         ]
-        client = _make_mock_client("[[0, 1, 2, 3, 4]]")
-        results = await deduplicate_events(items, client=client)
+        results = deduplicate_events(items)
         assert len(results) == 1
         assert results[0].trending is True
         assert results[0].source_count == 5
-
-    async def test_empty_groups_from_llm(self):
-        """LLM returns '[]' -> all items kept as orphans."""
-        items = [
-            make_classified_item(
-                title="Item A",
-                topic="models",
-                item=make_extracted_item(
-                    title="Item A",
-                    score=100,
-                ),
-            ),
-            make_classified_item(
-                title="Item B",
-                topic="models",
-                item=make_extracted_item(
-                    title="Item B",
-                    score=200,
-                    url="https://example.com/b",
-                ),
-            ),
-        ]
-        client = _make_mock_client("[]")
-        results = await deduplicate_events(items, client=client)
-        assert len(results) == 2
-        titles = {r.item.title for r in results}
-        assert titles == {"Item A", "Item B"}
