@@ -11,13 +11,14 @@ from src.core.config import Settings
 class TestWebscraperDefaults:
     """Verify webscraper settings have correct defaults."""
 
-    def test_webscraper_urls_default_empty(self):
+    def test_webscraper_urls_default_has_sources(self):
         s = Settings()
-        assert s.webscraper_urls == ""
+        assert "techcrunch.com" in s.webscraper_urls
+        assert "arstechnica.com" in s.webscraper_urls
 
-    def test_webscraper_urls_list_default_empty(self):
+    def test_webscraper_urls_list_default_has_sources(self):
         s = Settings()
-        assert s.webscraper_urls_list == []
+        assert len(s.webscraper_urls_list) >= 2
 
     def test_webscraper_max_concurrent_default(self):
         s = Settings()

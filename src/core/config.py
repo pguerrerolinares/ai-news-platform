@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     telegram_alerts_enabled: bool = True
 
     # --- Sources ---
-    enabled_sources: str = "hackernews,arxiv,reddit,rss,github,huggingface"
+    enabled_sources: str = "hackernews,arxiv,reddit,rss,github,huggingface,webscraper"
     max_items_per_source: int = 50
 
     # HackerNews
@@ -86,12 +86,15 @@ class Settings(BaseSettings):
     github_min_stars: int = 200
     github_max_repo_age_days: int = 180
     seen_window_days: int = 7
+    retention_days: int = 90
 
     # HuggingFace
     hf_min_downloads: int = 100
 
     # WebScraper (httpx + readability)
-    webscraper_urls: str = ""
+    webscraper_urls: str = (
+        "https://techcrunch.com/category/artificial-intelligence/," "https://arstechnica.com/ai/"
+    )
     webscraper_max_concurrent: int = 3
     webscraper_page_timeout: int = 30
 
