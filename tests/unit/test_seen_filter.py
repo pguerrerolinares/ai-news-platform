@@ -12,7 +12,7 @@ def _make_item(url: str | None = "https://example.com/test", title: str = "Test"
     return ExtractedItem(title=title, source="hackernews", url=url)
 
 
-def _mock_session_two_queries(url_hashes: list[str], titles: list[str]) -> AsyncMock:
+def _mock_session_two_queries(url_hashes: list[str | None], titles: list[str]) -> AsyncMock:
     """Mock session that returns url_hashes on first execute, titles on second."""
     session = AsyncMock()
 

@@ -9,7 +9,7 @@ from src.extractors.base import ExtractedItem
 from src.pipeline.stages.store import store_classified_items
 
 
-def _make_classified(title="Test", url="https://example.com"):
+def _make_classified(title="Test", url: str | None = "https://example.com"):
     item = ExtractedItem(title=title, source="hackernews", url=url, score=100)
     return ClassifiedItem(item=item, topic="models", relevance_score=0.9, summary="Test")
 
