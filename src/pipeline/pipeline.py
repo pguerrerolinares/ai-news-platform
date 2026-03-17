@@ -57,6 +57,7 @@ async def run_pipeline(
     alerts = AlertService()
     settings = get_settings()
 
+    sources_used: list[str] = []
     logger.info("pipeline_start", correlation_id=cid)
 
     try:
