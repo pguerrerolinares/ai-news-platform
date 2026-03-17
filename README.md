@@ -9,13 +9,14 @@ vectoriales, y las sirve a traves de una API REST + frontend React.
 ## Que hace
 
 - **Extraccion automatica** de HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace y sitios web configurables
-- **Clasificacion inteligente** por topico (models, tools, papers, products, open_source, agents, regulation) usando LLM (Kimi/Moonshot)
+- **Clasificacion inteligente** — two-phase: keyword pre-filter (>=3 matches auto-accept, 0 reject) + LLM para ambiguos. Fuzzy event dedup entre sources
 - **Feed con ranking** — composite scoring (velocidad + relevancia + recencia), variant collapse para modelos HF duplicados, diversificacion MMR
-- **Busqueda full-text** (PostgreSQL tsvector) + **busqueda semantica** (pgvector cosine similarity)
+- **Busqueda full-text** (PostgreSQL tsvector) + **busqueda semantica** (pgvector 512-dim cosine similarity)
 - **Chat RAG** — preguntas sobre las noticias con respuestas basadas en contexto via SSE streaming
-- **Autenticacion** — OTP por email (Resend API) + WebAuthn passkeys + shared password fallback
-- **Notificaciones** — briefing diario via Telegram
-- **Pipeline programado** — 3 tiers de frecuencia (15min / 60min / diario) con circuit breaker
+- **Autenticacion** — OTP por email (Resend API) + WebAuthn passkeys
+- **Dedup persistente** — URL hash unique index + title similarity contra DB (cross-source, cross-tier)
+- **Observabilidad** — pipeline_runs table con stats por etapa, admin API endpoints (audit, freshness, pipeline-runs)
+- **Pipeline programado** — 3 tiers de frecuencia (30min / 60min / diario) con circuit breaker y seen filter
 
 ## Stack
 
@@ -25,10 +26,10 @@ vectoriales, y las sirve a traves de una API REST + frontend React.
 | Base de datos | PostgreSQL 16 + pgvector |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, Shadcn UI |
 | LLM | Kimi/Moonshot (OpenAI-compatible) |
-| Embeddings | OpenAI text-embedding-3-small |
+| Embeddings | OpenAI text-embedding-3-small (512 dims) |
 | Infra | Docker Compose, Nginx, Coolify, Hetzner VPS (4GB) |
 | CI/CD | GitHub Actions → Coolify webhook auto-deploy |
-| Observabilidad | structlog (JSON), Prometheus, alertas Telegram |
+| Observabilidad | structlog (JSON), Prometheus, pipeline_runs table, admin API |
 
 ## Inicio rapido
 
@@ -70,17 +71,16 @@ ai-news-platform/
 ├── src/
 │   ├── api/           # FastAPI app, auth, routes (25+ endpoints)
 │   ├── extractors/    # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper)
-│   ├── classifiers/   # LLM + keyword classifiers, event dedup
+│   ├── classifiers/   # Two-phase (keyword→LLM), fuzzy event dedup
 │   ├── validators/    # Credibility validation
-│   ├── pipeline/      # Orchestrator + 5 stages (extract/classify/score/store/notify), scheduler, scoring
+│   ├── pipeline/      # Orchestrator + 5 stages (extract/classify/score/seen_filter/store), scheduler, scoring
 │   ├── feed/          # Feed algorithm (variant collapse, MMR diversification)
-│   ├── rag/           # Embeddings, retriever, chat service (SSE)
-│   ├── notifiers/     # Telegram notifications + alerts
+│   ├── rag/           # Embeddings (512-dim), retriever, chat service (SSE)
 │   ├── mcp/           # MCP server + client
 │   └── core/          # Config, models, database, logging, metrics
 ├── frontend/          # React 19 + Vite + Shadcn UI (6 paginas)
-├── tests/             # 1,179+ tests (unit + E2E Playwright), 92% coverage
-├── alembic/           # 9 migraciones de DB
+├── tests/             # 1,046+ tests (unit + E2E Playwright), 92% coverage
+├── alembic/           # 15 migraciones de DB
 ├── docs/              # Arquitectura, ADRs, planes, runbooks
 └── scripts/           # Backup, health check, rescore
 ```
@@ -110,7 +110,7 @@ bandit -r src/                           # Seguridad
 | Backend (Python) | ~8,800 LOC |
 | Frontend (TypeScript) | ~5,400 LOC |
 | Tests | ~17,700 LOC |
-| Tests passing | 1,179+ |
+| Tests passing | 1,046+ |
 | Coverage | 92% |
 | Design docs | ~80 |
 | Tiempo de desarrollo | ~2.5 semanas |

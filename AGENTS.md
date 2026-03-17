@@ -1,6 +1,6 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-03-05 | **Current milestone**: Public Access | **Status**: Complete
+> **Last updated**: 2026-03-17 | **Current milestone**: Production Quality & Observability | **Status**: Active
 
 ## Project Overview
 
@@ -13,7 +13,8 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 1,179+ passed, 92% coverage
+- **Tests**: 1,046+ passed (after Telegram removal), 92% coverage
+- **Embeddings**: 512 dimensions (text-embedding-3-small, native)
 
 ## Architecture
 
@@ -39,13 +40,16 @@ Docker Compose on Hetzner VPS
 ### Data Flow
 
 ```
-Sources -> Extract (+ quant filter on HF) -> Dedup -> Seen Filter (DB) -> Classify (LLM) -> Variant Collapse -> Validate -> Store (PostgreSQL, url_hash upsert)
-                                                                                       |
-                                                                          FastAPI API <-+-> React UI
-                                                                                       |
-                                                                          Telegram     <-+
-                                                                                       |
-                                                                          Embed -> RAG Chat (SSE)
+Sources -> Extract (+ quant filter on HF, + arXiv abstracts on daily papers)
+  -> Dedup -> Seen Filter (DB: url_hash + title similarity)
+    -> Two-Phase Classify (keyword pre-filter → LLM for ambiguous)
+      -> Event Dedup (fuzzy title matching) -> Variant Collapse
+        -> Validate -> Store (url_hash upsert with GREATEST)
+          -> Embed (512-dim) -> Save PipelineRun stats
+                                                    |
+                                       FastAPI API <-+-> React UI
+                                                    |
+                                       RAG Chat (SSE)
 
 Feed Pipeline (query-time):
   Time-window filter (48h→72h→168h expansion) -> Live rescore (CompositeScorer.score_newsitem)
@@ -93,30 +97,30 @@ ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
 ├── Dockerfile.api / Dockerfile.pipeline / docker-compose.coolify.yml
-├── alembic/                          # DB migrations (9 versions)
+├── alembic/                          # DB migrations (15 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
 │   ├── core/
 │   │   ├── config.py                 # Pydantic Settings (all env vars)
 │   │   ├── database.py               # Async SQLAlchemy engine + get_async_session()
-│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, User, OtpCode, RawExtraction, WebAuthnCredential
+│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, PipelineRun, User, OtpCode, RawExtraction, WebAuthnCredential
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   ├── metrics.py                # Prometheus counters + histograms
 │   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
 │   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper[httpx+readability])
-│   │   │                            # GitHub: uses pushed:>= date filter (search API, optional GITHUB_TOKEN)
-│   │   │                            # HuggingFace: trending models (filtered: skips quantized re-uploads via
-│   │   │                            #   base_model:quantized:* tag + library_name=None check) + daily papers (arxiv)
-│   ├── classifiers/                  # Keyword + LLM classifiers, event dedup
+│   │   │                            # GitHub: GitHubTrendingExtractor scrapes github.com/trending (HTML), filters AI repos by keyword
+│   │   │                            # HuggingFace: trending models (filtered: skips quantized re-uploads) + daily papers (with arXiv abstracts)
+│   │   │                            # WebScraper: TechCrunch AI + Ars Technica AI (httpx + readability-lxml)
+│   ├── classifiers/                  # Two-phase (keyword pre-filter → LLM), fuzzy event dedup
 │   ├── validators/                   # CredibilityValidator
-│   ├── notifiers/                    # Telegram notifier + AlertService
+│   ├── notifiers/                    # (Telegram removed — replaced by pipeline_runs table)
 │   ├── api/
 │   │   ├── app.py                    # FastAPI app, middleware, lifespan
 │   │   ├── auth.py                   # JWT + refresh tokens, require_auth, require_auth_or_guest, require_admin, create_guest_token
 │   │   ├── otp.py                    # OTP generation + Resend API
 │   │   ├── schemas.py                # Pydantic response models
 │   │   ├── webauthn.py                # WebAuthn challenge store
-│   │   └── routes/                   # auth, otp, webauthn, items, briefings, search, chat, stats, sources
+│   │   └── routes/                   # auth, otp, webauthn, items, briefings, search, chat, stats, sources, admin
 │   ├── feed/                           # Feed algorithm (query-time ranking)
 │   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ/FP8/FP16/NVFP4/abliterated/censored + param size normalization)
 │   │   ├── mmr_ranker.py             # MMR diversification (quality vs source diversity)
@@ -124,14 +128,14 @@ ai-news-platform/
 │   ├── pipeline/
 │   │   ├── pipeline.py               # Thin orchestrator: runs stages in sequence
 │   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
-│   │   ├── scheduler.py              # APScheduler 3-tier (15m/HN+Reddit, 60m/RSS+GH+HF+WS, daily/arXiv)
+│   │   ├── scheduler.py              # APScheduler 3-tier (30m/HN+Reddit, 60m/RSS+GH+HF+WS, daily/arXiv)
 │   │   ├── circuit_breaker.py        # Per-source failure tracking
 │   │   └── stages/                   # Composable pipeline stages
 │   │       ├── extract.py            # Source extraction + dedup + circuit breaker
-│   │       ├── classify.py           # LLM classification + variant collapse + validation
+│   │       ├── classify.py           # Two-phase classification (keyword→LLM) + event dedup + variant collapse
 │   │       ├── score.py              # Composite scoring (velocity + relevance + recency + topic)
-│   │       ├── store.py              # DB upsert + embedding generation
-│   │       └── notify.py             # Telegram notifications + daily briefing
+│   │       ├── seen_filter.py        # Persistent dedup: URL hash + title similarity vs DB
+│   │       └── store.py              # DB upsert (url_hash GREATEST) + embedding generation (512-dim)
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
 │   └── mcp/                          # MCP server + client
 ├── frontend/                         # React 19 (Vite + Shadcn UI + Tailwind CSS 4)
