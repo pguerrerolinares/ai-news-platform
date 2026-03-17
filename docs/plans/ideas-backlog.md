@@ -150,10 +150,9 @@
 
 ## Backend — Improvements
 
-- [ ] **HF daily_papers: fetch abstract text** — Currently `text` field for daily papers is
-  just the title (HF `/api/daily_papers` doesn't return abstracts). Could fetch abstract from
-  arXiv API (`arxiv.org/abs/{id}`) as a second pass, giving the LLM classifier and embeddings
-  richer content. Low priority: pipeline dedup may already have the arXiv version with abstract.
+- [x] **HF daily_papers: fetch abstract text** — Done (2026-03-17). Batch fetch abstracts
+  from arXiv API (`export.arxiv.org/api/query?id_list=...`). Text field now contains
+  title + abstract for richer classification and embeddings.
 
 - [x] **Cross-source event grouping** — Done (2026-03-17). `seen_filter.py` now has
   two passes: URL hash (exact) + title similarity (SequenceMatcher ≥0.80 against recent

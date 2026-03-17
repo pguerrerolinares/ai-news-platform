@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import re
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -18,6 +19,7 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 logger = get_logger(__name__)
 API_URL = "https://huggingface.co/api/models"
 DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
+ARXIV_API_URL = "http://export.arxiv.org/api/query"
 
 
 def _is_quantized_reupload(model: dict) -> bool:
@@ -47,26 +49,59 @@ class HuggingFaceExtractor(BaseExtractor):
     def source_name(self) -> str:
         return "huggingface"
 
+    async def _fetch_arxiv_abstracts(
+        self, client: httpx.AsyncClient, paper_ids: list[str]
+    ) -> dict[str, str]:
+        """Batch fetch abstracts from arXiv API. Returns {paper_id: abstract}."""
+        if not paper_ids:
+            return {}
+        try:
+            resp = await client.get(
+                ARXIV_API_URL,
+                params={"id_list": ",".join(paper_ids), "max_results": len(paper_ids)},
+            )
+            resp.raise_for_status()
+            # Parse XML: extract id and summary pairs
+            entries = re.findall(
+                r"<id>http://arxiv\.org/abs/([^<]+)</id>\s*.*?<summary>(.*?)</summary>",
+                resp.text,
+                re.DOTALL,
+            )
+            return {pid.split("v")[0]: abstract.strip() for pid, abstract in entries}
+        except Exception as exc:
+            logger.warning("arxiv_abstract_fetch_failed", error=str(exc))
+            return {}
+
     async def _fetch_daily_papers(
         self, client: httpx.AsyncClient, seen_urls: set[str]
     ) -> list[ExtractedItem]:
-        """Fetch curated daily papers from HuggingFace."""
+        """Fetch curated daily papers from HuggingFace with arXiv abstracts."""
         items: list[ExtractedItem] = []
         try:
             resp = await client.get(DAILY_PAPERS_URL)
             resp.raise_for_status()
             papers = resp.json()
 
+            # Collect paper IDs for batch abstract fetch
+            paper_entries: list[tuple[dict, dict]] = []
             for entry in papers:
                 paper = entry.get("paper", {})
                 paper_id = paper.get("id", "")
                 if not paper_id:
                     continue
-
                 url = f"https://arxiv.org/abs/{paper_id}"
                 if url in seen_urls:
                     continue
                 seen_urls.add(url)
+                paper_entries.append((entry, paper))
+
+            # Batch fetch abstracts from arXiv
+            paper_ids = [p.get("id", "") for _, p in paper_entries]
+            abstracts = await self._fetch_arxiv_abstracts(client, paper_ids)
+
+            for _entry, paper in paper_entries:
+                paper_id = paper.get("id", "")
+                url = f"https://arxiv.org/abs/{paper_id}"
 
                 authors = paper.get("authors", [])
                 author = authors[0].get("name", "unknown") if authors else "unknown"
@@ -77,12 +112,16 @@ class HuggingFaceExtractor(BaseExtractor):
                 except (ValueError, AttributeError):
                     published = None
 
+                title = html.unescape(paper.get("title", paper_id))
+                abstract = abstracts.get(paper_id, "")
+                text = f"{title}\n{abstract}" if abstract else title
+
                 items.append(
                     ExtractedItem(
-                        title=html.unescape(paper.get("title", paper_id)),
+                        title=title,
                         source=self.source_name,
                         url=url,
-                        text=paper.get("title", ""),
+                        text=text,
                         author=author,
                         published_at=published,
                         score=paper.get("upvotes", 0),
@@ -90,6 +129,7 @@ class HuggingFaceExtractor(BaseExtractor):
                             "paper_id": paper_id,
                             "upvotes": paper.get("upvotes", 0),
                             "type": "daily_paper",
+                            "has_abstract": bool(abstract),
                         },
                     )
                 )
