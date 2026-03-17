@@ -24,13 +24,13 @@ class TestEmbeddingStorage:
         item_b = await seed_news_item(db_session, title="Far Match", url="https://x.com/far")
 
         # item_a: vector pointing "right" — item_b: vector pointing "left"
-        vec_a = [1.0] + [0.0] * 1535
-        vec_b = [-1.0] + [0.0] * 1535
+        vec_a = [1.0] + [0.0] * 511
+        vec_b = [-1.0] + [0.0] * 511
         await seed_embedding(db_session, item_a, vector=vec_a)
         await seed_embedding(db_session, item_b, vector=vec_b)
 
         # Query vector similar to item_a
-        query_vec = [0.9] + [0.0] * 1535
+        query_vec = [0.9] + [0.0] * 511
 
         mock_embed = AsyncMock(spec=EmbeddingService)
         mock_embed.embed_text.return_value = query_vec
