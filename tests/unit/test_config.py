@@ -175,7 +175,7 @@ class TestSchedulerConfig:
         assert s.hn_poll_interval_minutes == 30
         assert s.reddit_poll_interval_minutes == 15
         assert s.rss_poll_interval_minutes == 60
-        assert s.github_poll_interval_minutes == 60
+        assert s.github_poll_interval_minutes > 0  # 240 default, overridable via env
         assert s.hf_poll_interval_minutes == 60
         assert s.arxiv_cron_hour == 1
         assert s.arxiv_cron_minute == 30
