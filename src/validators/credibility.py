@@ -195,6 +195,7 @@ _SOURCE_CREDIBILITY: dict[str, float] = {
     "rss": 0.25,
     "hackernews": 0.2,
     "github": 0.2,
+    "github_search": 0.2,
     "huggingface": 0.2,
     "reddit": 0.1,
 }

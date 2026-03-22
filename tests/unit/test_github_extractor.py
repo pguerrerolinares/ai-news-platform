@@ -59,8 +59,8 @@ def _mock_settings(**overrides):
 
 
 class TestSourceName:
-    def test_returns_github(self):
-        assert GitHubExtractor().source_name == "github"
+    def test_returns_github_search(self):
+        assert GitHubExtractor().source_name == "github_search"
 
 
 class TestExtract:
@@ -87,7 +87,7 @@ class TestExtract:
         )
         with patch("src.extractors.github.get_settings", return_value=_mock_settings()):
             result = await GitHubExtractor().extract()
-        assert all(item.source == "github" for item in result)
+        assert all(item.source == "github_search" for item in result)
 
     @respx.mock
     async def test_items_sorted_by_stars_descending(self):

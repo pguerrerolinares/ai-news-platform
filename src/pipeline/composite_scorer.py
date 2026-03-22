@@ -53,7 +53,7 @@ def compute_velocity(
 
     metadata = metadata or {}
 
-    if source == "github":
+    if source in ("github", "github_search"):
         # GitHub: stars / days since repo creation
         ref_date = source_created_at or published_at
         if ref_date is None:
@@ -94,6 +94,7 @@ class CompositeScorer:
         self._recency_window = settings.composite_recency_window_hours
         self._velocity_thresholds = {
             "github": settings.velocity_threshold_github,
+            "github_search": settings.velocity_threshold_github,
             "hackernews": settings.velocity_threshold_hackernews,
             "reddit": settings.velocity_threshold_reddit,
             "huggingface": settings.velocity_threshold_huggingface,

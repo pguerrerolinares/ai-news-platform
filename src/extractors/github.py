@@ -25,7 +25,7 @@ class GitHubExtractor(BaseExtractor):
 
     @property
     def source_name(self) -> str:
-        return "github"
+        return "github_search"
 
     async def extract(self, since_hours: int = 48) -> list[ExtractedItem]:
         settings = get_settings()

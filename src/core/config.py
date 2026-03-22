@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
 
     # --- Sources ---
-    enabled_sources: str = "hackernews,arxiv,reddit,rss,github,huggingface,webscraper"
+    enabled_sources: str = "hackernews,arxiv,reddit,rss,github,github_search,huggingface,webscraper"
     max_items_per_source: int = 50
 
     # HackerNews
@@ -72,7 +72,9 @@ class Settings(BaseSettings):
     rss_feeds: str = (
         "https://openai.com/blog/rss.xml,"
         "https://blog.google/technology/ai/rss/,"
-        "https://huggingface.co/blog/feed.xml"
+        "https://huggingface.co/blog/feed.xml,"
+        "https://news.google.com/rss/search?q=artificial+intelligence&hl=en&gl=US&ceid=US:en,"
+        "https://news.google.com/rss/search?q=LLM+generative+AI&hl=en&gl=US&ceid=US:en"
     )
 
     # GitHub
@@ -138,7 +140,7 @@ class Settings(BaseSettings):
     hn_poll_interval_minutes: int = 30
     reddit_poll_interval_minutes: int = 15
     rss_poll_interval_minutes: int = 60
-    github_poll_interval_minutes: int = 60
+    github_poll_interval_minutes: int = 240
     hf_poll_interval_minutes: int = 60
     webscraper_poll_interval_minutes: int = 60
     arxiv_cron_hour: int = 1

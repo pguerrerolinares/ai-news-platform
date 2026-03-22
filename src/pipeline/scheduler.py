@@ -87,6 +87,15 @@ def create_scheduler() -> AsyncIOScheduler | None:
         replace_existing=True,
     )
 
+    # Tier 2b: GitHub Search API (every 4h, extract last 12h)
+    scheduler.add_job(
+        run_scheduled_pipeline,
+        IntervalTrigger(minutes=settings.github_poll_interval_minutes),
+        id="tier2b_github_search",
+        kwargs={"sources": ["github_search"], "since_hours": 12},
+        replace_existing=True,
+    )
+
     # Tier 3: arXiv (daily, extract last 24h)
     scheduler.add_job(
         run_scheduled_pipeline,
@@ -100,6 +109,7 @@ def create_scheduler() -> AsyncIOScheduler | None:
         "scheduler_configured",
         tier1_interval=settings.hn_poll_interval_minutes,
         tier2_interval=settings.rss_poll_interval_minutes,
+        tier2b_interval=settings.github_poll_interval_minutes,
         tier3_cron=f"{settings.arxiv_cron_hour}:{settings.arxiv_cron_minute:02d}",
     )
 

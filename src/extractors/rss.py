@@ -9,6 +9,7 @@ No keyword filtering is applied since these are trusted sources.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import html
 import re
@@ -58,22 +59,28 @@ class RSSExtractor(BaseExtractor):
         items: list[ExtractedItem] = []
 
         with extractor_duration_seconds.labels(source=self.source_name).time():
-            async with httpx.AsyncClient(
-                timeout=30,
-                follow_redirects=True,
-                headers={"User-Agent": "AI-News-Platform/1.0"},
-            ) as client:
-                for feed_url in feeds:
+            sem = asyncio.Semaphore(5)
+
+            async def _fetch_one(feed_url: str) -> list[ExtractedItem]:
+                async with sem:
                     try:
-                        new_items = await self._fetch_feed(client, feed_url, cutoff, seen_urls)
-                        items.extend(new_items)
+                        return await self._fetch_feed(client, feed_url, cutoff, seen_urls)
                     except Exception as exc:
                         logger.warning(
                             "rss_fetch_failed",
                             feed_url=feed_url,
                             error=str(exc),
                         )
-                        continue
+                        return []
+
+            async with httpx.AsyncClient(
+                timeout=30,
+                follow_redirects=True,
+                headers={"User-Agent": "AI-News-Platform/1.0"},
+            ) as client:
+                results = await asyncio.gather(*[_fetch_one(url) for url in feeds])
+                for result in results:
+                    items.extend(result)
 
         items.sort(key=lambda x: x.published_at or datetime.min.replace(tzinfo=UTC), reverse=True)
         items = items[:max_items]
@@ -145,7 +152,8 @@ class RSSExtractor(BaseExtractor):
             if published and published < cutoff:
                 continue
 
-            title = html.unescape(entry.get("title", ""))
+            raw_title = html.unescape(entry.get("title", ""))
+            title = self._clean_google_news_title(raw_title, entry)
             text = self._extract_text(entry)
             author = self._extract_author(entry)
             tags = self._extract_tags(entry)
@@ -171,6 +179,25 @@ class RSSExtractor(BaseExtractor):
             )
 
         return items
+
+    @staticmethod
+    def _clean_google_news_title(title: str, entry: dict) -> str:
+        """Strip ' - Source' suffix added by Google News RSS feeds.
+
+        Google News appends the publisher name to article titles,
+        e.g. 'Introducing Stitch - blog.google'. We strip it to improve
+        title-similarity dedup and keep titles consistent with direct feeds.
+        """
+        # Google News entries have a <source> element with the publisher name
+        source_name = ""
+        if hasattr(entry, "source") and (
+            hasattr(entry.source, "title") or isinstance(entry.source, dict)
+        ):
+            source_name = entry.source.get("title", "") or ""
+
+        if source_name and title.endswith(f" - {source_name}"):
+            return title[: -(len(source_name) + 3)]
+        return title
 
     @staticmethod
     def _get_source_name(feed: feedparser.FeedParserDict, feed_url: str) -> str:

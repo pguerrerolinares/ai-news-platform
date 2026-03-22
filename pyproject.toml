@@ -30,6 +30,8 @@ dependencies = [
     # Auth
     "python-jose[cryptography]~=3.3.0",
     "passlib[bcrypt]~=1.7.0",
+    # Text similarity (C-optimized, replaces difflib.SequenceMatcher)
+    "rapidfuzz~=3.10.0",
 ]
 
 [project.optional-dependencies]
