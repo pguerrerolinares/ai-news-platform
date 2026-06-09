@@ -24,7 +24,7 @@ from src.core.metrics import (
     extractor_errors_total,
     items_extracted_total,
 )
-from src.core.ssrf import assert_safe_url
+from src.core.ssrf import safe_get
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -188,9 +188,11 @@ class WebScraperExtractor(BaseExtractor):
         items: list[ExtractedItem] = []
 
         with extractor_duration_seconds.labels(source=self.source_name).time():
+            # follow_redirects=False: safe_get re-validates each redirect hop
+            # against assert_safe_url and caps the response size.
             async with httpx.AsyncClient(
                 timeout=timeout,
-                follow_redirects=True,
+                follow_redirects=False,
                 headers={"User-Agent": _USER_AGENT},
             ) as client:
                 for index_url in urls:
@@ -228,8 +230,7 @@ class WebScraperExtractor(BaseExtractor):
     ) -> list[ExtractedItem]:
         """Scrape an index page and its discovered article links."""
         # Phase 1: Fetch index page and discover links.
-        await assert_safe_url(index_url)
-        resp = await client.get(index_url)
+        resp = await safe_get(client, index_url)
         resp.raise_for_status()
 
         raw_html = resp.text
@@ -246,8 +247,7 @@ class WebScraperExtractor(BaseExtractor):
 
         for article_url in article_urls[:remaining_budget]:
             try:
-                await assert_safe_url(article_url)
-                article_resp = await client.get(article_url)
+                article_resp = await safe_get(client, article_url)
                 article_resp.raise_for_status()
             except Exception as exc:
                 logger.warning(

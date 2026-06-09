@@ -6,10 +6,25 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import httpx
+import pytest
 import respx
 
 from src.extractors.base import ExtractedItem
 from src.extractors.rss import RSSExtractor
+
+
+@pytest.fixture(autouse=True)
+def _skip_ssrf_dns():
+    """Neutralize assert_safe_url's real DNS lookups so tests stay hermetic.
+
+    safe_get re-validates every hop; respx mocks the HTTP but not getaddrinfo.
+    """
+
+    async def _noop(_url: str) -> None:
+        return None
+
+    with patch("src.core.ssrf.assert_safe_url", _noop):
+        yield
 
 # ---------------------------------------------------------------------------
 # Sample RSS feed data

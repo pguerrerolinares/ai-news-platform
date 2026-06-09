@@ -9,11 +9,17 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
+
+import httpx
 
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Default ceiling on fetched response bodies (5 MB) to bound memory use.
+MAX_FETCH_BYTES = 5 * 1024 * 1024
+MAX_FETCH_REDIRECTS = 5
 
 
 async def assert_safe_url(url: str) -> None:
@@ -44,6 +50,55 @@ async def assert_safe_url(url: str) -> None:
         ip = ipaddress.ip_address(ip_str)
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
             raise ValueError(f"Blocked private/reserved IP {ip} for {hostname!r}")
+
+
+async def safe_get(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    max_bytes: int = MAX_FETCH_BYTES,
+    max_redirects: int = MAX_FETCH_REDIRECTS,
+) -> httpx.Response:
+    """GET ``url`` with SSRF-safe redirect handling and a response-size cap.
+
+    Every hop — the initial URL and each redirect ``Location`` — is validated
+    with :func:`assert_safe_url` *before* it is fetched, closing the gap where
+    httpx would otherwise follow a 3xx to a private IP (e.g. cloud metadata).
+    The body is streamed and aborted past ``max_bytes`` so a hostile feed
+    cannot OOM the process.
+
+    The supplied ``client`` MUST be created with ``follow_redirects=False`` so
+    redirects reach this function instead of httpx's auto-follow. Returns a
+    fully-read response whose body is at most ``max_bytes``.
+    """
+    current = url
+    for _ in range(max_redirects + 1):
+        await assert_safe_url(current)
+        async with client.stream("GET", current, headers=headers) as resp:
+            # has_redirect_location is True only for 301/302/303/307/308 WITH a
+            # Location header -- unlike is_redirect, it excludes 304 Not Modified.
+            if resp.has_redirect_location:
+                location = resp.headers["location"]
+                current = urljoin(current, location)
+                continue
+
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in resp.aiter_bytes():
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ValueError(f"Response body exceeded {max_bytes} bytes for {url!r}")
+                chunks.append(chunk)
+
+            return httpx.Response(
+                status_code=resp.status_code,
+                headers=resp.headers,
+                content=b"".join(chunks),
+                request=resp.request,
+            )
+
+    raise ValueError(f"Too many redirects (>{max_redirects}) for {url!r}")
 
 
 async def is_safe_url(url: str) -> bool:

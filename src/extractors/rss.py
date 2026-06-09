@@ -27,6 +27,7 @@ from src.core.metrics import (
     extractor_errors_total,
     items_extracted_total,
 )
+from src.core.ssrf import safe_get
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -73,9 +74,11 @@ class RSSExtractor(BaseExtractor):
                         )
                         return []
 
+            # follow_redirects=False: safe_get re-validates every redirect hop
+            # against assert_safe_url to prevent SSRF via a 3xx to a private IP.
             async with httpx.AsyncClient(
                 timeout=30,
-                follow_redirects=True,
+                follow_redirects=False,
                 headers={"User-Agent": "AI-News-Platform/1.0"},
             ) as client:
                 results = await asyncio.gather(*[_fetch_one(url) for url in feeds])
@@ -114,7 +117,7 @@ class RSSExtractor(BaseExtractor):
         if cached.get("last_modified"):
             headers["If-Modified-Since"] = cached["last_modified"]
 
-        resp = await client.get(feed_url, headers=headers)
+        resp = await safe_get(client, feed_url, headers=headers)
 
         # 304 Not Modified: feed unchanged since last fetch
         if resp.status_code == 304:

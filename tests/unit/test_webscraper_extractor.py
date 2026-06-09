@@ -227,7 +227,7 @@ class TestExtract:
             ),
         }
 
-        async def mock_get(url, **kwargs):
+        async def mock_get(client, url, **kwargs):
             if str(url) in responses:
                 return responses[str(url)]
             return _response(404, "", str(url))
@@ -235,7 +235,7 @@ class TestExtract:
         settings = _mock_settings()
         with patch("src.extractors.webscraper.get_settings", return_value=settings):
             extractor = WebScraperExtractor()
-            with patch.object(httpx.AsyncClient, "get", side_effect=mock_get):
+            with patch("src.extractors.webscraper.safe_get", side_effect=mock_get):
                 result = await extractor.extract()
 
         assert len(result) == 2
@@ -247,7 +247,7 @@ class TestExtract:
     async def test_extract_handles_failed_index_fetch(self):
         """If index page returns error, return empty list."""
 
-        async def mock_get(url, **kwargs):
+        async def mock_get(client, url, **kwargs):
             raise httpx.HTTPStatusError(
                 "Server Error",
                 request=httpx.Request("GET", url),
@@ -257,7 +257,7 @@ class TestExtract:
         settings = _mock_settings()
         with patch("src.extractors.webscraper.get_settings", return_value=settings):
             extractor = WebScraperExtractor()
-            with patch.object(httpx.AsyncClient, "get", side_effect=mock_get):
+            with patch("src.extractors.webscraper.safe_get", side_effect=mock_get):
                 result = await extractor.extract()
 
         assert result == []
@@ -274,7 +274,7 @@ class TestExtract:
 
         call_count = 0
 
-        async def mock_get(url, **kwargs):
+        async def mock_get(client, url, **kwargs):
             nonlocal call_count
             call_count += 1
             url_str = str(url)
@@ -287,7 +287,7 @@ class TestExtract:
         settings = _mock_settings()
         with patch("src.extractors.webscraper.get_settings", return_value=settings):
             extractor = WebScraperExtractor()
-            with patch.object(httpx.AsyncClient, "get", side_effect=mock_get):
+            with patch("src.extractors.webscraper.safe_get", side_effect=mock_get):
                 result = await extractor.extract()
 
         assert len(result) == 1
@@ -300,7 +300,7 @@ class TestExtract:
         )
         index_html = f"<html><body>{links_html}</body></html>"
 
-        async def mock_get(url, **kwargs):
+        async def mock_get(client, url, **kwargs):
             url_str = str(url)
             if "news" in url_str:
                 return _response(200, index_html, url_str)
@@ -309,7 +309,7 @@ class TestExtract:
         settings = _mock_settings(max_items_per_source=3)
         with patch("src.extractors.webscraper.get_settings", return_value=settings):
             extractor = WebScraperExtractor()
-            with patch.object(httpx.AsyncClient, "get", side_effect=mock_get):
+            with patch("src.extractors.webscraper.safe_get", side_effect=mock_get):
                 result = await extractor.extract()
 
         assert len(result) == 3
@@ -326,7 +326,7 @@ class TestExtract:
             content="This is the article body content for testing.",
         )
 
-        async def mock_get(url, **kwargs):
+        async def mock_get(client, url, **kwargs):
             url_str = str(url)
             if "news" in url_str:
                 return _response(200, index_html, url_str)
@@ -335,7 +335,7 @@ class TestExtract:
         settings = _mock_settings()
         with patch("src.extractors.webscraper.get_settings", return_value=settings):
             extractor = WebScraperExtractor()
-            with patch.object(httpx.AsyncClient, "get", side_effect=mock_get):
+            with patch("src.extractors.webscraper.safe_get", side_effect=mock_get):
                 result = await extractor.extract()
 
         assert len(result) == 1
@@ -356,13 +356,13 @@ class TestExtract:
     async def test_extract_handles_connection_error(self):
         """If httpx raises for all index pages, return empty."""
 
-        async def mock_get(url, **kwargs):
+        async def mock_get(client, url, **kwargs):
             raise httpx.ConnectError("Connection refused")
 
         settings = _mock_settings()
         with patch("src.extractors.webscraper.get_settings", return_value=settings):
             extractor = WebScraperExtractor()
-            with patch.object(httpx.AsyncClient, "get", side_effect=mock_get):
+            with patch("src.extractors.webscraper.safe_get", side_effect=mock_get):
                 result = await extractor.extract()
 
         assert result == []
