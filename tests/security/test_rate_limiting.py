@@ -97,10 +97,12 @@ class TestDataEndpointRateLimiting:
 
         pytest.fail("Expected 429 after 31 items requests, but all returned non-429")
 
-    async def test_topics_rate_limit(self, security_client: AsyncClient) -> None:
+    async def test_topics_rate_limit(
+        self, security_client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """31st topics request within a minute must be rate-limited (429)."""
         for i in range(31):
-            resp = await security_client.get("/api/topics")
+            resp = await security_client.get("/api/topics", headers=auth_headers)
             if resp.status_code == 429:
                 assert i >= 30
                 return

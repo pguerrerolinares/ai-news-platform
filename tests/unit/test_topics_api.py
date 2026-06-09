@@ -6,6 +6,14 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
+from src.api.auth import require_auth_or_guest
+
+
+@pytest.fixture(autouse=True)
+def _override_auth():
+    app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
+    yield
+    app.dependency_overrides.pop(require_auth_or_guest, None)
 
 
 @pytest.fixture()
@@ -36,7 +44,8 @@ class TestTopicsEndpoint:
         assert "tools" in topics
         assert "papers" in topics
 
-    async def test_no_auth_required(self, api_client: AsyncClient):
-        """Topics endpoint should be accessible without JWT."""
+    async def test_requires_auth_or_guest(self, api_client: AsyncClient):
+        """Without a token the endpoint is rejected (deny-by-default)."""
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/topics")
-        assert resp.status_code == 200
+        assert resp.status_code in (401, 403)

@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
-from src.api.auth import require_auth
+from src.api.auth import require_auth, require_auth_or_guest
 from src.core.database import get_session
 
 
@@ -27,9 +27,11 @@ async def _mock_get_session():
 @pytest.fixture(autouse=True)
 def _override_dependencies():
     app.dependency_overrides[get_session] = _mock_get_session
+    app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
     yield
     app.dependency_overrides.pop(get_session, None)
     app.dependency_overrides.pop(require_auth, None)
+    app.dependency_overrides.pop(require_auth_or_guest, None)
 
 
 @pytest.fixture()
@@ -49,8 +51,8 @@ class TestSourcesList:
         assert "sources" in resp.json()
         assert isinstance(resp.json()["sources"], list)
 
-    async def test_no_auth_required(self, api_client: AsyncClient):
-        """Sources endpoint is public, like /api/topics."""
-        app.dependency_overrides.pop(require_auth, None)
+    async def test_requires_auth_or_guest(self, api_client: AsyncClient):
+        """Without a token the endpoint is rejected (deny-by-default)."""
+        app.dependency_overrides.pop(require_auth_or_guest, None)
         resp = await api_client.get("/api/sources")
-        assert resp.status_code == 200
+        assert resp.status_code in (401, 403)

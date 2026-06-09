@@ -7,6 +7,7 @@ from slowapi import Limiter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import SourceInfo, SourcesResponse
 from src.core.database import get_session
@@ -21,6 +22,7 @@ limiter = Limiter(key_func=get_client_ip)
 async def list_sources(
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> SourcesResponse:
     """List all sources with item count, sorted by count descending."""
     result = await session.execute(
