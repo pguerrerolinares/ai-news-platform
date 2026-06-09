@@ -62,10 +62,10 @@ def get_rate_limit_key(request: Request) -> str:
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
         try:
-            from jose import jwt as jose_jwt
+            import jwt
 
             settings = get_settings()
-            payload = jose_jwt.decode(
+            payload = jwt.decode(
                 token,
                 settings.jwt_secret,
                 algorithms=[settings.jwt_algorithm],

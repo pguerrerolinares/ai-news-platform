@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+import jwt
 import pytest
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 
 from src.api.app import app
 from src.api.auth import UserClaims, create_access_token

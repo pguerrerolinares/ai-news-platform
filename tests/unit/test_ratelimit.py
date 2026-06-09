@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import jwt
 import pytest
-from jose import jwt
 
 from src.api.ratelimit import _is_trusted_proxy, get_client_ip, get_rate_limit_key
 from src.core.config import Settings

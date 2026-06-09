@@ -7,9 +7,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import jwt
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 
 from src.api.errors import APIError
 from src.core.config import get_settings
@@ -116,7 +116,7 @@ def validate_refresh_token(token: str) -> UserClaims:
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
         )
-    except JWTError:
+    except jwt.PyJWTError:
         raise APIError(401, "INVALID_TOKEN", "Invalid or expired refresh token") from None
 
     if payload.get("type") != "refresh":
@@ -162,7 +162,7 @@ async def require_auth(
             role=payload.get("role", "reader"),
             email=payload.get("email", ""),
         )
-    except JWTError:
+    except jwt.PyJWTError:
         raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None
 
 
@@ -196,5 +196,5 @@ async def require_auth_or_guest(
             role=payload.get("role", "reader"),
             email=payload.get("email", ""),
         )
-    except JWTError:
+    except jwt.PyJWTError:
         raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None

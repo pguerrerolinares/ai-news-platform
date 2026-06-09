@@ -6,9 +6,9 @@ import base64
 import json
 import time
 
+import jwt
 import pytest
 from httpx import AsyncClient
-from jose import jwt
 
 from src.core.config import get_settings
 
