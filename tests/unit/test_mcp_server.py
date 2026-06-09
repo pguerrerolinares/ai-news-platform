@@ -14,6 +14,7 @@ from src.mcp.server import (
     get_latest,
     get_trending,
     search_news,
+    semantic_search,
 )
 
 
@@ -22,13 +23,26 @@ def _mock_client():
 
 
 class TestGetClient:
-    @patch.dict("os.environ", {"SHARED_PASSWORD": ""}, clear=False)
-    def test_missing_password_raises(self):
+    @patch("src.mcp.server.APIClient")
+    def test_uses_mcp_api_base_url_env(self, mock_api_client):
         original = src.mcp.server._client
         src.mcp.server._client = None
         try:
-            with pytest.raises(RuntimeError, match="SHARED_PASSWORD"):
+            with patch.dict("os.environ", {"MCP_API_BASE_URL": "http://custom:9000"}, clear=False):
                 _get_client()
+            mock_api_client.assert_called_once_with(base_url="http://custom:9000")
+        finally:
+            src.mcp.server._client = original
+
+    @patch("src.mcp.server.APIClient")
+    def test_defaults_to_localhost(self, mock_api_client):
+        original = src.mcp.server._client
+        src.mcp.server._client = None
+        try:
+            env = {k: v for k, v in __import__("os").environ.items() if k != "MCP_API_BASE_URL"}
+            with patch.dict("os.environ", env, clear=True):
+                _get_client()
+            mock_api_client.assert_called_once_with(base_url="http://localhost:8000")
         finally:
             src.mcp.server._client = original
 
@@ -166,3 +180,40 @@ class TestGetBriefing:
         result = get_briefing(date="2026-02-18")
         assert "2026-02-18" in result
         assert "Top" not in result
+
+
+class TestSemanticSearch:
+    @patch("src.mcp.server._get_client")
+    def test_returns_formatted_results(self, mock_get):
+        client = _mock_client()
+        client.semantic_search.return_value = [{"title": "Vector Result", "source": "arxiv"}]
+        mock_get.return_value = client
+        result = semantic_search(query="transformer architecture")
+        assert "1 results" in result
+        assert "Vector Result" in result
+        client.semantic_search.assert_called_once_with(q="transformer architecture", limit=10)
+
+    @patch("src.mcp.server._get_client")
+    def test_passes_limit_to_client(self, mock_get):
+        client = _mock_client()
+        client.semantic_search.return_value = []
+        mock_get.return_value = client
+        semantic_search(query="LLM", limit=5)
+        client.semantic_search.assert_called_once_with(q="LLM", limit=5)
+
+    @patch("src.mcp.server._get_client")
+    def test_empty_results(self, mock_get):
+        client = _mock_client()
+        client.semantic_search.return_value = []
+        mock_get.return_value = client
+        result = semantic_search(query="nothing")
+        assert "0 results" in result
+        assert "No items found." in result
+
+    @patch("src.mcp.server._get_client")
+    def test_error_propagates(self, mock_get):
+        client = _mock_client()
+        client.semantic_search.side_effect = RuntimeError("API down")
+        mock_get.return_value = client
+        with pytest.raises(RuntimeError, match="API down"):
+            semantic_search(query="AI")

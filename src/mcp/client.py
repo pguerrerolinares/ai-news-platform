@@ -53,6 +53,12 @@ class APIClient:
         resp.raise_for_status()
         return resp.json()
 
+    def semantic_search(self, q: str, limit: int = 10) -> list[dict]:
+        params: dict[str, str | int] = {"q": q, "limit": limit}
+        resp = self._http.get("/api/search/semantic", params=params, headers=self._headers)
+        resp.raise_for_status()
+        return resp.json()
+
     def get_latest(self, topic: str | None = None, limit: int = 10) -> list[dict]:
         params: dict[str, str | int] = {"limit": limit}
         if topic:

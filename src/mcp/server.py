@@ -23,10 +23,7 @@ def _get_client() -> APIClient:
         with _lock:
             if _client is None:
                 base_url = os.environ.get("MCP_API_BASE_URL", "http://localhost:8000")
-                password = os.environ.get("SHARED_PASSWORD", "")
-                if not password:
-                    raise RuntimeError("SHARED_PASSWORD env var is required")
-                _client = APIClient(base_url=base_url, password=password)
+                _client = APIClient(base_url=base_url)
     return _client
 
 
@@ -75,6 +72,19 @@ def search_news(
     if topic:
         header += f" (topic: {topic})"
     return f"{header}:\n\n{_format_items(items)}"
+
+
+@mcp.tool()
+def semantic_search(query: str, limit: int = 10) -> str:
+    """Search AI news articles by semantic similarity (vector search).
+
+    Uses embeddings to find articles conceptually related to the query,
+    even without exact keyword matches. Returns matching items with title,
+    source, topic, summary, and URL.
+    """
+    client = _get_client()
+    items = client.semantic_search(q=query, limit=limit)
+    return f'Found {len(items)} results for "{query}":\n\n{_format_items(items)}'
 
 
 @mcp.tool()

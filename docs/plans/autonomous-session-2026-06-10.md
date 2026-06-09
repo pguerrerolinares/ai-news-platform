@@ -60,6 +60,22 @@ parameterized retriever, 1094 unit tests pass, ruff + pyright clean. Minor note:
 constructs a `Retriever()` per request (lightweight, consistent with existing
 usage) — fine.
 
+### ✅ Batch 3 — MCP milestone: semantic_search tool + Claude Code connection docs (Sonnet child)
+Your flagged milestone. The MCP server already existed (`src/mcp/`, FastMCP stdio,
+4 tools). Added a 5th tool `semantic_search` (client method mirrors `search`,
+server tool mirrors `search_news`) so you can natural-language-query your news.
+Wrote `docs/runbooks/mcp-claude-code.md`: how to register it in YOUR Claude Code.
+
+**To actually connect it (your step — depends on your machine):**
+```
+claude mcp add ai-news --env MCP_API_BASE_URL=https://pguerrero.me -- python -m src.mcp.server
+```
+It auto-acquires a guest token (read-only: search/latest/trending/briefing/semantic
+work; chat needs full auth so there's no chat tool). Parent validation: tool
+decorator present, client mirrors existing method, 1104 tests pass, runbook env var
+(`MCP_API_BASE_URL`) matches the real code. **Note:** must run from the repo root
+with the project venv so `python -m src.mcp.server` resolves — documented in the runbook.
+
 ## Open questions for you
 - D2: rotate JWT_SECRET to ≥32 chars so we can harden the guard?
 - Track 5: which approach (Postgres vs api_workers:1)?

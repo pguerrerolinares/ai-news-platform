@@ -166,6 +166,76 @@ class TestGetTrending:
         assert len(result) == 2
 
 
+class TestSemanticSearch:
+    @respx.mock
+    def test_semantic_search_sends_query(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            return_value=httpx.Response(
+                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+            )
+        )
+        respx.get(f"{BASE}/api/search/semantic").mock(
+            return_value=httpx.Response(200, json=[{"title": "Vector Result", "source": "arxiv"}])
+        )
+        client = APIClient(base_url=BASE)
+        result = client.semantic_search(q="transformer architecture")
+        assert len(result) == 1
+        assert "q=transformer+architecture" in str(respx.calls.last.request.url).replace(
+            "%20", "+"
+        ) or "q=transformer" in str(respx.calls.last.request.url)
+
+    @respx.mock
+    def test_semantic_search_sends_limit(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            return_value=httpx.Response(
+                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+            )
+        )
+        respx.get(f"{BASE}/api/search/semantic").mock(return_value=httpx.Response(200, json=[]))
+        client = APIClient(base_url=BASE)
+        client.semantic_search(q="LLM", limit=5)
+        assert "limit=5" in str(respx.calls.last.request.url)
+
+    @respx.mock
+    def test_semantic_search_sends_auth_header(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            return_value=httpx.Response(
+                200, json={"access_token": "my-jwt", "token_type": "bearer", "expires_in": 86400}
+            )
+        )
+        respx.get(f"{BASE}/api/search/semantic").mock(return_value=httpx.Response(200, json=[]))
+        client = APIClient(base_url=BASE)
+        client.semantic_search(q="AI")
+        assert respx.calls.last.request.headers["Authorization"] == "Bearer my-jwt"
+
+    @respx.mock
+    def test_semantic_search_raises_on_http_error(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            return_value=httpx.Response(
+                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+            )
+        )
+        respx.get(f"{BASE}/api/search/semantic").mock(
+            return_value=httpx.Response(500, json={"detail": "Server error"})
+        )
+        client = APIClient(base_url=BASE)
+        with pytest.raises(httpx.HTTPStatusError):
+            client.semantic_search(q="AI")
+
+    @respx.mock
+    def test_semantic_search_returns_parsed_json(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            return_value=httpx.Response(
+                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+            )
+        )
+        items = [{"title": "A"}, {"title": "B"}]
+        respx.get(f"{BASE}/api/search/semantic").mock(return_value=httpx.Response(200, json=items))
+        client = APIClient(base_url=BASE)
+        result = client.semantic_search(q="neural")
+        assert result == items
+
+
 class TestGetBriefing:
     @respx.mock
     def test_get_briefing_by_date(self):
