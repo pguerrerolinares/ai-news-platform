@@ -18,9 +18,7 @@ async def _noop(_url: str) -> None:
 
 @respx.mock
 async def test_returns_content_on_200():
-    respx.get("https://example.com/feed").mock(
-        return_value=httpx.Response(200, text="hello world")
-    )
+    respx.get("https://example.com/feed").mock(return_value=httpx.Response(200, text="hello world"))
     with patch("src.core.ssrf.assert_safe_url", _noop):
         async with httpx.AsyncClient(follow_redirects=False) as client:
             resp = await safe_get(client, "https://example.com/feed")
