@@ -128,12 +128,12 @@
 
 ### Tier 2 — Medium Impact (Tech Debt)
 
-- [ ] **Move refresh tokens to PostgreSQL** — `_refresh_tokens` dict in `auth.py` is lost on
-  every container restart, forcing all users to re-login. Add `refresh_token_hash` +
-  `refresh_expires_at` to `users` table (or dedicated table). One migration, one code change.
+- [ ] **Move refresh tokens (+ WebAuthn challenges) to PostgreSQL** — `_refresh_tokens` dict in
+  `auth.py` is lost on every container restart, forcing all users to re-login, and is per-worker
+  under `api_workers: 2`. See the [HIGH] security finding (Track 5) for the full analysis and
+  options (Postgres-with-TTL vs `api_workers: 1` stopgap).
 
-- [ ] **Replace python-jose with PyJWT** — python-jose last release 2022, unmaintained.
-  PyJWT is actively maintained, near drop-in replacement. Security-critical dependency.
+- [x] **Replace python-jose with PyJWT** — Done (2026-06-09, commit 739dd84). `pyjwt[crypto]~=2.10`.
 
 - [x] ~~**Multi-stage Dockerfile**~~ — Obsolete (separate `Dockerfile.api` + `Dockerfile.pipeline`
   already exist, see Tier 1 Done above).
@@ -278,6 +278,68 @@
 - [x] **Remove legacy shared-password auth** — Done (2026-03-04). `POST /api/auth/token`
   and `shared_password` config removed. Only OTP and passkey login remain.
 
+### Security Audit Findings (2026-06-09)
+
+> Full backend security review. Verdict: **MEDIUM risk, 0 critical**. Code is security-aware
+> (algorithm allowlist on every `jwt.decode`, `secrets.randbelow` + `hmac.compare_digest` for OTP,
+> SSRF helper blocking private/reserved IPs, parameterized ORM throughout, 1MB body cap, startup
+> guard against default JWT secret, no committed secrets). Findings below are verified against the
+> code; ordered by severity. Bandit is already wired (`ci.yml:39` + `[tool.bandit]`) — not a gap.
+
+- [x] **[HIGH] Upgrade `python-jose 3.3.0`** — Done (2026-06-09, commit 739dd84). Replaced with
+  `pyjwt[crypto]~=2.10`. Near drop-in (`JWTError` → `jwt.PyJWTError`); behavior verified unchanged
+  by the auth + JWT-manipulation suites. Closes CVE-2024-33663/33664.
+
+- [ ] **[HIGH] Move refresh-token + WebAuthn-challenge stores out of per-worker memory** —
+  `auth.py:22` (`_refresh_tokens`), `webauthn.py` (`_challenges`); runs under `api_workers: 2`.
+  **This is the remaining "security sprint" item (Track 5), deferred 2026-06-09 for a dedicated
+  session.** Two distinct faults:
+  - **Multi-worker:** with 2 workers, refresh/rotation hits the wrong worker ~50% of the time;
+    revocation is illusory (a rotated token stays valid on the other worker until JWT expiry, up
+    to 7 days); WebAuthn login fails intermittently. Caps (100/200) evict valid tokens.
+  - **Restart/deploy:** the in-memory store clears on every container restart. Because deploys run
+    on each push via Coolify webhook, **every deploy logs all users out**.
+  - **Options weighed:** (a) `api_workers: 1` stopgap — one config line, fixes the multi-worker
+    fault + passkey flakiness instantly, but does NOT fix deploy-logout. (b) Postgres-backed store
+    with TTL for both refresh tokens and WebAuthn challenges — migration + rewrite both stores +
+    tests (~half day); fixes BOTH faults. Recommended given frequent deploys. Extends the Tier 2
+    "Move refresh tokens to PostgreSQL" item to also cover the WebAuthn challenge store.
+
+- [x] **[MEDIUM] SSRF: redirects not re-validated in webscraper/rss** — Done (2026-06-09, commit
+  cb7b7c6). Added `ssrf.safe_get()` (validates every hop against `assert_safe_url`,
+  `follow_redirects=False`); wired into RSS + WebScraper.
+
+- [x] **[MEDIUM] No response-size cap on external fetches** — Done (2026-06-09, commit cb7b7c6).
+  `safe_get()` streams the body with a 5 MB ceiling, raising past the cap.
+
+- [x] **[MEDIUM] OTP: no per-code lockout** — Done (2026-06-09, commit 09f0e74). Added `attempts`
+  column (migration 016); each wrong guess increments it and the code is burned after 5 failures.
+
+- [x] **[MEDIUM] Unauthenticated `/api/sources` + `/api/topics`** — Done (2026-06-09, commit
+  35f49d7). Both now require `require_auth_or_guest`; the frontend already sends a guest token.
+
+- [ ] **[MEDIUM] Prompt injection from feed content into LLM** — `chat.py:58-78,126`. Retrieved
+  titles/summaries are interpolated raw into the prompt; the "respond only on context" system prompt
+  is a weak guardrail. No tool-calling, so impact is bounded to steering Spanish summaries shown to
+  users / Telegram and possible system-prompt leak (no RCE). Fix: fence each item in
+  `<news_item>…</news_item>` and instruct the model to treat it as untrusted data, not instructions.
+
+- [ ] **[LOW] `/health` leaks DB exception string** — `app.py:222`. The 503 returns raw `str(exc)`
+  (can reveal hostname/port/driver). Return a generic message; log detail server-side only.
+
+- [ ] **[LOW] `/metrics` relies solely on nginx ACL** — `app.py:226`, `nginx.conf:84-87`. The app
+  serves `/metrics` unauthenticated; the `allow 127.0.0.1; deny all` lives in nginx, but the prod
+  stack is Coolify+Traefik and may not route through it. Confirm Traefik doesn't expose it, or bind
+  to an internal port / require admin.
+
+- [ ] **[LOW] No minimum length enforced for `jwt_secret`** — `config.py:36`, `app.py:111`. The guard
+  blocks the literal default but accepts any other value, including a short/weak one. Add a
+  `len >= 32` check in the production guard.
+
+- [ ] **[LOW] `require_auth` accepts tokens with no `type` claim** — `auth.py:153`
+  (`not in ("access", None)`). Legacy concession, not exploitable (refresh path rejects them).
+  Tighten to `!= "access"` once legacy tokens age out.
+
 ---
 
-*Last updated: 17 de marzo de 2026*
+*Last updated: 9 de junio de 2026*
