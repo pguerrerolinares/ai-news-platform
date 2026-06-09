@@ -252,6 +252,9 @@ class OtpCode(Base):
     code: Mapped[str] = mapped_column(String(6), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Failed verification attempts against this code; the code is burned
+    # (marked used) once this reaches the lockout threshold.
+    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

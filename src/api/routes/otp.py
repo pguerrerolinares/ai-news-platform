@@ -31,6 +31,7 @@ limiter = Limiter(key_func=get_client_ip)
 
 
 OTP_EMAIL_RATE_LIMIT = 5  # max OTPs per email per hour
+MAX_OTP_ATTEMPTS = 5  # burn a code after this many wrong guesses
 
 
 @router.post("/otp/request", response_model=OtpRequestResponse)
@@ -106,7 +107,17 @@ async def _verify_and_login(email: str, code: str) -> User:
         )
         otp = result.scalar_one_or_none()
 
-        if otp is None or not hmac.compare_digest(otp.code, code):
+        if otp is None:
+            raise APIError(401, "INVALID_OTP", "Invalid or expired code")
+
+        if not hmac.compare_digest(otp.code, code):
+            # Burn the code after too many wrong guesses so the 6-digit space
+            # cannot be brute-forced (IP throttle alone is bypassable).
+            otp.attempts += 1
+            if otp.attempts >= MAX_OTP_ATTEMPTS:
+                otp.used = True
+                logger.warning("otp_locked_out", email=email, attempts=otp.attempts)
+            await session.commit()
             raise APIError(401, "INVALID_OTP", "Invalid or expired code")
 
         # Mark as used

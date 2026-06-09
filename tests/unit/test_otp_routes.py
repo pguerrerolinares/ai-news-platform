@@ -339,3 +339,102 @@ class TestGetMe:
         assert resp.status_code == 200
         data = resp.json()
         assert data["role"] == "reader"
+
+
+# ---------------------------------------------------------------------------
+# OTP per-code lockout (brute-force defense)
+# ---------------------------------------------------------------------------
+class TestOtpLockout:
+    """A submitted code is burned after too many wrong attempts, so the
+    6-digit space cannot be brute-forced across distributed IPs."""
+
+    @staticmethod
+    def _session_yielding(otp):
+        from contextlib import asynccontextmanager
+
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = otp
+        session = AsyncMock()
+        session.execute = AsyncMock(return_value=result)
+        session.commit = AsyncMock()
+
+        @asynccontextmanager
+        async def _ctx():
+            yield session
+
+        return _ctx, session
+
+    @staticmethod
+    def _otp(attempts: int):
+        from datetime import UTC, datetime, timedelta
+
+        from src.core.models import OtpCode
+
+        return OtpCode(
+            email="u@example.com",
+            code="123456",
+            expires_at=datetime.now(tz=UTC) + timedelta(minutes=5),
+            used=False,
+            attempts=attempts,
+        )
+
+    async def test_wrong_code_increments_attempts_without_burning(self):
+        from src.api.errors import APIError
+        from src.api.routes.otp import _verify_and_login
+
+        otp = self._otp(attempts=0)
+        ctx, session = self._session_yielding(otp)
+        with (
+            patch("src.api.routes.otp.get_async_session", ctx),
+            pytest.raises(APIError) as exc,
+        ):
+            await _verify_and_login("u@example.com", "000000")
+
+        assert exc.value.status_code == 401
+        assert otp.attempts == 1
+        assert otp.used is False
+        session.commit.assert_awaited()
+
+    async def test_code_burned_after_max_attempts(self):
+        from src.api.errors import APIError
+        from src.api.routes.otp import MAX_OTP_ATTEMPTS, _verify_and_login
+
+        otp = self._otp(attempts=MAX_OTP_ATTEMPTS - 1)
+        ctx, _ = self._session_yielding(otp)
+        with (
+            patch("src.api.routes.otp.get_async_session", ctx),
+            pytest.raises(APIError),
+        ):
+            await _verify_and_login("u@example.com", "000000")
+
+        assert otp.attempts == MAX_OTP_ATTEMPTS
+        assert otp.used is True
+
+    async def test_correct_code_still_succeeds(self):
+        """A correct code is accepted (and not affected by the attempts counter)."""
+        from unittest.mock import AsyncMock as _AsyncMock
+
+        from src.api.routes.otp import _verify_and_login
+
+        otp = self._otp(attempts=2)
+        result_otp = MagicMock()
+        result_otp.scalar_one_or_none.return_value = otp
+        result_user = MagicMock()
+        result_user.scalar_one_or_none.return_value = None  # new user
+        session = _AsyncMock()
+        session.execute = _AsyncMock(side_effect=[result_otp, result_user])
+        session.commit = _AsyncMock()
+        session.refresh = _AsyncMock()
+        session.add = MagicMock()
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _ctx():
+            yield session
+
+        with patch("src.api.routes.otp.get_async_session", _ctx):
+            user = await _verify_and_login("u@example.com", "123456")
+
+        assert otp.used is True
+        assert user is not None
