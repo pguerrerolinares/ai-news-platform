@@ -51,6 +51,15 @@ only logs `jwt_secret_too_short` at startup.
 - `jwt_secret` short-secret startup warning (see D2).
 - Validation: 1081 unit tests pass, ruff + pyright clean.
 
+### ✅ Batch 2 — Semantic search endpoint (Sonnet child)
+`GET /api/search/semantic?q=...&limit=` — embeds the query, returns items by
+cosine similarity, reusing `Retriever.retrieve` (no duplicated vector SQL).
+require_auth_or_guest, 20/min, empty list when embeddings unavailable.
+Parent validation: route is literal (no ordering risk), SQL stays in the
+parameterized retriever, 1094 unit tests pass, ruff + pyright clean. Minor note:
+constructs a `Retriever()` per request (lightweight, consistent with existing
+usage) — fine.
+
 ## Open questions for you
 - D2: rotate JWT_SECRET to ≥32 chars so we can harden the guard?
 - Track 5: which approach (Postgres vs api_workers:1)?

@@ -169,9 +169,10 @@
 
 ## Backend — Future Endpoints
 
-- [ ] **Semantic search**: Expose vector similarity search as an API endpoint
-  (currently only used internally by RAG chat). Different from full-text search —
-  finds conceptually similar items even without exact keyword matches.
+- [x] **Semantic search**: Done (2026-06-10). `GET /api/search/semantic?q=...&limit=`
+  embeds the query and ranks items by cosine similarity via the existing Retriever
+  (no duplicated SQL). require_auth_or_guest, returns [] when embeddings unavailable.
+  Implemented via parent-orchestrator → Sonnet executor child.
 
 - [x] **Item detail endpoint**: `GET /api/items/{id}` — Done (2026-06-10). Single item by
   UUID, reuses NewsItemResponse, require_auth_or_guest, 404 on miss. Unlocks deep-linking +

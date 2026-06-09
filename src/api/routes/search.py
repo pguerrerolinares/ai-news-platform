@@ -1,4 +1,4 @@
-"""API routes for full-text search."""
+"""API routes for full-text and semantic (vector) search."""
 
 from datetime import date
 
@@ -14,6 +14,7 @@ from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
 from src.core.queries import effective_date
+from src.rag.retriever import Retriever
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 limiter = Limiter(key_func=get_client_ip)
@@ -88,4 +89,28 @@ async def search_items(
     result = await session.execute(query)
     items = result.scalars().all()
 
+    return [NewsItemResponse.model_validate(item) for item in items]
+
+
+@router.get(
+    "/semantic",
+    response_model=list[NewsItemResponse],
+    responses={401: {"model": ErrorWrapper}},
+)
+@limiter.limit("20/minute")
+async def semantic_search_items(
+    request: Request,
+    q: str = Query(..., min_length=1, description="Free-text search query to embed"),
+    limit: int = Query(20, ge=1, le=50, description="Max results to return"),
+    session: AsyncSession = Depends(get_session),
+    _user: UserClaims = Depends(require_auth_or_guest),
+) -> list[NewsItemResponse]:
+    """Search news items by semantic (vector) similarity.
+
+    Embeds the query string and returns the top-N most similar news items
+    ranked by cosine distance. Returns an empty list when the embedding
+    service is unavailable (e.g. ``embedding_api_key`` not configured).
+    """
+    retriever = Retriever()
+    items = await retriever.retrieve(session, q, limit=limit)
     return [NewsItemResponse.model_validate(item) for item in items]
