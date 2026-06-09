@@ -66,12 +66,12 @@ def create_scheduler() -> AsyncIOScheduler | None:
 
     scheduler = AsyncIOScheduler()
 
-    # Tier 1: HackerNews + Reddit (every 15 min, extract last 1h)
+    # Tier 1: HackerNews (every 30 min, extract last 6h)
     scheduler.add_job(
         run_scheduled_pipeline,
         IntervalTrigger(minutes=settings.hn_poll_interval_minutes),
-        id="tier1_hn_reddit",
-        kwargs={"sources": ["hackernews", "reddit"], "since_hours": 6},
+        id="tier1_hn",
+        kwargs={"sources": ["hackernews"], "since_hours": 6},
         replace_existing=True,
     )
 

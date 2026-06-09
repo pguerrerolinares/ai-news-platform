@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
 
     # --- Sources ---
-    enabled_sources: str = "hackernews,arxiv,reddit,rss,github,github_search,huggingface,webscraper"
+    enabled_sources: str = "hackernews,arxiv,rss,github,github_search,huggingface,webscraper"
     max_items_per_source: int = 50
 
     # HackerNews

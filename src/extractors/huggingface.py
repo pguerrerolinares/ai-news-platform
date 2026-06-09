@@ -19,7 +19,7 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 logger = get_logger(__name__)
 API_URL = "https://huggingface.co/api/models"
 DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
-ARXIV_API_URL = "http://export.arxiv.org/api/query"
+ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
 
 def _is_quantized_reupload(model: dict) -> bool:
