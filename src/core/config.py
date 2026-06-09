@@ -48,13 +48,21 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
 
     # --- Sources ---
-    enabled_sources: str = "hackernews,arxiv,rss,github,github_search,huggingface,webscraper"
+    enabled_sources: str = (
+        "hackernews,hackernews_leading,arxiv,rss,github,github_search,huggingface,webscraper"
+    )
     max_items_per_source: int = 50
 
     # HackerNews
     hn_min_points: int = 10
     extraction_since_hours: int = 24
     hn_search_queries: str = "AI,LLM,GPT,machine learning,neural network,deep learning"
+    # Leading-indicator lane: authoritative AI domains caught from the HN firehose
+    # at 0 points (the domain is the quality gate, not the points threshold).
+    hn_authoritative_domains: str = (
+        "anthropic.com,openai.com,deepmind.google,ai.meta.com,mistral.ai,"
+        "blog.google,huggingface.co,qwenlm.github.io,deepseek.com"
+    )
 
     # arXiv
     arxiv_categories: str = "cs.AI,cs.CL,cs.LG"
@@ -138,6 +146,7 @@ class Settings(BaseSettings):
     # --- Scheduler ---
     scheduler_enabled: bool = True
     hn_poll_interval_minutes: int = 30
+    hn_leading_poll_interval_minutes: int = 15
     reddit_poll_interval_minutes: int = 15
     rss_poll_interval_minutes: int = 60
     github_poll_interval_minutes: int = 240
@@ -181,6 +190,10 @@ class Settings(BaseSettings):
     @property
     def hn_search_queries_list(self) -> list[str]:
         return [q.strip() for q in self.hn_search_queries.split(",") if q.strip()]
+
+    @property
+    def hn_authoritative_domains_list(self) -> list[str]:
+        return [d.strip().lower() for d in self.hn_authoritative_domains.split(",") if d.strip()]
 
     @property
     def arxiv_categories_list(self) -> list[str]:

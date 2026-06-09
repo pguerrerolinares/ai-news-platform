@@ -44,6 +44,12 @@ class TestGetExtractors:
             extractors = get_extractors()
         assert any(e.source_name == "webscraper" for e in extractors)
 
+    def test_hackernews_leading_included_when_enabled(self):
+        settings = _mock_settings(enabled_sources="hackernews_leading")
+        with patch("src.pipeline.stages.extract.get_settings", return_value=settings):
+            extractors = get_extractors()
+        assert any(e.source_name == "hackernews_leading" for e in extractors)
+
 
 class TestRunExtraction:
     async def test_returns_items_from_all_extractors(self):

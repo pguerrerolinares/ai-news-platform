@@ -450,9 +450,13 @@ class CredibilityValidator(BaseValidator):
                 )
                 continue
 
-            # Rule 2: low engagement filter for social sources
+            # Rule 2: low engagement filter for social sources.
+            # The leading-indicator lane is exempt: those items arrive at 0
+            # points by design and rely on the authoritative-domain allowlist
+            # as their quality gate instead of engagement.
             source = item.item.source.lower()
-            if source in ("hackernews", "reddit"):
+            is_leading = item.item.metadata.get("lane") == "leading"
+            if source in ("hackernews", "reddit") and not is_leading:
                 item_score = item.item.score or 0
                 if item_score < 5:
                     logger.debug(

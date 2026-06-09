@@ -11,6 +11,7 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 from src.extractors.github import GitHubExtractor
 from src.extractors.github_trending import GitHubTrendingExtractor
 from src.extractors.hackernews import HackerNewsExtractor
+from src.extractors.hackernews_leading import HackerNewsLeadingExtractor
 from src.extractors.huggingface import HuggingFaceExtractor
 from src.extractors.reddit import RedditExtractor
 from src.extractors.rss import RSSExtractor
@@ -31,6 +32,8 @@ def get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
 
     if "hackernews" in enabled:
         extractors.append(HackerNewsExtractor())
+    if "hackernews_leading" in enabled:
+        extractors.append(HackerNewsLeadingExtractor())
     if "arxiv" in enabled:
         extractors.append(ArxivExtractor())
     if "reddit" in enabled:

@@ -550,6 +550,24 @@ class TestNoiseFiltering:
         result = validator._filter_noise(items)
         assert len(result) == 0
 
+    def test_leading_lane_zero_score_not_filtered(self):
+        """Leading-indicator HN items arrive at score=0 by design (the domain is
+        the quality gate); they must bypass the low-engagement filter."""
+        validator = CredibilityValidator()
+        items = [
+            make_classified_item(
+                title="Claude Fable 5",
+                item=make_extracted_item(
+                    source="hackernews",
+                    score=0,
+                    metadata={"lane": "leading", "domain": "www.anthropic.com"},
+                ),
+            ),
+        ]
+        items[0].credibility_score = 0.5
+        result = validator._filter_noise(items)
+        assert len(result) == 1
+
     def test_low_engagement_arxiv_not_filtered(self):
         """arXiv items should not be filtered by engagement score."""
         validator = CredibilityValidator()

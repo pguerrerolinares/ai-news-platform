@@ -75,6 +75,16 @@ def create_scheduler() -> AsyncIOScheduler | None:
         replace_existing=True,
     )
 
+    # Tier 1b: HN leading-indicator lane (authoritative AI domains from the
+    # firehose at 0 points). Polled frequently for low latency; short lookback.
+    scheduler.add_job(
+        run_scheduled_pipeline,
+        IntervalTrigger(minutes=settings.hn_leading_poll_interval_minutes),
+        id="tier1b_hn_leading",
+        kwargs={"sources": ["hackernews_leading"], "since_hours": 2},
+        replace_existing=True,
+    )
+
     # Tier 2: RSS + GitHub + HuggingFace + WebScraper (every 60 min, extract last 3h)
     scheduler.add_job(
         run_scheduled_pipeline,

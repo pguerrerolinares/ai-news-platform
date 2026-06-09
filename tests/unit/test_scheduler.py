@@ -21,9 +21,10 @@ class TestCreateScheduler:
             scheduler = create_scheduler()
 
         jobs = scheduler.get_jobs()
-        assert len(jobs) == 5
+        assert len(jobs) == 6
         job_ids = {j.id for j in jobs}
         assert "tier1_hn" in job_ids
+        assert "tier1b_hn_leading" in job_ids
         assert "tier2_rss_gh_hf_ws" in job_ids
         assert "tier2b_github_search" in job_ids
         assert "tier3_arxiv" in job_ids
