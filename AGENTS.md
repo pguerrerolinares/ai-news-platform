@@ -107,7 +107,8 @@ ai-news-platform/
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   ├── metrics.py                # Prometheus counters + histograms
 │   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
-│   ├── extractors/                   # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper[httpx+readability])
+│   ├── extractors/                   # 8 extractors (HN keyword, HN leading, arXiv, RSS, GitHub, HF, WebScraper[httpx+readability]; Reddit present but disabled)
+│   │   │                            # HN leading: HackerNewsLeadingExtractor — per-domain Algolia url query for authoritative AI domains (anthropic.com, openai.com, ...) caught at 0 points; emits source="hackernews", metadata.lane="leading"
 │   │   │                            # GitHub: GitHubTrendingExtractor scrapes github.com/trending (HTML), filters AI repos by keyword
 │   │   │                            # HuggingFace: trending models (filtered: skips quantized re-uploads) + daily papers (with arXiv abstracts)
 │   │   │                            # WebScraper: TechCrunch AI + Ars Technica AI (httpx + readability-lxml)
@@ -128,7 +129,7 @@ ai-news-platform/
 │   ├── pipeline/
 │   │   ├── pipeline.py               # Thin orchestrator: runs stages in sequence
 │   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
-│   │   ├── scheduler.py              # APScheduler 3-tier (30m/HN+Reddit, 60m/RSS+GH+HF+WS, daily/arXiv)
+│   │   ├── scheduler.py              # APScheduler tiers (30m/HN, 15m/HN-leading, 60m/RSS+GH+HF+WS, 4h/GitHub-search, daily/arXiv)
 │   │   ├── circuit_breaker.py        # Per-source failure tracking
 │   │   └── stages/                   # Composable pipeline stages
 │   │       ├── extract.py            # Source extraction + dedup + circuit breaker
@@ -207,7 +208,7 @@ Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, co
 
 All config via env vars. See `.env.example` for full list.
 
-Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,arxiv,reddit,rss,github,huggingface,webscraper`
+Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,hackernews_leading,arxiv,rss,github,github_search,huggingface,webscraper` (Reddit disabled)
 Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MULTIPLIER=5` (pool size = limit × N)
 Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
 Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
