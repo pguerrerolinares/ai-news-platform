@@ -306,6 +306,42 @@ async def list_latest_items(
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
+@router.get(
+    "/{item_id}",
+    response_model=NewsItemResponse,
+    responses={
+        401: {"model": ErrorWrapper},
+        404: {"model": ErrorWrapper},
+    },
+)
+@limiter.limit("30/minute")
+async def get_item(
+    request: Request,
+    item_id: uuid_mod.UUID,
+    session: AsyncSession = Depends(get_session),
+    _user: UserClaims = Depends(require_auth_or_guest),
+) -> NewsItemResponse:
+    """Fetch a single news item by its UUID.
+
+    Args:
+        request: FastAPI request (required by slowapi).
+        item_id: UUID of the news item to retrieve.
+        session: Async database session.
+        _user: Authenticated or guest user claims.
+
+    Returns:
+        The matching NewsItemResponse.
+
+    Raises:
+        APIError: 404 if no item with the given UUID exists.
+    """
+    result = await session.execute(select(NewsItem).where(NewsItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise APIError(404, "NOT_FOUND", f"Item {item_id} not found")
+    return NewsItemResponse.model_validate(item)
+
+
 # IMPORTANT: This route MUST be last — {item_id} is a catch-all path parameter.
 @router.get(
     "/{item_id}/similar",

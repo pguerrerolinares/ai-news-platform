@@ -173,8 +173,9 @@
   (currently only used internally by RAG chat). Different from full-text search —
   finds conceptually similar items even without exact keyword matches.
 
-- [ ] **Item detail endpoint**: `GET /api/items/{id}` — currently no way to fetch a
-  single item by ID (only lists). Needed for deep-linking and "related news" flow.
+- [x] **Item detail endpoint**: `GET /api/items/{id}` — Done (2026-06-10). Single item by
+  UUID, reuses NewsItemResponse, require_auth_or_guest, 404 on miss. Unlocks deep-linking +
+  "related news" / discovery. Implemented via parent-orchestrator → executor child.
 
 - [ ] **Chat history**: Store and retrieve past chat conversations per session/user.
 
