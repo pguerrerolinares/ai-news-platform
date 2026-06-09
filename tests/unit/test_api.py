@@ -103,6 +103,24 @@ class TestHealthEndpoint:
         data = resp.json()
         assert data["status"] == "unhealthy"
 
+    async def test_health_does_not_leak_exception_detail(self, api_client: AsyncClient):
+        """The 503 body must not echo the raw exception string (info leak)."""
+        mock_connect = AsyncMock()
+        mock_connect.__aenter__ = AsyncMock(
+            side_effect=ConnectionError("could not connect to secret-host:5432")
+        )
+        mock_connect.__aexit__ = AsyncMock(return_value=False)
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_connect
+
+        with patch("src.api.app.get_engine", return_value=mock_engine):
+            resp = await api_client.get("/health")
+
+        assert resp.status_code == 503
+        assert "secret-host" not in resp.text
+        assert "could not connect" not in resp.text
+
     async def test_health_returns_503_when_db_fails(self, api_client: AsyncClient):
         """When the DB is unreachable, HTTP status should be 503."""
         mock_connect = AsyncMock()

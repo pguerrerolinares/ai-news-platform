@@ -110,6 +110,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if not settings.debug:
         if settings.jwt_secret == "change-me-in-production":  # nosec B105
             raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
+        # Non-fatal warning (not a hard raise): a hard guard could brick a deploy
+        # if the live secret is short, and we can't verify it here. Rotate to a
+        # >= 32-char secret, then this can be promoted to a hard RuntimeError.
+        if len(settings.jwt_secret) < 32:
+            logger.warning("jwt_secret_too_short", length=len(settings.jwt_secret))
         if settings.admin_email and not settings.resend_api_key:
             msg = "RESEND_API_KEY must be set when ADMIN_EMAIL is configured"
             raise RuntimeError(msg)
@@ -216,10 +221,12 @@ async def health_check() -> JSONResponse:
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
         return JSONResponse(content={"status": "healthy", "database": "connected"})
     except Exception as exc:
+        # Detail is logged server-side only; the response stays generic so the
+        # 503 body can't leak DB hostnames/drivers to anonymous callers.
         logger.error("health_check_failed", error=str(exc))
         return JSONResponse(
             status_code=503,
-            content={"status": "unhealthy", "database": str(exc)},
+            content={"status": "unhealthy", "database": "unavailable"},
         )
 
 
