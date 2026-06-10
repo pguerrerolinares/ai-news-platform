@@ -18,7 +18,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.drop_index("ix_item_embeddings_hnsw", table_name="item_embeddings")
+    # IF EXISTS: idempotent for fresh/divergent DBs that never had the
+    # duplicate index (it originated from migration 002 on older deployments).
+    op.execute("DROP INDEX IF EXISTS ix_item_embeddings_hnsw")
 
 
 def downgrade() -> None:
