@@ -22,6 +22,8 @@ export default function Search() {
   const [query, setQuery] = useState('')
   const [topic, setTopic] = useState('all')
   const [sortBy, setSortBy] = useState('relevance')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [results, setResults] = useState<NewsItem[]>([])
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
@@ -40,6 +42,8 @@ export default function Search() {
         limit: '30',
       }
       if (topic !== 'all') params.topic = topic
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
       const { data, totalCount: count } = await apiGet<NewsItem[]>('/api/search', params)
       setResults(data)
       setTotalCount(count)
@@ -50,19 +54,20 @@ export default function Search() {
     } finally {
       setLoading(false)
     }
-  }, [query, topic, sortBy])
+  }, [query, topic, sortBy, dateFrom, dateTo])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') search()
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 px-4">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Search</h2>
         <p className="text-sm text-muted-foreground">Search through AI news</p>
       </div>
 
+      {/* Row 1: query + search button */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -75,6 +80,14 @@ export default function Search() {
             aria-label="Search news"
           />
         </div>
+        <Button onClick={search} disabled={loading || !query.trim()}>
+          <IconSearch className="mr-2 size-4" />
+          Search
+        </Button>
+      </div>
+
+      {/* Row 2: filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Select value={topic} onValueChange={setTopic}>
           <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue />
@@ -96,10 +109,22 @@ export default function Search() {
             <SelectItem value="score">Score</SelectItem>
           </SelectContent>
         </Select>
-        <Button onClick={search} disabled={loading || !query.trim()}>
-          <IconSearch className="mr-2 size-4" />
-          Search
-        </Button>
+        <Input
+          type="date"
+          value={dateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+          aria-label="From date"
+          className="w-full sm:w-[160px] [color-scheme:dark]"
+          title="From date"
+        />
+        <Input
+          type="date"
+          value={dateTo}
+          onChange={e => setDateTo(e.target.value)}
+          aria-label="To date"
+          className="w-full sm:w-[160px] [color-scheme:dark]"
+          title="To date"
+        />
       </div>
 
       {error && (
@@ -124,7 +149,7 @@ export default function Search() {
       )}
 
       {!loading && results.length > 0 && (
-        <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" animationKey={`${query}-${topic}-${sortBy}`}>
+        <AnimatedCardGrid className="grid gap-4 sm:grid-cols-2" animationKey={`${query}-${topic}-${sortBy}-${dateFrom}-${dateTo}`}>
           {results.map(item => (
             <AnimatedCardItem key={item.id}>
               <NewsCard item={item} />
