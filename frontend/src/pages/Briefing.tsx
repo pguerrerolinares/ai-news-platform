@@ -3,6 +3,7 @@ import { NewsCard } from '@/components/news-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { apiGet } from '@/lib/api'
 import { IconChevronLeft, IconChevronRight, IconRefresh } from '@tabler/icons-react'
 import type { Briefing } from '@/lib/types'
@@ -108,11 +109,21 @@ export default function BriefingPage() {
           <IconChevronLeft className="size-4" />
         </Button>
 
-        <div className="text-center">
+        <div className="flex flex-col items-center gap-1">
           <p className="text-sm font-semibold">{displayDate(dateStr)}</p>
-          {isToday && (
-            <span className="text-xs text-muted-foreground">Today</span>
-          )}
+          <Input
+            type="date"
+            value={dateStr}
+            max={formatDate(new Date())}
+            onChange={(e) => {
+              const val = e.target.value
+              if (!val) return
+              const [y, m, d] = val.split('-').map(Number)
+              setCurrentDate(new Date(y, m - 1, d))
+            }}
+            className="h-7 w-36 cursor-pointer px-2 py-0 text-xs"
+            aria-label="Pick a date"
+          />
         </div>
 
         <Button
