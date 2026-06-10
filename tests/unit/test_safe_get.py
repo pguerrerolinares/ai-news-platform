@@ -3,6 +3,7 @@ and a response-size cap."""
 
 from __future__ import annotations
 
+import gzip
 from unittest.mock import patch
 
 import httpx
@@ -77,6 +78,26 @@ async def test_too_many_redirects_is_rejected():
         async with httpx.AsyncClient(follow_redirects=False) as client:
             with pytest.raises(ValueError, match="[Tt]oo many redirects"):
                 await safe_get(client, "https://example.com/0")
+
+
+@respx.mock
+async def test_compressed_body_is_decoded_once():
+    """A gzip/brotli response must be decoded exactly once.
+
+    ``aiter_bytes`` already decompresses the stream, so the reconstructed
+    Response must drop the ``Content-Encoding`` header — otherwise httpx
+    tries to decompress the already-plain body again and raises DecodingError.
+    """
+    payload = b"<rss><item>hello</item></rss>"
+    respx.get("https://example.com/gz").mock(
+        return_value=httpx.Response(
+            200, headers={"Content-Encoding": "gzip"}, content=gzip.compress(payload)
+        )
+    )
+    with patch("src.core.ssrf.assert_safe_url", _noop):
+        async with httpx.AsyncClient(follow_redirects=False) as client:
+            resp = await safe_get(client, "https://example.com/gz")
+    assert resp.text == payload.decode()
 
 
 @respx.mock

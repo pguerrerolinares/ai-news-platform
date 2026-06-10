@@ -91,9 +91,21 @@ async def safe_get(
                     raise ValueError(f"Response body exceeded {max_bytes} bytes for {url!r}")
                 chunks.append(chunk)
 
+            # ``aiter_bytes`` already decoded any Content-Encoding (gzip/br/...),
+            # so ``chunks`` is the plain body. Drop the now-stale content-coding
+            # and length headers; otherwise the reconstructed Response would try
+            # to decompress the already-plain body again and raise DecodingError.
+            headers_out = httpx.Headers(
+                [
+                    (k, v)
+                    for k, v in resp.headers.raw
+                    if k.lower() not in (b"content-encoding", b"content-length")
+                ]
+            )
+
             return httpx.Response(
                 status_code=resp.status_code,
-                headers=resp.headers,
+                headers=headers_out,
                 content=b"".join(chunks),
                 request=resp.request,
             )
