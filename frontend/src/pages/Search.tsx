@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { format } from 'date-fns'
 import { Input } from '@/components/ui/input'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -7,6 +8,7 @@ import { TOPIC_LABELS } from '@/lib/constants'
 import { NewsCard } from '@/components/news-card'
 import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-grid'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/date-picker'
 import { apiGet } from '@/lib/api'
 import type { NewsItem } from '@/lib/types'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
@@ -22,8 +24,8 @@ export default function Search() {
   const [query, setQuery] = useState('')
   const [topic, setTopic] = useState('all')
   const [sortBy, setSortBy] = useState('relevance')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
   const [results, setResults] = useState<NewsItem[]>([])
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,8 +44,8 @@ export default function Search() {
         limit: '30',
       }
       if (topic !== 'all') params.topic = topic
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
+      if (dateFrom) params.date_from = format(dateFrom, 'yyyy-MM-dd')
+      if (dateTo) params.date_to = format(dateTo, 'yyyy-MM-dd')
       const { data, totalCount: count } = await apiGet<NewsItem[]>('/api/search', params)
       setResults(data)
       setTotalCount(count)
@@ -109,21 +111,19 @@ export default function Search() {
             <SelectItem value="score">Score</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          type="date"
+        <DatePicker
           value={dateFrom}
-          onChange={e => setDateFrom(e.target.value)}
-          aria-label="From date"
-          className="w-full sm:w-[160px] [color-scheme:dark]"
-          title="From date"
+          onChange={setDateFrom}
+          placeholder="From date"
+          toDate={dateTo ?? new Date()}
+          className="w-full sm:w-[160px]"
         />
-        <Input
-          type="date"
+        <DatePicker
           value={dateTo}
-          onChange={e => setDateTo(e.target.value)}
-          aria-label="To date"
-          className="w-full sm:w-[160px] [color-scheme:dark]"
-          title="To date"
+          onChange={setDateTo}
+          placeholder="To date"
+          toDate={new Date()}
+          className="w-full sm:w-[160px]"
         />
       </div>
 
