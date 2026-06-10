@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { apiGet } from '@/lib/api'
 import type { SourceFreshness, PipelineRun, AuditReport, AuditDailyRow } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { IconRefresh } from '@tabler/icons-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table'
+import { IconRefresh, IconChevronDown } from '@tabler/icons-react'
 import {
   ChartContainer,
   ChartTooltip,
@@ -28,13 +36,6 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,7 +138,7 @@ function funnelText(run: PipelineRun): string {
   ].join('→')
 }
 
-// ── Run detail sheet ──────────────────────────────────────────────────────────
+// ── Run detail (inline) ───────────────────────────────────────────────────────
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -149,7 +150,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+      className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors shrink-0"
       title="Copy to clipboard"
     >
       {copied ? 'copied' : 'copy'}
@@ -157,134 +158,114 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-function FunnelRow({ label, value }: { label: string; value: number }) {
+function FunnelCell({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex items-center justify-between py-1 border-b last:border-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-mono font-semibold tabular-nums">{value}</span>
+    <div className="flex flex-col items-center rounded-md border bg-muted/30 px-3 py-2 gap-0.5">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+      <span className="text-sm font-mono font-semibold tabular-nums">{value}</span>
     </div>
   )
 }
 
-function RunDetailSheet({
-  run,
-  open,
-  onOpenChange,
-}: {
-  run: PipelineRun | null
-  open: boolean
-  onOpenChange: (v: boolean) => void
-}) {
-  if (!run) return null
-
+function RunDetailInline({ run }: { run: PipelineRun }) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="pb-2">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            Run Detail
-            <Badge variant={statusVariant(run.status)} className="text-xs">
-              {run.status}
-            </Badge>
-          </SheetTitle>
-          <SheetDescription className="font-mono text-xs">
-            {fmtTimeFull(run.started_at)}
-            <span className="ml-2 text-muted-foreground">({relativeTime(run.started_at)})</span>
-          </SheetDescription>
-        </SheetHeader>
+    <div className="flex flex-col gap-4 px-3 py-4 bg-muted/10 border-t">
+      {/* Header row: timestamp + duration */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="text-xs font-mono text-foreground">
+          {fmtTimeFull(run.started_at)}
+        </span>
+        <span className="text-xs text-muted-foreground">({relativeTime(run.started_at)})</span>
+        <span className="text-xs">
+          Duration:{' '}
+          <span className="font-mono font-semibold">{fmtDuration(run.duration_seconds)}</span>
+        </span>
+      </div>
 
-        <div className="flex flex-col gap-4 px-4 pb-6">
-          {/* Timing */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              Timing
-            </p>
-            <p className="text-sm">
-              Duration:{' '}
-              <span className="font-mono font-semibold">{fmtDuration(run.duration_seconds)}</span>
-            </p>
-          </div>
+      {/* Sources */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          Sources
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {run.sources.length > 0
+            ? run.sources.map((s) => (
+                <Badge key={s} variant="outline" className="text-xs font-normal">
+                  {s}
+                </Badge>
+              ))
+            : <span className="text-xs text-muted-foreground">—</span>
+          }
+        </div>
+      </div>
 
-          {/* Sources */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              Sources
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {run.sources.length > 0
-                ? run.sources.map((s) => (
-                    <Badge key={s} variant="outline" className="text-xs font-normal">
-                      {s}
-                    </Badge>
-                  ))
-                : <span className="text-xs text-muted-foreground">—</span>
-              }
+      {/* Funnel — responsive grid, stacks to 2 cols on mobile */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          Pipeline Funnel
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+          <FunnelCell label="Extracted" value={run.items_extracted} />
+          <FunnelCell label="After dedup" value={run.items_after_dedup} />
+          <FunnelCell label="Seen filt." value={run.items_seen_filtered} />
+          <FunnelCell label="Classified" value={run.items_classified} />
+          <FunnelCell label="Validated" value={run.items_validated} />
+          <FunnelCell label="Stored" value={run.items_stored} />
+        </div>
+      </div>
+
+      {/* Error message — prominent, full-width, wraps on mobile */}
+      {run.error_message && (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive mb-1.5">
+            Error
+          </p>
+          <pre className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-[11px] font-mono text-destructive whitespace-pre-wrap break-words leading-relaxed w-full overflow-hidden">
+            {run.error_message}
+          </pre>
+        </div>
+      )}
+
+      {/* IDs — each on its own row, wrap on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            Correlation ID
+          </p>
+          {run.correlation_id ? (
+            <div className="flex items-start gap-1 min-w-0">
+              <code className="text-[11px] font-mono text-foreground break-all min-w-0">
+                {run.correlation_id}
+              </code>
+              <CopyButton text={run.correlation_id} />
             </div>
-          </div>
-
-          {/* Funnel */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              Pipeline Funnel
-            </p>
-            <div className="rounded-md border px-3 py-1">
-              <FunnelRow label="Extracted" value={run.items_extracted} />
-              <FunnelRow label="After dedup" value={run.items_after_dedup} />
-              <FunnelRow label="Seen filtered" value={run.items_seen_filtered} />
-              <FunnelRow label="Classified" value={run.items_classified} />
-              <FunnelRow label="Validated" value={run.items_validated} />
-              <FunnelRow label="Stored" value={run.items_stored} />
-            </div>
-          </div>
-
-          {/* Error message — prominent for error runs */}
-          {run.error_message && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-destructive mb-1">
-                Error
-              </p>
-              <pre className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-[11px] font-mono text-destructive whitespace-pre-wrap break-all leading-relaxed">
-                {run.error_message}
-              </pre>
-            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
           )}
-
-          {/* Correlation ID */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              Correlation ID
-            </p>
-            {run.correlation_id ? (
-              <div className="flex items-center gap-1">
-                <code className="text-[11px] font-mono text-foreground break-all">
-                  {run.correlation_id}
-                </code>
-                <CopyButton text={run.correlation_id} />
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">—</span>
-            )}
-          </div>
-
-          {/* Run ID */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              Run ID
-            </p>
-            <div className="flex items-center gap-1">
-              <code className="text-[11px] font-mono text-muted-foreground break-all">{run.id}</code>
-              <CopyButton text={run.id} />
-            </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            Run ID
+          </p>
+          <div className="flex items-start gap-1 min-w-0">
+            <code className="text-[11px] font-mono text-muted-foreground break-all min-w-0">
+              {run.id}
+            </code>
+            <CopyButton text={run.id} />
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </div>
   )
 }
 
 // ── Pipeline table with pagination ────────────────────────────────────────────
 
 const PAGE_SIZE = 25
+
+// Columns: chevron | Time | Status | Duration (hidden xs) | Sources (hidden sm) | Funnel (hidden md)
+// At 375px only chevron + Time + Status are visible — no horizontal overflow needed.
+const RUNS_COL_SPAN = 6
 
 function PipelineTable({
   runs,
@@ -293,7 +274,6 @@ function PipelineTable({
   page,
   totalCount,
   onPageChange,
-  onRunClick,
 }: {
   runs: PipelineRun[]
   filter: RunStatus
@@ -301,11 +281,16 @@ function PipelineTable({
   page: number
   totalCount: number | null
   onPageChange: (page: number) => void
-  onRunClick: (run: PipelineRun) => void
 }) {
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
+
   const totalPages = totalCount != null ? Math.ceil(totalCount / PAGE_SIZE) : null
   const hasNext = totalPages != null ? page + 1 < totalPages : runs.length === PAGE_SIZE
   const hasPrev = page > 0
+
+  const handleRowClick = (run: PipelineRun) => {
+    setExpandedRunId((prev) => (prev === run.id ? null : run.id))
+  }
 
   return (
     <div className="space-y-3">
@@ -331,52 +316,80 @@ function PipelineTable({
       {runs.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">No runs match this filter.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b bg-muted/40 text-muted-foreground">
-                <th className="px-3 py-2 text-left font-medium">Time</th>
-                <th className="px-3 py-2 text-left font-medium">Status</th>
-                <th className="px-3 py-2 text-left font-medium">Duration</th>
-                <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Sources</th>
-                <th className="px-3 py-2 text-left font-medium hidden md:table-cell" title="extracted→dedup→seen→classified→validated→stored">Funnel</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr
-                  key={run.id}
-                  className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() => onRunClick(run)}
-                  title="Click to view run details"
+        <div className="rounded-lg border [&_[data-slot=table-container]]:overflow-x-hidden">
+          <Table className="text-xs">
+            <TableHeader className="bg-muted/40">
+              <TableRow className="hover:bg-transparent">
+                {/* chevron column */}
+                <TableHead className="w-6 px-2 py-2 text-muted-foreground" />
+                <TableHead className="px-3 py-2 text-muted-foreground font-medium">Time</TableHead>
+                <TableHead className="px-3 py-2 text-muted-foreground font-medium">Status</TableHead>
+                <TableHead className="px-3 py-2 text-muted-foreground font-medium hidden sm:table-cell">Duration</TableHead>
+                <TableHead className="px-3 py-2 text-muted-foreground font-medium hidden sm:table-cell">Sources</TableHead>
+                <TableHead
+                  className="px-3 py-2 text-muted-foreground font-medium hidden md:table-cell"
+                  title="extracted→dedup→seen→classified→validated→stored"
                 >
-                  <td className="px-3 py-2 tabular-nums whitespace-nowrap">
-                    {fmtTime(run.started_at)}
-                    <span className="ml-1 text-muted-foreground">
-                      {relativeTime(run.started_at)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge variant={statusVariant(run.status)} className="text-xs">
-                      {run.status}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2 tabular-nums whitespace-nowrap">
-                    {fmtDuration(run.duration_seconds)}
-                  </td>
-                  <td className="px-3 py-2 hidden sm:table-cell">
-                    {run.sources.join(', ') || '—'}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                    {funnelText(run)}
-                    {run.error_message && (
-                      <span className="ml-1 text-destructive">· err</span>
+                  Funnel
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map((run) => {
+                const isExpanded = expandedRunId === run.id
+                return (
+                  <React.Fragment key={run.id}>
+                    <TableRow
+                      className={`cursor-pointer ${
+                        isExpanded
+                          ? 'bg-muted/20 border-b-0 hover:bg-muted/20'
+                          : 'hover:bg-muted/30'
+                      }`}
+                      onClick={() => handleRowClick(run)}
+                      title="Click to expand run details"
+                    >
+                      {/* Chevron */}
+                      <TableCell className="w-6 px-2 py-2 text-muted-foreground">
+                        <IconChevronDown
+                          className={`size-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 tabular-nums whitespace-nowrap">
+                        {fmtTime(run.started_at)}
+                        <span className="ml-1 text-muted-foreground">
+                          {relativeTime(run.started_at)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                        <Badge variant={statusVariant(run.status)} className="text-xs">
+                          {run.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-3 py-2 tabular-nums whitespace-nowrap hidden sm:table-cell">
+                        {fmtDuration(run.duration_seconds)}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 hidden sm:table-cell">
+                        {run.sources.join(', ') || '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-2 font-mono text-[10px] text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                        {funnelText(run)}
+                        {run.error_message && (
+                          <span className="ml-1 text-destructive">· err</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow className="border-b hover:bg-transparent">
+                        <TableCell colSpan={RUNS_COL_SPAN} className="p-0">
+                          <RunDetailInline run={run} />
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </React.Fragment>
+                )
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -517,39 +530,37 @@ function SourceBreakdownTable({ audit }: { audit: AuditReport }) {
   const total = audit.total_items
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b bg-muted/40 text-muted-foreground">
-            <th className="px-3 py-2 text-left font-medium">Source</th>
-            <th className="px-3 py-2 text-right font-medium tabular-nums">Items</th>
-            <th className="px-3 py-2 text-right font-medium tabular-nums">% of total</th>
-            <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Last item</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className="rounded-lg border [&_[data-slot=table-container]]:overflow-x-hidden">
+      <Table className="text-xs">
+        <TableHeader className="bg-muted/40">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="px-3 py-2 text-muted-foreground font-medium">Source</TableHead>
+            <TableHead className="px-3 py-2 text-right text-muted-foreground font-medium tabular-nums">Items</TableHead>
+            <TableHead className="px-3 py-2 text-right text-muted-foreground font-medium tabular-nums">% of total</TableHead>
+            <TableHead className="px-3 py-2 text-muted-foreground font-medium hidden sm:table-cell">Last item</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {sorted.map((row) => {
             const pct = total > 0 ? ((row.count / total) * 100).toFixed(1) : '0.0'
-            const lastAt = row.last_item_at
-              ? relativeTime(row.last_item_at)
-              : '—'
+            const lastAt = row.last_item_at ? relativeTime(row.last_item_at) : '—'
             return (
-              <tr key={row.source} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="px-3 py-2 font-medium">{row.source}</td>
-                <td className="px-3 py-2 text-right tabular-nums font-mono">
+              <TableRow key={row.source} className="hover:bg-muted/20">
+                <TableCell className="px-3 py-2 font-medium">{row.source}</TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums font-mono">
                   {row.count.toLocaleString()}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right tabular-nums">
                   <span className="text-muted-foreground">{pct}%</span>
-                </td>
-                <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
                   {lastAt}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }
@@ -600,9 +611,6 @@ export default function Admin() {
   const [runsPage, setRunsPage] = useState(0)
   const [runsTotalCount, setRunsTotalCount] = useState<number | null>(null)
 
-  // -- run detail sheet --
-  const [selectedRun, setSelectedRun] = useState<PipelineRun | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   // -- audit --
   const [audit, setAudit] = useState<AuditReport | null>(null)
@@ -671,11 +679,6 @@ export default function Admin() {
     setRunsPage(page)
   }
 
-  const handleRunClick = (run: PipelineRun) => {
-    setSelectedRun(run)
-    setSheetOpen(true)
-  }
-
   const handleDaysChange = (v: string) => {
     setAuditDays(v)
   }
@@ -688,13 +691,6 @@ export default function Admin() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 pb-12">
-      {/* Run detail sheet */}
-      <RunDetailSheet
-        run={selectedRun}
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-      />
-
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -750,7 +746,6 @@ export default function Admin() {
               page={runsPage}
               totalCount={runsTotalCount}
               onPageChange={handleRunsPageChange}
-              onRunClick={handleRunClick}
             />
           )}
         </CardContent>
