@@ -3,6 +3,18 @@
 Paul left me in charge to work through the backlog. He can't interact, so every
 decision I'd normally have asked him about is logged here for review/refinement.
 
+## UPDATE — Paul came back briefly and gave feedback (read this first)
+- **D2 RESOLVED:** his Coolify JWT_SECRET is 64 chars → I promoted the warning to
+  a HARD startup failure (`_validate_production_settings`, commit `2e80ef3`). Done.
+- **D3 RESOLVED → scope rule:** chat + identification/auth are OUT of his roadmap
+  until further notice. Saved to memory ([[scope-chat-auth-out]]). So Track 5, the
+  `require_auth` no-`type` LOW, prompt-injection(chat), chat history are all OUT —
+  not "deferred pending decision", just out of scope. Don't re-pitch them.
+- **Frontend:** he corrected me — I can use Playwright to verify visually, and he
+  has a local backend. So I DID build + visually verify the Daily Briefing page
+  end-to-end (see Batch 5). My earlier "defer all frontend" (D4) is overruled BY HIM
+  for pages I can verify this way.
+
 ## Operating rules I'm following
 - **Commit locally, NO push / NO deploy.** Every push auto-deploys to live prod
   (pguerrero.me) via Coolify; unattended deploy is an unacceptable risk. The whole
@@ -128,6 +140,26 @@ To do when you wake: review this log + the security-sprint findings, run
 `git push` the batch, decide on D2 (jwt_secret rotation), Track 5 approach, and
 which efficiency findings to action. Frontend pages (D4) await a session with you
 at the screen.
+
+### ✅ Batch 5 — Daily Briefing page + verification infra (commits 9a0077b, 795808b)
+Built the `/briefing` frontend page (Sonnet child) and verified it END-TO-END with
+Playwright against your LOCAL backend + synthetic data — not blind. Screenshots
+confirmed: pipeline-summary stats card, NewsCard list, source icons/badges, date
+nav, and graceful 404 empty state, all on-aesthetic. Real prod-data + mobile
+sign-off is still yours, but the structure/aesthetic is verified.
+
+### D7 — Upgraded your LOCAL dev DB 008 → 016 + fixed migration 012
+Your local DB was stuck at migration 008 (code is at 016), so the ORM couldn't run
+against it. Upgrading hit a failure: migration 012 did `DROP INDEX` on a duplicate
+HNSW index your local DB never had. I made **012 idempotent** (`DROP INDEX IF EXISTS`,
+commit `9a0077b`) — a genuine robustness fix (safe for prod, already applied there;
+helps any fresh/divergent DB), which unblocked the upgrade and incidentally
+confirmed migrations 009-016 (incl. this-week's 016) all apply cleanly on a real DB.
+I inserted 3 synthetic news_items + 1 briefing for today to verify the populated
+page, then DELETED them — your local DB is back to clean (5856 items, all
+2026-02-28). Local backend + dev server were stopped; screenshot artifacts removed.
+**Note:** your local DB is now at 016 (was 008) — that's the correct state, matches
+the code.
 
 ## Open questions for you
 - D2: rotate JWT_SECRET to ≥32 chars so we can harden the guard?

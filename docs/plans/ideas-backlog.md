@@ -69,8 +69,10 @@
 - [x] **Timeline section** — Calendar heatmap + topic-grouped items per date. Browse by date
   with full history navigation. See `2026-03-02-timeline-section-design.md`. Done (2026-03-02).
 
-- [ ] **Daily Briefing page** — Backend already generates LLM briefings (`/briefings/{date}`).
-  Surface them in a dedicated page with date navigation. Low effort — data already exists.
+- [x] **Daily Briefing page** — Done (2026-06-10). `/briefing` route: pipeline-summary
+  stats header + news items for the date, prev/next day nav, default today, graceful
+  404 empty state. Reuses NewsCard/Timeline patterns. Verified end-to-end with
+  Playwright + local backend. Final prod-data/mobile sign-off pending Paul.
 
 - [ ] **Analytics Dashboard** — 8 stats endpoints are unused in the frontend. Visualize:
   topic trends over time, source breakdown, trending timeline, score distribution histogram.
