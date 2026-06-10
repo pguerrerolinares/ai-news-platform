@@ -1,10 +1,10 @@
-import { NavLink, useNavigate } from 'react-router'
+import { NavLink, useLocation, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useScrollDirection } from '@/hooks/use-scroll-direction'
 import { IconLogin, IconLogout, IconSettings } from '@tabler/icons-react'
-import { motion } from 'motion/react'
 import { useAuth } from '@/hooks/use-auth'
+import { PillTabs } from '@/components/pill-tabs'
 
 const links = [
   { to: '/', label: 'Latest' },
@@ -16,10 +16,18 @@ const links = [
   { to: '/admin', label: 'Admin' },
 ]
 
+const NAV_ITEMS = links.map(({ to, label }) => ({ value: to, label }))
+
 export function AppNav() {
   const { isFullUser, logout } = useAuth()
   const scrollDir = useScrollDirection()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+
+  // Map the current pathname to the nearest nav value.
+  // "/" is exact; all others match if pathname starts with the link's path.
+  const activeValue =
+    links.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to)))?.to ?? '/'
 
   return (
     <header
@@ -57,38 +65,14 @@ export function AppNav() {
           )}
         </div>
       </div>
-      {/* Horizontally scrollable on mobile so the nav scales as sections are
-          added; a right-edge fade hints there's more to swipe. */}
+      {/* Horizontally scrollable pill nav — same PillTabs component as topic filter */}
       <div className="relative mx-auto max-w-2xl">
-        <nav className="flex gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {links.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `relative shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <motion.span
-                      layoutId="nav-active"
-                      className="absolute inset-0 rounded-full bg-primary"
-                      transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
-                    />
-                  )}
-                  <span className="relative z-10">{label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+        <PillTabs
+          items={NAV_ITEMS}
+          value={activeValue}
+          onValueChange={(to) => navigate(to)}
+          className="px-4 pb-0 pt-0"
+        />
         <div
           className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden"
           aria-hidden
