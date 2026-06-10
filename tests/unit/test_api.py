@@ -181,3 +181,52 @@ class TestCorrelationIdHeader:
         cid = resp.headers["x-correlation-id"]
         assert isinstance(cid, str)
         assert len(cid) > 0
+
+
+# ---------------------------------------------------------------------------
+# Production settings guard
+# ---------------------------------------------------------------------------
+class TestValidateProductionSettings:
+    """_validate_production_settings hard-fails on insecure prod config."""
+
+    @staticmethod
+    def _settings(**overrides):
+        from src.core.config import Settings
+
+        defaults = {
+            "debug": False,
+            "jwt_secret": "x" * 64,
+            "database_url": "postgresql+asyncpg://x:x@localhost/x",
+            "database_url_sync": "postgresql://x:x@localhost/x",
+        }
+        defaults.update(overrides)
+        return Settings(**defaults)
+
+    def test_valid_secret_passes(self):
+        from src.api.app import _validate_production_settings
+
+        _validate_production_settings(self._settings(jwt_secret="x" * 64))  # no raise
+
+    def test_default_secret_raises(self):
+        from src.api.app import _validate_production_settings
+
+        with pytest.raises(RuntimeError, match="JWT_SECRET"):
+            _validate_production_settings(self._settings(jwt_secret="change-me-in-production"))
+
+    def test_short_secret_raises(self):
+        from src.api.app import _validate_production_settings
+
+        with pytest.raises(RuntimeError, match="32"):
+            _validate_production_settings(self._settings(jwt_secret="x" * 31))
+
+    def test_admin_email_without_resend_raises(self):
+        from src.api.app import _validate_production_settings
+
+        with pytest.raises(RuntimeError, match="RESEND_API_KEY"):
+            _validate_production_settings(self._settings(admin_email="a@b.com", resend_api_key=""))
+
+    def test_debug_mode_skips_all_checks(self):
+        from src.api.app import _validate_production_settings
+
+        # In debug, even a short/default secret is allowed (local dev).
+        _validate_production_settings(self._settings(debug=True, jwt_secret="short"))

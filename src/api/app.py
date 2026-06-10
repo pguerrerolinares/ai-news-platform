@@ -27,7 +27,7 @@ from src.api.routes.sources import router as sources_router
 from src.api.routes.stats import router as stats_router
 from src.api.routes.topics import router as topics_router
 from src.api.routes.webauthn import router as webauthn_router
-from src.core.config import get_settings
+from src.core.config import Settings, get_settings
 from src.core.database import close_db, get_engine, init_db
 from src.core.logging import get_logger, set_correlation_id, setup_logging
 from src.core.metrics import api_request_duration_seconds, api_requests_total
@@ -100,24 +100,32 @@ class BodySizeLimitMiddleware:
         await self.app(scope, receive, send)
 
 
+def _validate_production_settings(settings: Settings) -> None:
+    """Fail fast on insecure production configuration (DEBUG=false).
+
+    No-op in debug mode so local dev isn't blocked.
+
+    Raises:
+        RuntimeError: if JWT_SECRET is the default or too short, or if
+            ADMIN_EMAIL is set without RESEND_API_KEY.
+    """
+    if settings.debug:
+        return
+    if settings.jwt_secret == "change-me-in-production":  # nosec B105
+        raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
+    if len(settings.jwt_secret) < 32:
+        raise RuntimeError("JWT_SECRET must be at least 32 characters in production")
+    if settings.admin_email and not settings.resend_api_key:
+        raise RuntimeError("RESEND_API_KEY must be set when ADMIN_EMAIL is configured")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: setup and teardown."""
     setup_logging()
 
     # Block startup with insecure defaults in production
-    settings = get_settings()
-    if not settings.debug:
-        if settings.jwt_secret == "change-me-in-production":  # nosec B105
-            raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
-        # Non-fatal warning (not a hard raise): a hard guard could brick a deploy
-        # if the live secret is short, and we can't verify it here. Rotate to a
-        # >= 32-char secret, then this can be promoted to a hard RuntimeError.
-        if len(settings.jwt_secret) < 32:
-            logger.warning("jwt_secret_too_short", length=len(settings.jwt_secret))
-        if settings.admin_email and not settings.resend_api_key:
-            msg = "RESEND_API_KEY must be set when ADMIN_EMAIL is configured"
-            raise RuntimeError(msg)
+    _validate_production_settings(get_settings())
 
     logger.info("starting_application")
     await init_db()
