@@ -233,9 +233,11 @@
   correlation_id. Saved at success/empty/error paths in pipeline.py.
   TODO: add `GET /api/admin/pipeline-runs` endpoint + frontend page.
 
-- [ ] **Frontend admin page** — Charts + stats consuming the audit and pipeline-runs
-  endpoints. Items/day/source stacked bar, pipeline duration trend, error timeline,
-  source health indicators. Admin-only route in React.
+- [x] **Frontend admin page** — Done (2026-06-10). `/admin` route (public — the 3
+  endpoints were relaxed to guest-readable): source-health strip, pipeline-runs table
+  with status filter + compact funnel, stacked ingestion chart (recharts), totals/
+  duplicates footer. Building it surfaced + fixed a latent audit-endpoint 500.
+  Verified end-to-end with Playwright + local backend.
 
 - [ ] **Remove Telegram alerts** — Delete `src/notifiers/alerts.py`, `AlertService`,
   and all call sites in pipeline.py, scheduler.py, stages/notify.py. Remove

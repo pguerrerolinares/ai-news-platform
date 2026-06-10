@@ -161,6 +161,26 @@ page, then DELETED them — your local DB is back to clean (5856 items, all
 **Note:** your local DB is now at 016 (was 008) — that's the correct state, matches
 the code.
 
+### ✅ Batch 6 — Nav scroll, observability→guest, Admin page, audit-500 fix (interactive, post-correction)
+You came back, corrected me for doing the nav inline instead of delegating, and
+enabled Playwright + local backend. From then I delegated everything:
+- Nav horizontally scrollable on mobile (`d096162`, done inline BEFORE your
+  correction — the one you flagged).
+- Observability endpoints → guest-readable + error_message sanitized (`33e1531`, child).
+- Audit endpoint 500 fixed — nested aggregate de-nested + real-DB integration test
+  (`8469a45`, child). Latent bug surfaced by building the Admin page.
+- Admin observability page (`d43f9e7`, child) — verified end-to-end with Playwright.
+  Parent validation also caught two polish bugs (date_range key mismatch from MY
+  brief, funnel truncation) — both fixed by the child.
+
+### D8 — Local DB row count changed 5856 → 5714 (expected, not data loss)
+Upgrading your local DB 008→016 ran migration 011 ("clean duplicates before adding
+unique url_hash index"), which removed ~142 duplicate-url rows from the local seed.
+That's the migration's documented behavior (prod already went through it); the
+removed rows were url_hash duplicates, not unique content. Local seed data only.
+All synthetic verification data (briefing + admin) was inserted then deleted; DB is
+otherwise untouched (5714 items, 0 pipeline_runs).
+
 ## Open questions for you
 - D2: rotate JWT_SECRET to ≥32 chars so we can harden the guard?
 - Track 5: which approach (Postgres vs api_workers:1)?
