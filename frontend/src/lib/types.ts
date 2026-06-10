@@ -27,6 +27,49 @@ export interface StatsGroupDateItem {
   count: number;
 }
 
+export interface SourceFreshness {
+  source: string;
+  last_item_at: string | null;
+  hours_ago: number | null;
+  status: 'ok' | 'stale' | 'dead';
+}
+
+export interface PipelineRun {
+  id: string;
+  started_at: string;
+  duration_seconds: number | null;
+  status: 'success' | 'empty' | 'error';
+  sources: string[];
+  items_extracted: number;
+  items_after_dedup: number;
+  items_seen_filtered: number;
+  items_classified: number;
+  items_validated: number;
+  items_stored: number;
+  error_message: string | null;
+  correlation_id: string | null;
+}
+
+export interface AuditSourceRow {
+  source: string;
+  count: number;
+  last_item_at: string | null;
+}
+
+export interface AuditDailyRow {
+  date: string;
+  source: string;
+  count: number;
+}
+
+export interface AuditReport {
+  total_items: number;
+  date_range: { oldest: string; newest: string } | Record<string, never>;
+  sources: AuditSourceRow[];
+  daily_breakdown: AuditDailyRow[];
+  duplicates: { duplicate_groups: number; extra_items: number };
+}
+
 export interface Briefing {
   date: string;
   total_items: number | null;

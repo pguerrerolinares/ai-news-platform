@@ -12,6 +12,7 @@ const links = [
   { to: '/timeline', label: 'Timeline' },
   { to: '/briefing', label: 'Briefing' },
   { to: '/search', label: 'Search' },
+  { to: '/admin', label: 'Admin' },
 ]
 
 export function AppNav() {
