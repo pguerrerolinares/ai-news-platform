@@ -28,6 +28,13 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +49,17 @@ function relativeTime(iso: string): string {
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtTimeFull(iso: string): string {
+  return new Date(iso).toLocaleString([], {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
 }
 
 function fmtDuration(s: number | null): string {
@@ -119,19 +137,184 @@ function funnelText(run: PipelineRun): string {
   ].join('→')
 }
 
+// ── Run detail sheet ──────────────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+      title="Copy to clipboard"
+    >
+      {copied ? 'copied' : 'copy'}
+    </button>
+  )
+}
+
+function FunnelRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between py-1 border-b last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs font-mono font-semibold tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+function RunDetailSheet({
+  run,
+  open,
+  onOpenChange,
+}: {
+  run: PipelineRun | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
+  if (!run) return null
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader className="pb-2">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            Run Detail
+            <Badge variant={statusVariant(run.status)} className="text-xs">
+              {run.status}
+            </Badge>
+          </SheetTitle>
+          <SheetDescription className="font-mono text-xs">
+            {fmtTimeFull(run.started_at)}
+            <span className="ml-2 text-muted-foreground">({relativeTime(run.started_at)})</span>
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex flex-col gap-4 px-4 pb-6">
+          {/* Timing */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Timing
+            </p>
+            <p className="text-sm">
+              Duration:{' '}
+              <span className="font-mono font-semibold">{fmtDuration(run.duration_seconds)}</span>
+            </p>
+          </div>
+
+          {/* Sources */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Sources
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {run.sources.length > 0
+                ? run.sources.map((s) => (
+                    <Badge key={s} variant="outline" className="text-xs font-normal">
+                      {s}
+                    </Badge>
+                  ))
+                : <span className="text-xs text-muted-foreground">—</span>
+              }
+            </div>
+          </div>
+
+          {/* Funnel */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Pipeline Funnel
+            </p>
+            <div className="rounded-md border px-3 py-1">
+              <FunnelRow label="Extracted" value={run.items_extracted} />
+              <FunnelRow label="After dedup" value={run.items_after_dedup} />
+              <FunnelRow label="Seen filtered" value={run.items_seen_filtered} />
+              <FunnelRow label="Classified" value={run.items_classified} />
+              <FunnelRow label="Validated" value={run.items_validated} />
+              <FunnelRow label="Stored" value={run.items_stored} />
+            </div>
+          </div>
+
+          {/* Error message — prominent for error runs */}
+          {run.error_message && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-destructive mb-1">
+                Error
+              </p>
+              <pre className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-[11px] font-mono text-destructive whitespace-pre-wrap break-all leading-relaxed">
+                {run.error_message}
+              </pre>
+            </div>
+          )}
+
+          {/* Correlation ID */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Correlation ID
+            </p>
+            {run.correlation_id ? (
+              <div className="flex items-center gap-1">
+                <code className="text-[11px] font-mono text-foreground break-all">
+                  {run.correlation_id}
+                </code>
+                <CopyButton text={run.correlation_id} />
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </div>
+
+          {/* Run ID */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Run ID
+            </p>
+            <div className="flex items-center gap-1">
+              <code className="text-[11px] font-mono text-muted-foreground break-all">{run.id}</code>
+              <CopyButton text={run.id} />
+            </div>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ── Pipeline table with pagination ────────────────────────────────────────────
+
+const PAGE_SIZE = 25
+
 function PipelineTable({
   runs,
   filter,
   onFilterChange,
+  page,
+  totalCount,
+  onPageChange,
+  onRunClick,
 }: {
   runs: PipelineRun[]
   filter: RunStatus
   onFilterChange: (v: RunStatus) => void
+  page: number
+  totalCount: number | null
+  onPageChange: (page: number) => void
+  onRunClick: (run: PipelineRun) => void
 }) {
+  const totalPages = totalCount != null ? Math.ceil(totalCount / PAGE_SIZE) : null
+  const hasNext = totalPages != null ? page + 1 < totalPages : runs.length === PAGE_SIZE
+  const hasPrev = page > 0
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{runs.length} runs shown</p>
+        <p className="text-sm text-muted-foreground">
+          {totalCount != null
+            ? `${totalCount} total · page ${page + 1}${totalPages != null ? ` / ${totalPages}` : ''}`
+            : `${runs.length} runs shown`}
+        </p>
         <Select value={filter} onValueChange={(v) => onFilterChange(v as RunStatus)}>
           <SelectTrigger size="sm" className="w-32">
             <SelectValue />
@@ -161,7 +344,12 @@ function PipelineTable({
             </thead>
             <tbody>
               {runs.map((run) => (
-                <tr key={run.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                <tr
+                  key={run.id}
+                  className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                  onClick={() => onRunClick(run)}
+                  title="Click to view run details"
+                >
                   <td className="px-3 py-2 tabular-nums whitespace-nowrap">
                     {fmtTime(run.started_at)}
                     <span className="ml-1 text-muted-foreground">
@@ -182,13 +370,38 @@ function PipelineTable({
                   <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground hidden md:table-cell whitespace-nowrap">
                     {funnelText(run)}
                     {run.error_message && (
-                      <span className="ml-1 text-destructive">· {run.error_message}</span>
+                      <span className="ml-1 text-destructive">· err</span>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination controls */}
+      {(hasPrev || hasNext) && (
+        <div className="flex items-center justify-between pt-1">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!hasPrev}
+            onClick={() => onPageChange(page - 1)}
+          >
+            Previous
+          </Button>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Page {page + 1}{totalPages != null ? ` of ${totalPages}` : ''}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!hasNext}
+            onClick={() => onPageChange(page + 1)}
+          >
+            Next
+          </Button>
         </div>
       )}
     </div>
@@ -290,6 +503,57 @@ function IngestionChart({
   )
 }
 
+// ── Per-source breakdown table ────────────────────────────────────────────────
+
+function SourceBreakdownTable({ audit }: { audit: AuditReport }) {
+  const sorted = useMemo(
+    () => [...audit.sources].sort((a, b) => b.count - a.count),
+    [audit.sources],
+  )
+
+  if (sorted.length === 0)
+    return <p className="text-sm text-muted-foreground">No source data.</p>
+
+  const total = audit.total_items
+
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b bg-muted/40 text-muted-foreground">
+            <th className="px-3 py-2 text-left font-medium">Source</th>
+            <th className="px-3 py-2 text-right font-medium tabular-nums">Items</th>
+            <th className="px-3 py-2 text-right font-medium tabular-nums">% of total</th>
+            <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Last item</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row) => {
+            const pct = total > 0 ? ((row.count / total) * 100).toFixed(1) : '0.0'
+            const lastAt = row.last_item_at
+              ? relativeTime(row.last_item_at)
+              : '—'
+            return (
+              <tr key={row.source} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                <td className="px-3 py-2 font-medium">{row.source}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-mono">
+                  {row.count.toLocaleString()}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  <span className="text-muted-foreground">{pct}%</span>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                  {lastAt}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function fmtDate(iso: string): string {
   // "2026-02-28 17:37:03.242982+00:00" → "2026-02-28"
   return iso.slice(0, 10)
@@ -333,6 +597,12 @@ export default function Admin() {
   const [runsLoading, setRunsLoading] = useState(true)
   const [runsError, setRunsError] = useState('')
   const [runFilter, setRunFilter] = useState<RunStatus>('all')
+  const [runsPage, setRunsPage] = useState(0)
+  const [runsTotalCount, setRunsTotalCount] = useState<number | null>(null)
+
+  // -- run detail sheet --
+  const [selectedRun, setSelectedRun] = useState<PipelineRun | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   // -- audit --
   const [audit, setAudit] = useState<AuditReport | null>(null)
@@ -354,14 +624,18 @@ export default function Admin() {
   }, [])
 
   const fetchRuns = useCallback(
-    async (status: RunStatus) => {
+    async (status: RunStatus, page: number) => {
       setRunsLoading(true)
       setRunsError('')
       try {
-        const params: Record<string, string> = { limit: '50' }
+        const params: Record<string, string> = {
+          limit: String(PAGE_SIZE),
+          offset: String(page * PAGE_SIZE),
+        }
         if (status !== 'all') params.status = status
-        const { data } = await apiGet<PipelineRun[]>('/api/admin/pipeline-runs', params)
+        const { data, totalCount } = await apiGet<PipelineRun[]>('/api/admin/pipeline-runs', params)
         setRuns(data)
+        setRunsTotalCount(totalCount)
       } catch (err) {
         setRunsError(err instanceof Error ? err.message : 'Error loading runs')
       } finally {
@@ -385,11 +659,21 @@ export default function Admin() {
   }, [])
 
   useEffect(() => { fetchFreshness() }, [fetchFreshness])
-  useEffect(() => { fetchRuns(runFilter) }, [fetchRuns, runFilter])
+  useEffect(() => { fetchRuns(runFilter, runsPage) }, [fetchRuns, runFilter, runsPage])
   useEffect(() => { fetchAudit(auditDays) }, [fetchAudit, auditDays])
 
   const handleRunFilterChange = (v: RunStatus) => {
     setRunFilter(v)
+    setRunsPage(0) // reset to first page on filter change
+  }
+
+  const handleRunsPageChange = (page: number) => {
+    setRunsPage(page)
+  }
+
+  const handleRunClick = (run: PipelineRun) => {
+    setSelectedRun(run)
+    setSheetOpen(true)
   }
 
   const handleDaysChange = (v: string) => {
@@ -398,12 +682,19 @@ export default function Admin() {
 
   const handleRefreshAll = () => {
     fetchFreshness()
-    fetchRuns(runFilter)
+    fetchRuns(runFilter, runsPage)
     fetchAudit(auditDays)
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 pb-12">
+      {/* Run detail sheet */}
+      <RunDetailSheet
+        run={selectedRun}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      />
+
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -440,7 +731,7 @@ export default function Admin() {
       <Card>
         <CardHeader className="pb-0">
           <CardTitle className="text-base">Pipeline Runs</CardTitle>
-          <CardDescription>Last 50 runs</CardDescription>
+          <CardDescription>Click a row to view full run details</CardDescription>
         </CardHeader>
         <CardContent>
           {runsLoading ? (
@@ -456,6 +747,10 @@ export default function Admin() {
               runs={runs}
               filter={runFilter}
               onFilterChange={handleRunFilterChange}
+              page={runsPage}
+              totalCount={runsTotalCount}
+              onPageChange={handleRunsPageChange}
+              onRunClick={handleRunClick}
             />
           )}
         </CardContent>
@@ -478,7 +773,20 @@ export default function Admin() {
         </CardContent>
       </Card>
 
-      {/* 4 — Totals footer */}
+      {/* 4 — Per-source breakdown table */}
+      {audit && !auditLoading && !auditError && (
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle className="text-base">Source Breakdown</CardTitle>
+            <CardDescription>Items per source · sorted by volume</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SourceBreakdownTable audit={audit} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 5 — Totals footer */}
       {audit && !auditLoading && !auditError && (
         <Card>
           <CardContent className="pt-6">
