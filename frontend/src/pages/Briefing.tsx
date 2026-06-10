@@ -174,45 +174,53 @@ export default function BriefingPage() {
       {!loading && !error && briefing && (
         <div className="space-y-6">
           {/* Stats summary card */}
-          <div className="rounded-lg border border-border bg-card p-4 space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Pipeline Summary
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Generated {formatGeneratedAt(briefing.generated_at)}
-              </span>
-            </div>
+          {briefing.generated_at != null ? (
+            <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Pipeline Summary
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  Generated {formatGeneratedAt(briefing.generated_at)}
+                </span>
+              </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <StatCell label="Extracted" value={briefing.items_extracted} />
-              <StatCell label="After dedup" value={briefing.items_after_dedup} />
-              <StatCell label="Filtered" value={briefing.items_filtered} />
-              <StatCell label="Total items" value={briefing.total_items} />
-              <StatCell label="Trending" value={briefing.trending_count} />
-              {briefing.duration_seconds != null && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs text-muted-foreground">Duration</span>
-                  <span className="text-lg font-bold tabular-nums">
-                    {briefing.duration_seconds.toFixed(1)}s
-                  </span>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <StatCell label="Extracted" value={briefing.items_extracted} />
+                <StatCell label="After dedup" value={briefing.items_after_dedup} />
+                <StatCell label="Filtered" value={briefing.items_filtered} />
+                <StatCell label="Total items" value={briefing.total_items} />
+                <StatCell label="Trending" value={briefing.trending_count} />
+                {briefing.duration_seconds != null && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-muted-foreground">Duration</span>
+                    <span className="text-lg font-bold tabular-nums">
+                      {briefing.duration_seconds.toFixed(1)}s
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {briefing.sources_used && briefing.sources_used.sources.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs text-muted-foreground">Sources</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {briefing.sources_used.sources.map((src) => (
+                      <Badge key={src} variant="secondary" className="text-xs">
+                        {src}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-
-            {briefing.sources_used && briefing.sources_used.sources.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs text-muted-foreground">Sources</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {briefing.sources_used.sources.map((src) => (
-                    <Badge key={src} variant="secondary" className="text-xs">
-                      {src}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-card px-4 py-3">
+              <p className="text-xs text-muted-foreground">
+                No pipeline summary recorded for this date.
+              </p>
+            </div>
+          )}
 
           {/* Items list */}
           {briefing.items.length === 0 ? (

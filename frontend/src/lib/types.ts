@@ -79,6 +79,6 @@ export interface Briefing {
   trending_count: number | null;
   duration_seconds: number | null;
   sources_used: { sources: string[] } | null;
-  generated_at: string;
+  generated_at: string | null;
   items: NewsItem[];
 }
