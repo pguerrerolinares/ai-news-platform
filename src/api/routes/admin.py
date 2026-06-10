@@ -128,17 +128,20 @@ async def admin_audit(
         DailySourceCount(date=str(r.day), source=r.source, count=r.count) for r in result.all()
     ]
 
-    # Duplicate check (by URL)
-    dup_query = (
-        select(func.count().label("groups"), func.sum(func.count(NewsItem.id) - 1).label("extra"))
+    # Duplicate check (by URL) — compute per-URL counts in a subquery,
+    # then aggregate over that subquery to avoid nested aggregate functions.
+    dup_counts = (
+        select(func.count(NewsItem.id).label("cnt"))
         .where(NewsItem.url.isnot(None))
         .group_by(NewsItem.url)
         .having(func.count(NewsItem.id) > 1)
+        .subquery()
     )
     result = await session.execute(
-        select(func.count(), func.coalesce(func.sum(dup_query.subquery().c.extra), 0)).select_from(
-            dup_query.subquery()
-        )
+        select(
+            func.count(),
+            func.coalesce(func.sum(dup_counts.c.cnt - 1), 0),
+        ).select_from(dup_counts)
     )
     dup_groups, extra_items = result.one()
 
