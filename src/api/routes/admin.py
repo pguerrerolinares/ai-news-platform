@@ -13,7 +13,7 @@ from slowapi import Limiter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth import UserClaims, require_admin
+from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.ratelimit import get_client_ip
 from src.core.database import get_session
 from src.core.models import NewsItem, PipelineRun
@@ -82,7 +82,7 @@ async def admin_audit(
     request: Request,
     days: int = Query(14, ge=1, le=365),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_admin),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> AuditResponse:
     """Full audit snapshot: items, sources, daily breakdown, duplicates."""
     now = datetime.now(tz=UTC)
@@ -161,7 +161,7 @@ async def admin_pipeline_runs(
     limit: int = Query(50, ge=1, le=500),
     status: Literal["success", "empty", "error"] | None = Query(None),
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_admin),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[PipelineRunResponse]:
     """List recent pipeline runs with per-stage stats."""
     stmt = select(PipelineRun).order_by(PipelineRun.started_at.desc()).limit(limit)
@@ -184,7 +184,7 @@ async def admin_pipeline_runs(
             items_classified=r.items_classified or 0,
             items_validated=r.items_validated or 0,
             items_stored=r.items_stored or 0,
-            error_message=r.error_message,
+            error_message=None,  # sanitized: raw error not exposed on public endpoint
             correlation_id=r.correlation_id,
         )
         for r in runs
@@ -196,7 +196,7 @@ async def admin_pipeline_runs(
 async def admin_freshness(
     request: Request,
     session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_admin),
+    _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[FreshnessResponse]:
     """Per-source content freshness: when was the last item stored?"""
     now = datetime.now(tz=UTC)
