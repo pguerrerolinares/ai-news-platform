@@ -1,7 +1,7 @@
 """Unit tests for admin API routes (audit, pipeline-runs, freshness).
 
 These endpoints are publicly readable (require_auth_or_guest, no admin needed).
-error_message is sanitized (None) in pipeline-runs responses.
+error_message is exposed as-is in pipeline-runs responses (admin debugging tool).
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ def _make_pipeline_run(
 
 
 class TestAdminPipelineRuns:
-    """GET /api/admin/pipeline-runs is publicly readable; error_message is sanitized."""
+    """GET /api/admin/pipeline-runs is publicly readable; error_message is exposed for debugging."""
 
     def _session_with_runs(self, runs: list) -> AsyncMock:
         mock_scalars = MagicMock()
@@ -167,13 +167,13 @@ class TestAdminPipelineRuns:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_error_message_sanitized_to_none(self, api_client: AsyncClient):
-        """A run with a raw error_message in the DB must return error_message=None in JSON."""
-        run = _make_pipeline_run(
-            error_message="could not connect to server: Connection refused\n"
-            "\tIs the server running on host 'db.internal' (192.168.1.5) and port 5432?",
-            status="error",
+    async def test_error_message_exposed_for_debugging(self, api_client: AsyncClient):
+        """A run with a raw error_message in the DB must return the real string in JSON."""
+        raw_error = (
+            "could not connect to server: Connection refused\n"
+            "\tIs the server running on host 'db.internal' (192.168.1.5) and port 5432?"
         )
+        run = _make_pipeline_run(error_message=raw_error, status="error")
         session = self._session_with_runs([run])
 
         async def _get():
@@ -188,7 +188,7 @@ class TestAdminPipelineRuns:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
-        assert data[0]["error_message"] is None, "Raw error must not be exposed publicly"
+        assert data[0]["error_message"] == raw_error, "error_message must be exposed for debugging"
         assert data[0]["status"] == "error", "Status must still reflect the failure"
 
     async def test_null_error_message_stays_none(self, api_client: AsyncClient):

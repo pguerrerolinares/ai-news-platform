@@ -187,7 +187,7 @@ async def admin_pipeline_runs(
             items_classified=r.items_classified or 0,
             items_validated=r.items_validated or 0,
             items_stored=r.items_stored or 0,
-            error_message=None,  # sanitized: raw error not exposed on public endpoint
+            error_message=r.error_message,
             correlation_id=r.correlation_id,
         )
         for r in runs
