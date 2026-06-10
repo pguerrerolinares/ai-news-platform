@@ -8,6 +8,7 @@ import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Settings from '@/pages/Settings'
 import Timeline from '@/pages/Timeline'
+import Briefing from '@/pages/Briefing'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="top" element={<Top />} />
             <Route path="search" element={<Search />} />
             <Route path="timeline" element={<Timeline />} />
+            <Route path="briefing" element={<Briefing />} />
             <Route element={<RequireAuth><Outlet /></RequireAuth>}>
               <Route path="chat" element={<Chat />} />
               <Route path="settings" element={<Settings />} />
