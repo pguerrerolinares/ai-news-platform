@@ -12,6 +12,7 @@ const links = [
   { to: '/timeline', label: 'Timeline' },
   { to: '/briefing', label: 'Briefing' },
   { to: '/search', label: 'Search' },
+  { to: '/discover', label: 'Discover' },
   { to: '/admin', label: 'Admin' },
 ]
 
