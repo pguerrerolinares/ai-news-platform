@@ -55,35 +55,43 @@ export function AppNav() {
           )}
         </div>
       </div>
-      <nav className="mx-auto flex max-w-2xl gap-1 px-4 pb-2">
-        {links.map(({ to, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `relative rounded-full px-3 py-1 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <motion.span
-                    layoutId="nav-active"
-                    className="absolute inset-0 rounded-full bg-primary"
-                    transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
-                  />
-                )}
-                <span className="relative z-10">{label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      {/* Horizontally scrollable on mobile so the nav scales as sections are
+          added; a right-edge fade hints there's more to swipe. */}
+      <div className="relative mx-auto max-w-2xl">
+        <nav className="flex gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {links.map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                `relative shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-active"
+                      className="absolute inset-0 rounded-full bg-primary"
+                      transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                    />
+                  )}
+                  <span className="relative z-10">{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden"
+          aria-hidden
+        />
+      </div>
     </header>
   )
 }
