@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from src.core.config import get_settings
+from src.core.dates import parse_iso_z
 from src.core.logging import get_logger
 from src.core.metrics import (
     extractor_duration_seconds,
@@ -106,11 +107,7 @@ class HuggingFaceExtractor(BaseExtractor):
                 authors = paper.get("authors", [])
                 author = authors[0].get("name", "unknown") if authors else "unknown"
 
-                published_str = paper.get("publishedAt", "")
-                try:
-                    published = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
-                except (ValueError, AttributeError):
-                    published = None
+                published = parse_iso_z(paper.get("publishedAt", ""))
 
                 title = html.unescape(paper.get("title", paper_id))
                 abstract = abstracts.get(paper_id, "")
@@ -177,25 +174,12 @@ class HuggingFaceExtractor(BaseExtractor):
                             continue
                         seen_urls.add(url)
 
-                        try:
-                            last_mod = datetime.fromisoformat(
-                                model.get("lastModified", "").replace("Z", "+00:00")
-                            )
-                        except (ValueError, AttributeError):
-                            last_mod = None
+                        last_mod = parse_iso_z(model.get("lastModified", ""))
 
                         if last_mod is not None and last_mod < since_cutoff:
                             continue
 
-                        try:
-                            created_str = model.get("createdAt", "")
-                            hf_created_at = (
-                                datetime.fromisoformat(created_str.replace("Z", "+00:00"))
-                                if created_str
-                                else None
-                            )
-                        except (ValueError, AttributeError):
-                            hf_created_at = None
+                        hf_created_at = parse_iso_z(model.get("createdAt", ""))
 
                         items.append(
                             ExtractedItem(

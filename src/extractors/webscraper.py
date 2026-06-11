@@ -10,7 +10,6 @@ No browser/Chromium dependency.
 
 from __future__ import annotations
 
-import re
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -25,6 +24,7 @@ from src.core.metrics import (
     items_extracted_total,
 )
 from src.core.ssrf import safe_get
+from src.core.text_utils import strip_html
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -160,7 +160,7 @@ def _html_to_text(html_content: str) -> str:
     except Exception:
         logger.warning("html_to_text_parse_failed", content_length=len(html_content))
         # Fallback: crude regex strip.
-        return re.sub(r"<[^>]+>", "", html_content).strip()
+        return strip_html(html_content)
 
 
 class WebScraperExtractor(BaseExtractor):

@@ -9,6 +9,7 @@ RSS endpoint: https://rss.arxiv.org/rss/{category}
 
 from __future__ import annotations
 
+import asyncio
 import html
 import re
 from datetime import UTC, datetime
@@ -23,6 +24,7 @@ from src.core.metrics import (
     extractor_errors_total,
     items_extracted_total,
 )
+from src.core.text_utils import extract_feed_author, strip_html
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -101,7 +103,7 @@ class ArxivExtractor(BaseExtractor):
         resp = await client.get(url)
         resp.raise_for_status()
 
-        feed = feedparser.parse(resp.text)
+        feed = await asyncio.to_thread(feedparser.parse, resp.text)
         items: list[ExtractedItem] = []
 
         for entry in feed.entries:
@@ -183,21 +185,17 @@ class ArxivExtractor(BaseExtractor):
     @staticmethod
     def _clean_description(text: str) -> str:
         """Remove HTML tags and 'Announce Type:' lines from description."""
-        # Remove HTML tags
-        text = re.sub(r"<[^>]+>", "", text)
-        # Remove Announce Type lines
+        # Remove Announce Type lines before stripping HTML
         text = re.sub(r"Announce Type:.*?\n?", "", text, flags=re.IGNORECASE)
-        return text.strip()
+        return strip_html(text)
 
     @staticmethod
     def _extract_authors(entry: dict) -> str:
         """Extract author names from entry."""
-        # feedparser may put authors in different fields
-        if hasattr(entry, "authors") and entry.authors:
-            return ", ".join(a.get("name", "") for a in entry.authors if a.get("name"))
-        if hasattr(entry, "author") and entry.author:
-            return entry.author
-        # Try extracting from description
+        author = extract_feed_author(entry)
+        if author:
+            return author
+        # Fallback: try extracting from description (arXiv-specific)
         summary = entry.get("summary", "") or ""
         match = re.search(r"Authors?:\s*(.+?)(?:\n|<)", summary)
         if match:

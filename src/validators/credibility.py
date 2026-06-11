@@ -7,7 +7,6 @@ deduplication.
 
 from __future__ import annotations
 
-import asyncio
 import re
 from urllib.parse import urlparse
 
@@ -277,6 +276,21 @@ def _jaccard_similarity(text_a: str, text_b: str) -> float:
     return len(intersection) / len(union)
 
 
+def _item_tokens(item: ClassifiedItem) -> set[str]:
+    """Return pre-tokenized token set for dedup comparison."""
+    text = (item.item.title or "") + " " + (item.item.text or "")[:200]
+    return _tokenize(text)
+
+
+def _tokens_similar(tokens_a: set[str], tokens_b: set[str]) -> bool:
+    """Return True if two pre-tokenized sets exceed the Jaccard threshold."""
+    if not tokens_a or not tokens_b:
+        return False
+    intersection = tokens_a & tokens_b
+    union = tokens_a | tokens_b
+    return len(intersection) / len(union) >= _JACCARD_THRESHOLD
+
+
 def _is_duplicate_or_similar(
     candidate: ClassifiedItem,
     existing: list[ClassifiedItem],
@@ -284,13 +298,10 @@ def _is_duplicate_or_similar(
     """Check if a candidate item is a duplicate of any existing item.
 
     Uses Jaccard similarity on title + first 200 chars of text.
+    Tokenizes the candidate once; existing items are tokenized on demand.
     """
-    candidate_text = (candidate.item.title or "") + " " + (candidate.item.text or "")[:200]
-    for item in existing:
-        item_text = (item.item.title or "") + " " + (item.item.text or "")[:200]
-        if _jaccard_similarity(candidate_text, item_text) >= _JACCARD_THRESHOLD:
-            return True
-    return False
+    candidate_tokens = _item_tokens(candidate)
+    return any(_tokens_similar(candidate_tokens, _item_tokens(item)) for item in existing)
 
 
 # ---------------------------------------------------------------------------
@@ -341,18 +352,25 @@ class CredibilityValidator(BaseValidator):
         self,
         items: list[ClassifiedItem],
     ) -> list[ClassifiedItem]:
-        """Score credibility for all items concurrently."""
-        results = await asyncio.gather(
-            *[self._validate_item(item) for item in items],
-        )
-        return list(results)
+        """Score credibility for all items (flat loop — no real I/O to await)."""
+        settings = get_settings()
+        trusted_domains = settings.trusted_news_domains_list
+        for item in items:
+            self._score_item(item, trusted_domains)
+        return items
 
-    async def _validate_item(
+    async def _validate_item(self, item: ClassifiedItem) -> ClassifiedItem:
+        """Compute credibility score for a single item (used in tests)."""
+        settings = get_settings()
+        self._score_item(item, settings.trusted_news_domains_list)
+        return item
+
+    def _score_item(
         self,
         item: ClassifiedItem,
-    ) -> ClassifiedItem:
-        """Compute credibility score for a single item."""
-        settings = get_settings()
+        trusted_domains: list[str],
+    ) -> None:
+        """Compute and assign credibility score for a single item in-place."""
         score = 0.0
 
         # 1. Source credibility weight
@@ -363,7 +381,6 @@ class CredibilityValidator(BaseValidator):
         if item.item.url:
             domain = _extract_domain(item.item.url)
             if domain:
-                trusted_domains = settings.trusted_news_domains_list
                 for trusted in trusted_domains:
                     if domain == trusted or domain.endswith("." + trusted):
                         score += 0.3
@@ -386,7 +403,6 @@ class CredibilityValidator(BaseValidator):
             source=item.item.source,
             credibility=item.credibility_score,
         )
-        return item
 
     def _filter_noise(self, items: list[ClassifiedItem]) -> list[ClassifiedItem]:
         """Remove low-quality items and deduplicate by Jaccard similarity.
@@ -397,6 +413,7 @@ class CredibilityValidator(BaseValidator):
         3. Jaccard dedup: remove items similar to already-accepted items
         """
         accepted: list[ClassifiedItem] = []
+        accepted_tokens: list[set[str]] = []
 
         for item in items:
             # Rule 1: credibility threshold
@@ -425,8 +442,10 @@ class CredibilityValidator(BaseValidator):
                     )
                     continue
 
-            # Rule 3: Jaccard dedup
-            if _is_duplicate_or_similar(item, accepted):
+            # Rule 3: Jaccard dedup — tokenize candidate once, compare against
+            # pre-tokenized accepted set (avoids re-tokenizing accepted items).
+            candidate_tokens = _item_tokens(item)
+            if any(_tokens_similar(candidate_tokens, t) for t in accepted_tokens):
                 logger.debug(
                     "item_filtered_duplicate",
                     title=item.item.title[:60],
@@ -434,5 +453,6 @@ class CredibilityValidator(BaseValidator):
                 continue
 
             accepted.append(item)
+            accepted_tokens.append(candidate_tokens)
 
         return accepted

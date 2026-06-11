@@ -1,6 +1,6 @@
 """API routes for full-text and semantic (vector) search."""
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
@@ -8,12 +8,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth_or_guest
-from src.api.pagination import set_total_count_header
+from src.api.pagination import count_query, set_total_count_header
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
-from src.core.queries import effective_date
+from src.core.queries import day_end_exclusive, day_start, effective_date
 from src.rag.retriever import Retriever
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -71,14 +71,12 @@ async def search_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
+        query = query.where(effective_date >= day_start(date_from))
     if date_to:
-        end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
-        query = query.where(effective_date < end)
+        query = query.where(effective_date < day_end_exclusive(date_to))
 
     # Count total matching results (before limit/offset)
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     # Apply sorting

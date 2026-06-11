@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from src.core.config import get_settings
+from src.core.dates import parse_iso_z
 from src.core.logging import get_logger
 from src.core.metrics import (
     extractor_duration_seconds,
@@ -102,20 +103,8 @@ class GitHubExtractor(BaseExtractor):
             description = html.unescape(repo.get("description") or "")
             title = f"{name}: {description}" if description else name
 
-            try:
-                pushed = datetime.fromisoformat(repo.get("pushed_at", "").replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pushed = None
-
-            try:
-                created_str = repo.get("created_at", "")
-                created_at_dt = (
-                    datetime.fromisoformat(created_str.replace("Z", "+00:00"))
-                    if created_str
-                    else None
-                )
-            except (ValueError, AttributeError):
-                created_at_dt = None
+            pushed = parse_iso_z(repo.get("pushed_at", ""))
+            created_at_dt = parse_iso_z(repo.get("created_at", ""))
 
             # Repo age filter: skip repos older than configured threshold
             if (

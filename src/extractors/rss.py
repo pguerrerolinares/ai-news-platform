@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import html
-import re
 from datetime import UTC, datetime, timedelta
 from time import mktime
 from urllib.parse import urlparse
@@ -28,6 +27,7 @@ from src.core.metrics import (
     items_extracted_total,
 )
 from src.core.ssrf import safe_get
+from src.core.text_utils import extract_feed_author, strip_html
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -135,7 +135,7 @@ class RSSExtractor(BaseExtractor):
         if new_cache:
             self._etag_cache[feed_url] = new_cache
 
-        feed = feedparser.parse(resp.text)
+        feed = await asyncio.to_thread(feedparser.parse, resp.text)
         source_name = self._get_source_name(feed, feed_url)
         items: list[ExtractedItem] = []
 
@@ -224,32 +224,12 @@ class RSSExtractor(BaseExtractor):
         else:
             raw = ""
 
-        return RSSExtractor._strip_html(raw)
-
-    @staticmethod
-    def _strip_html(text: str) -> str:
-        """Remove HTML tags and normalize whitespace."""
-        # Remove HTML tags
-        text = re.sub(r"<[^>]+>", "", text)
-        # Decode common HTML entities
-        text = text.replace("&amp;", "&")
-        text = text.replace("&lt;", "<")
-        text = text.replace("&gt;", ">")
-        text = text.replace("&quot;", '"')
-        text = text.replace("&#39;", "'")
-        text = text.replace("&nbsp;", " ")
-        # Normalize whitespace
-        text = re.sub(r"\s+", " ", text)
-        return text.strip()
+        return strip_html(raw)
 
     @staticmethod
     def _extract_author(entry: dict) -> str:
         """Extract author name from entry."""
-        if hasattr(entry, "authors") and entry.authors:
-            return ", ".join(a.get("name", "") for a in entry.authors if a.get("name"))
-        if hasattr(entry, "author") and entry.author:
-            return entry.author
-        return "unknown"
+        return extract_feed_author(entry) or "unknown"
 
     @staticmethod
     def _extract_tags(entry: dict) -> list[str]:

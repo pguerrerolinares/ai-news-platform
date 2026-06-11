@@ -1,7 +1,7 @@
 """API routes for news items."""
 
 import uuid as uuid_mod
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
@@ -10,12 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.errors import APIError
-from src.api.pagination import set_total_count_header
+from src.api.pagination import count_query, set_total_count_header
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import ItemEmbedding, NewsItem
-from src.core.queries import effective_date
+from src.core.queries import day_end_exclusive, day_start, effective_date, since_days
 from src.feed.feed_builder import FeedBuilder
 
 router = APIRouter(prefix="/api/items", tags=["items"])
@@ -51,16 +51,14 @@ async def list_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
+        query = query.where(effective_date >= day_start(date_from))
     if date_to:
-        end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
-        query = query.where(effective_date < end)
+        query = query.where(effective_date < day_end_exclusive(date_to))
     if trending is not None:
         query = query.where(NewsItem.trending == trending)
 
     # Count before pagination
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     query = query.order_by(effective_date.desc()).offset(offset).limit(limit)
@@ -94,10 +92,9 @@ async def count_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
+        query = query.where(effective_date >= day_start(date_from))
     if date_to:
-        end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
-        query = query.where(effective_date < end)
+        query = query.where(effective_date < day_end_exclusive(date_to))
 
     result = await session.execute(query)
     count = result.scalar_one()
@@ -123,16 +120,15 @@ async def list_items_by_date(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """List news items for a specific date, sorted by score."""
-    day_start = datetime.combine(item_date, time.min, tzinfo=UTC)
-    day_end = day_start + timedelta(days=1)
-    query = select(NewsItem).where((effective_date >= day_start) & (effective_date < day_end))
+    query = select(NewsItem).where(
+        (effective_date >= day_start(item_date)) & (effective_date < day_end_exclusive(item_date))
+    )
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
         query = query.where(NewsItem.source == source)
 
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     query = (
@@ -163,17 +159,15 @@ async def list_trending_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """List trending items from the last N days, sorted by score."""
-    since = datetime.combine(
-        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    query = select(NewsItem).where(
+        NewsItem.trending.is_(True) & (effective_date >= since_days(days))
     )
-    query = select(NewsItem).where(NewsItem.trending.is_(True) & (effective_date >= since))
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
         query = query.where(NewsItem.source == source)
 
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     query = (
@@ -202,15 +196,15 @@ async def list_today_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """List today's news items, sorted chronologically (newest first)."""
-    today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
-    today_end = today_start + timedelta(days=1)
-    query = select(NewsItem).where((effective_date >= today_start) & (effective_date < today_end))
+    today = datetime.now(tz=UTC).date()
+    query = select(NewsItem).where(
+        (effective_date >= day_start(today)) & (effective_date < day_end_exclusive(today))
+    )
     if topic:
         query = query.where(NewsItem.topic == topic)
 
     # Count before pagination
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     query = query.order_by(effective_date.desc()).offset(offset).limit(limit)
@@ -237,17 +231,15 @@ async def list_top_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """Top items by score in the last N days."""
-    since = datetime.combine(
-        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
+    query = select(NewsItem).where(
+        (effective_date >= since_days(days)) & NewsItem.composite_score.isnot(None)
     )
-    query = select(NewsItem).where((effective_date >= since) & NewsItem.composite_score.isnot(None))
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
         query = query.where(NewsItem.source == source)
 
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     query = query.order_by(NewsItem.composite_score.desc().nulls_last()).offset(offset).limit(limit)
@@ -298,8 +290,7 @@ async def list_latest_items(
     if source:
         query = query.where(NewsItem.source == source)
 
-    count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
-    total = (await session.execute(count_query)).scalar_one()
+    total = await count_query(session, query)
     set_total_count_header(response, total)
 
     query = query.order_by(effective_date.desc()).offset(offset).limit(limit)

@@ -1,6 +1,6 @@
 """API routes for daily briefings."""
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
@@ -14,7 +14,7 @@ from src.api.ratelimit import get_client_ip
 from src.api.schemas import BriefingResponse, ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import DailyBriefing, NewsItem
-from src.core.queries import effective_date
+from src.core.queries import day_end_exclusive, day_start, effective_date
 
 router = APIRouter(prefix="/api/briefings", tags=["briefings"])
 limiter = Limiter(key_func=get_client_ip)
@@ -43,9 +43,9 @@ async def get_briefing(
     briefing = result.scalar_one_or_none()
 
     # Use timestamp range for index-friendly queries
-    day_start = datetime.combine(briefing_date, time.min, tzinfo=UTC)
-    day_end = day_start + timedelta(days=1)
-    date_filter = (effective_date >= day_start) & (effective_date < day_end)
+    date_filter = (effective_date >= day_start(briefing_date)) & (
+        effective_date < day_end_exclusive(briefing_date)
+    )
 
     # Count total items for this date
     items_count = (

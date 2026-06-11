@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from src.core.dates import parse_iso_z
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -218,12 +219,7 @@ class HistoricalGitHubExtractor:
                         continue
                     seen_names.add(full_name)
 
-                    try:
-                        pushed = datetime.fromisoformat(
-                            repo.get("pushed_at", "").replace("Z", "+00:00")
-                        )
-                    except (ValueError, AttributeError):
-                        pushed = None
+                    pushed = parse_iso_z(repo.get("pushed_at", ""))
 
                     items.append(
                         RawItem(
@@ -288,11 +284,8 @@ class HistoricalHFExtractor:
                 if downloads < self.min_downloads:
                     continue
 
-                try:
-                    last_mod = datetime.fromisoformat(
-                        model.get("lastModified", "").replace("Z", "+00:00")
-                    )
-                except (ValueError, AttributeError):
+                last_mod = parse_iso_z(model.get("lastModified", ""))
+                if last_mod is None:
                     continue
 
                 if last_mod.timestamp() < self.since_ts:

@@ -9,6 +9,7 @@ import httpx
 import pytest
 import respx
 
+from src.core.text_utils import strip_html
 from src.extractors.base import ExtractedItem
 from src.extractors.rss import RSSExtractor
 
@@ -399,15 +400,15 @@ class TestHelpers:
     """Test static helper methods."""
 
     def test_strip_html_removes_tags(self):
-        result = RSSExtractor._strip_html("<p>Hello <b>world</b></p>")
+        result = strip_html("<p>Hello <b>world</b></p>")
         assert result == "Hello world"
 
     def test_strip_html_decodes_entities(self):
-        result = RSSExtractor._strip_html("A &amp; B &lt; C &gt; D")
+        result = strip_html("A &amp; B &lt; C &gt; D")
         assert result == "A & B < C > D"
 
     def test_strip_html_normalizes_whitespace(self):
-        result = RSSExtractor._strip_html("  too   many    spaces  ")
+        result = strip_html("  too   many    spaces  ")
         assert result == "too many spaces"
 
     def test_get_source_name_from_feed_title(self):

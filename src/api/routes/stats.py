@@ -1,6 +1,6 @@
 """API routes for aggregate statistics."""
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime
 from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -20,7 +20,7 @@ from src.api.schemas import (
 )
 from src.core.database import get_session
 from src.core.models import NewsItem
-from src.core.queries import effective_date
+from src.core.queries import day_end_exclusive, day_start, effective_date, since_days
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 limiter = Limiter(key_func=get_client_ip)
@@ -43,13 +43,10 @@ def _build_date_filter(
                 status_code=422,
                 detail="date_from must not be after date_to",
             )
-        from_dt = datetime.combine(date_from, time.min, tzinfo=UTC)
-        to_dt = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
-        return (effective_date >= from_dt) & (effective_date < to_dt)
-    since_dt = datetime.combine(
-        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
-    )
-    return effective_date >= since_dt
+        return (effective_date >= day_start(date_from)) & (
+            effective_date < day_end_exclusive(date_to)
+        )
+    return effective_date >= since_days(days)
 
 
 @router.get(
@@ -64,10 +61,9 @@ async def stats_summary(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> StatsSummaryResponse:
     """Get summary statistics for the platform in a single query."""
-    today_start = datetime.combine(datetime.now(tz=UTC).date(), time.min, tzinfo=UTC)
-    today_end = today_start + timedelta(days=1)
 
-    is_today = (effective_date >= today_start) & (effective_date < today_end)
+    today = datetime.now(tz=UTC).date()
+    is_today = (effective_date >= day_start(today)) & (effective_date < day_end_exclusive(today))
 
     result = await session.execute(
         select(
@@ -211,9 +207,6 @@ async def stats_by_source_date(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupDateResponse]:
     """Get item count grouped by source and date for the last N days."""
-    since_dt = datetime.combine(
-        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
-    )
     eff_date = func.date(effective_date)
     result = await session.execute(
         select(
@@ -221,7 +214,7 @@ async def stats_by_source_date(
             NewsItem.source.label("group"),
             func.count(NewsItem.id).label("count"),
         )
-        .where(effective_date >= since_dt)
+        .where(effective_date >= since_days(days))
         .group_by(eff_date, NewsItem.source)
         .order_by(eff_date.asc(), NewsItem.source.asc())
     )
@@ -244,16 +237,13 @@ async def stats_trending_timeline(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsDateResponse]:
     """Get trending item count by date for the last N days."""
-    since_dt = datetime.combine(
-        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
-    )
     eff_date = func.date(effective_date)
     result = await session.execute(
         select(
             eff_date.label("date"),
             func.count(NewsItem.id).label("count"),
         )
-        .where((effective_date >= since_dt) & NewsItem.trending.is_(True))
+        .where((effective_date >= since_days(days)) & NewsItem.trending.is_(True))
         .group_by(eff_date)
         .order_by(eff_date.asc())
     )
@@ -285,11 +275,8 @@ async def stats_score_distribution(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[ScoreDistributionResponse]:
     """Get score distribution as histogram buckets."""
-    since_dt = datetime.combine(
-        (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
-    )
     # Build base filter (date + non-null score + optional source/topic)
-    base_filter = (effective_date >= since_dt) & NewsItem.score.isnot(None)
+    base_filter = (effective_date >= since_days(days)) & NewsItem.score.isnot(None)
     if source:
         base_filter = base_filter & (NewsItem.source == source)
     if topic:

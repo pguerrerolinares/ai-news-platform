@@ -174,22 +174,23 @@ class TestGetExtractors:
         assert "arxiv" in source_names
         assert "reddit" in source_names
 
-    def test_unknown_source_is_ignored(self):
-        """Unknown source names should not produce extractors or crash."""
+    def test_unknown_source_raises_key_error(self):
+        """Unknown source names raise KeyError (fail-fast on misconfiguration)."""
         settings = _mock_settings(enabled_sources="hackernews,unknown_source")
-        with patch("src.pipeline.stages.extract.get_settings", return_value=settings):
-            extractors = get_extractors()
+        with (
+            patch("src.pipeline.stages.extract.get_settings", return_value=settings),
+            pytest.raises(KeyError, match="unknown_source"),
+        ):
+            get_extractors()
 
-        source_names = [e.source_name for e in extractors]
-        assert source_names == ["hackernews"]
-
-    def test_only_unknown_sources_returns_empty(self):
-        """If only unrecognized sources are listed, result should be empty."""
+    def test_only_unknown_sources_raises_key_error(self):
+        """All-unknown sources list raises KeyError on the first unknown entry."""
         settings = _mock_settings(enabled_sources="twitter,mastodon")
-        with patch("src.pipeline.stages.extract.get_settings", return_value=settings):
-            extractors = get_extractors()
-
-        assert extractors == []
+        with (
+            patch("src.pipeline.stages.extract.get_settings", return_value=settings),
+            pytest.raises(KeyError, match="twitter"),
+        ):
+            get_extractors()
 
     def test_preserves_order_hackernews_arxiv_reddit_rss(self):
         """Extractors should be returned in the order: hackernews, arxiv, reddit, rss."""

@@ -6,22 +6,18 @@ import asyncio
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
-from src.extractors.arxiv import ArxivExtractor
+from src.extractors import EXTRACTOR_REGISTRY
 from src.extractors.base import BaseExtractor, ExtractedItem
-from src.extractors.github import GitHubExtractor
-from src.extractors.github_trending import GitHubTrendingExtractor
-from src.extractors.hackernews import HackerNewsExtractor
-from src.extractors.hackernews_leading import HackerNewsLeadingExtractor
-from src.extractors.huggingface import HuggingFaceExtractor
-from src.extractors.reddit import RedditExtractor
-from src.extractors.rss import RSSExtractor
-from src.extractors.webscraper import WebScraperExtractor
 
 logger = get_logger(__name__)
 
 
 def get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
-    """Build list of enabled extractors, optionally filtered by source names."""
+    """Build list of enabled extractors, optionally filtered by source names.
+
+    Raises KeyError if a source name in ``enabled`` is not present in
+    EXTRACTOR_REGISTRY (fail-fast on misconfiguration).
+    """
     settings = get_settings()
     enabled = settings.enabled_sources_list
 
@@ -29,25 +25,12 @@ def get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
         enabled = [s for s in enabled if s in sources]
 
     extractors: list[BaseExtractor] = []
-
-    if "hackernews" in enabled:
-        extractors.append(HackerNewsExtractor())
-    if "hackernews_leading" in enabled:
-        extractors.append(HackerNewsLeadingExtractor())
-    if "arxiv" in enabled:
-        extractors.append(ArxivExtractor())
-    if "reddit" in enabled:
-        extractors.append(RedditExtractor())
-    if "rss" in enabled:
-        extractors.append(RSSExtractor())
-    if "github" in enabled:
-        extractors.append(GitHubTrendingExtractor())
-    if "github_search" in enabled:
-        extractors.append(GitHubExtractor())
-    if "huggingface" in enabled:
-        extractors.append(HuggingFaceExtractor())
-    if "webscraper" in enabled:
-        extractors.append(WebScraperExtractor())
+    for source in enabled:
+        if source not in EXTRACTOR_REGISTRY:
+            raise KeyError(
+                f"Unknown extractor source {source!r}. " f"Available: {sorted(EXTRACTOR_REGISTRY)}"
+            )
+        extractors.append(EXTRACTOR_REGISTRY[source]())
 
     return extractors
 
