@@ -97,7 +97,7 @@ ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
 ├── Dockerfile.api / Dockerfile.pipeline / docker-compose.coolify.yml
-├── alembic/                          # DB migrations (15 versions)
+├── alembic/                          # DB migrations (17 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
 │   ├── core/
@@ -154,7 +154,8 @@ ai-news-platform/
 
 ### Tables
 - **news_items**: id(UUID PK), title, summary, url, source, topic, relevance_score, dev_value_score, credibility_score, composite_score, priority, trending, published_at, created_at, content_hash(UNIQUE), url_hash, full_text, author, score, metadata(JSONB), language(VARCHAR DEFAULT 'en'), search_vector(tsvector)
-  Indexes: published_at DESC, topic, source, content_hash, url_hash, FTS(title+summary+full_text), score, created_at, GIN(search_vector), partial(trending+date)
+  Indexes: published_at DESC, topic, source, content_hash, url_hash, score, created_at, GIN(search_vector), partial(trending+date)
+  FTS: search_vector is trigger-maintained as to_tsvector('simple', title+full_text+source) (migration 017) and queried via the GIN index by /api/search
   Constraint: valid_topic CHECK (models, papers, agents, products, tools, open_source, regulation)
 - **raw_extractions**: id(SERIAL PK), title, url, source, extracted_at, data(JSONB) — staging table
 - **daily_briefings**: date(DATE PK), total_items, items_extracted, items_after_dedup, items_filtered, trending_count, duration_seconds, sources_used(JSONB), generated_at

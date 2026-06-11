@@ -102,6 +102,12 @@
 > Post-deploy analysis: seen filter + GitHub fixes reduced LLM calls ~80%, Tier 2
 > pipeline from 100s→23.5s. These are the next wave of optimizations.
 
+- [x] **Efficiency sprint (2026-06-11)** — actioned F-1/F-4/F-5/F-8/F-11/F-12/F-16/F-17
+  and removed F-3 (URL HEAD check) from `docs/plans/efficiency-findings-2026-06-10.md`;
+  F-6 dismissed via EXPLAIN. Highlights: seen-filter loop off the event loop, single-query
+  score distribution, concurrent LLM batches, search now uses the GIN-indexed `search_vector`
+  (migration 017). See that doc's "Implementation status" table. Local commits, not yet deployed.
+
 - [x] **Drop duplicate HNSW index** — Done (2026-03-17). Migration 012 drops
   `ix_item_embeddings_hnsw` (duplicate of ORM-declared `idx_embeddings_hnsw`).
   Saves 56MB RAM/disk.

@@ -6,6 +6,34 @@ production data to confirm is flagged explicitly.
 
 ---
 
+## Implementation status — 2026-06-11 (sprint)
+
+Verified the speculative findings against the local dev DB (5718 items) before
+touching anything, then actioned the rest via parent-orchestrator + Sonnet
+children (commits `f98d4f0`..`6e6945e`, local only — not pushed).
+
+| Finding | Outcome |
+|---------|---------|
+| F-1 | ✅ Done — title-similarity loop moved off the event loop (`asyncio.to_thread`). |
+| F-4 | ✅ Done — `NOT IN` → `outerjoin + IS NULL + LIMIT 500`. (Note: at 5718 rows the old query ran in 3ms; value is bounded RAM at scale, not speed now.) |
+| F-5 | ✅ Done — 6 sequential COUNTs → one `case()` aggregate. |
+| F-8 | ✅ Done — LLM batches now concurrent, bounded by `Semaphore(3)`; order + fallback preserved. |
+| F-11 | ✅ Done — `Retriever` reused as a module singleton in `/api/search`. |
+| F-12 | ✅ Done — `CompositeScorer` constructed once in `FeedBuilder.__init__`. |
+| F-16 | ✅ Done — **the doc's NULL guess was wrong**: `search_vector` was 5718/5718 populated by trigger `trg_news_items_search`, but using `to_tsvector('english', title+summary)` while `search.py` ran `to_tsvector('simple', title+full_text+source)` at query time — the GIN index was dead weight nothing read. Migration 017 realigns the trigger to `'simple', title+full_text+source` + backfills; `search.py` now matches/ranks against the column (Bitmap Index Scan confirmed). Config stays `'simple'` (no semantic change). |
+| F-17 | ✅ Done — `AsyncOpenAI` client cached on the classifier. |
+| F-3 | ✅ Removed entirely (owner decision) — per-item HEAD request + `+0.1` URL bonus deleted; shared SSRF helper untouched. |
+| F-6 | ❌ Dismissed — `EXPLAIN ANALYZE` on the topic+effective_date query already uses `idx_news_items_effective_date` in **0.05ms**. Composite indexes would be over-engineering at this scale. |
+| F-2, F-13 | Deferred — need production duplicate-counts / pool-wait data to justify. |
+| F-7, F-10 | Noted only (HNSW tuning low-priority at scale; F-10 is a documented behavior, no code change). |
+| F-9, F-14, F-15 | Already optimal — see "NOT Worth It" section. |
+
+Follow-up (separate, data-driven): F-16 leaves search on `'simple'` (no stemming);
+switching to `'english'` stemming over the same columns is a search-QUALITY change to
+A/B with real queries, deliberately kept out of this sprint.
+
+---
+
 ## Bottom-Line Summary — Top 5 Opportunities
 
 | # | Finding | Impact | Effort | Confidence |
