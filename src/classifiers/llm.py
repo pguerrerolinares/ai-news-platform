@@ -202,14 +202,14 @@ class LLMClassifier(BaseClassifier):
         self._fallback = KeywordClassifier()
 
     def _get_client(self) -> openai.AsyncOpenAI:
-        """Get or create the OpenAI client."""
-        if self._client is not None:
-            return self._client
-        settings = get_settings()
-        return openai.AsyncOpenAI(
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_base_url,
-        )
+        """Get or create the OpenAI client, caching it for connection-pool reuse."""
+        if self._client is None:
+            settings = get_settings()
+            self._client = openai.AsyncOpenAI(
+                api_key=settings.openai_api_key,
+                base_url=settings.openai_base_url,
+            )
+        return self._client
 
     async def classify(self, items: list[ExtractedItem]) -> list[ClassifiedItem]:
         """Classify items using LLM with fallback to keyword classifier."""
@@ -230,25 +230,28 @@ class LLMClassifier(BaseClassifier):
         client = self._get_client()
         model = settings.openai_model
 
-        # Process in batches
-        all_results: list[ClassifiedItem] = []
-        for batch_start in range(0, len(items), BATCH_SIZE):
-            batch = items[batch_start : batch_start + BATCH_SIZE]
-            try:
-                batch_results = await self._classify_batch(
-                    client, model, batch, topics_info, enabled_topics, min_relevance
-                )
-                all_results.extend(batch_results)
-            except Exception:
-                logger.warning(
-                    "llm_batch_failed_using_fallback",
-                    batch_start=batch_start,
-                    batch_size=len(batch),
-                    exc_info=True,
-                )
-                fallback_results = await self._fallback.classify(batch)
-                all_results.extend(fallback_results)
+        # Process batches concurrently, bounded to 3 in-flight to respect rate limits
+        sem = asyncio.Semaphore(3)
+        starts = list(range(0, len(items), BATCH_SIZE))
 
+        async def _bounded(batch_start: int) -> list[ClassifiedItem]:
+            batch = items[batch_start : batch_start + BATCH_SIZE]
+            async with sem:
+                try:
+                    return await self._classify_batch(
+                        client, model, batch, topics_info, enabled_topics, min_relevance
+                    )
+                except Exception:
+                    logger.warning(
+                        "llm_batch_failed_using_fallback",
+                        batch_start=batch_start,
+                        batch_size=len(batch),
+                        exc_info=True,
+                    )
+                    return await self._fallback.classify(batch)
+
+        batches: list[list[ClassifiedItem]] = await asyncio.gather(*[_bounded(s) for s in starts])
+        all_results: list[ClassifiedItem] = [item for batch in batches for item in batch]
         return all_results
 
     async def _classify_batch(
