@@ -30,18 +30,19 @@ def deduplicate_items(items: list[ExtractedItem]) -> list[ExtractedItem]:
     content_deduped = len(items) - len(after_content)
 
     # Pass 2: url hash dedup (keep highest score per URL)
+    # Items without a URL pass through as-is; Pass 1 already deduped on content_hash.
     url_map: dict[str, ExtractedItem] = {}
+    no_url: list[ExtractedItem] = []
     for item in after_content:
         uh = item.url_hash
         if not uh:
-            # No URL — can't dedup by URL, use content_hash as key
-            url_map.setdefault(item.content_hash, item)
+            no_url.append(item)
             continue
         existing = url_map.get(uh)
         if existing is None or (item.score or 0) > (existing.score or 0):
             url_map[uh] = item
 
-    unique = list(url_map.values())
+    unique = list(url_map.values()) + no_url
     url_deduped = len(after_content) - len(unique)
     total_deduped = content_deduped + url_deduped
 

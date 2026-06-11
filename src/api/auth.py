@@ -139,10 +139,16 @@ def validate_refresh_token(token: str) -> UserClaims:
     )
 
 
-async def require_auth(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+def _decode_access_claims(
+    credentials: HTTPAuthorizationCredentials,
+    *,
+    allow_guest: bool,
 ) -> UserClaims:
-    """Verify JWT access token. Returns UserClaims on success, raises 401 on failure."""
+    """Decode and validate an access JWT, returning UserClaims.
+
+    Raises APIError 401 on any validation failure.
+    When *allow_guest* is False, guest-role tokens are rejected with GUEST_NOT_ALLOWED.
+    """
     settings = get_settings()
     try:
         payload = jwt.decode(
@@ -150,20 +156,28 @@ async def require_auth(
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
         )
-        if payload.get("type") not in ("access", None):
-            raise APIError(401, "INVALID_TOKEN", "Token is not an access token")
-        if payload.get("role") == "guest":
-            raise APIError(401, "GUEST_NOT_ALLOWED", "Authentication required")
-        sub: str | None = payload.get("sub")
-        if sub is None:
-            raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
-        return UserClaims(
-            sub=sub,
-            role=payload.get("role", "reader"),
-            email=payload.get("email", ""),
-        )
     except jwt.PyJWTError:
         raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None
+
+    if payload.get("type") not in ("access", None):
+        raise APIError(401, "INVALID_TOKEN", "Token is not an access token")
+    if not allow_guest and payload.get("role") == "guest":
+        raise APIError(401, "GUEST_NOT_ALLOWED", "Authentication required")
+    sub: str | None = payload.get("sub")
+    if sub is None:
+        raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
+    return UserClaims(
+        sub=sub,
+        role=payload.get("role", "reader"),
+        email=payload.get("email", ""),
+    )
+
+
+async def require_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> UserClaims:
+    """Verify JWT access token. Returns UserClaims on success, raises 401 on failure."""
+    return _decode_access_claims(credentials, allow_guest=False)
 
 
 async def require_admin(
@@ -179,22 +193,4 @@ async def require_auth_or_guest(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> UserClaims:
     """Accept both authenticated users and guest tokens."""
-    settings = get_settings()
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.jwt_secret,
-            algorithms=[settings.jwt_algorithm],
-        )
-        if payload.get("type") not in ("access", None):
-            raise APIError(401, "INVALID_TOKEN", "Token is not an access token")
-        sub: str | None = payload.get("sub")
-        if sub is None:
-            raise APIError(401, "INVALID_TOKEN", "Invalid or expired token")
-        return UserClaims(
-            sub=sub,
-            role=payload.get("role", "reader"),
-            email=payload.get("email", ""),
-        )
-    except jwt.PyJWTError:
-        raise APIError(401, "INVALID_TOKEN", "Invalid or expired token") from None
+    return _decode_access_claims(credentials, allow_guest=True)

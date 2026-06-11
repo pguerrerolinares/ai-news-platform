@@ -392,7 +392,7 @@ class CredibilityValidator(BaseValidator):
         """Remove low-quality items and deduplicate by Jaccard similarity.
 
         Filtering rules:
-        1. Remove items with credibility_score < 0.4
+        1. Remove items with credibility_score < 0.3
         2. Remove low-engagement items (score < 5) from HackerNews/Reddit
         3. Jaccard dedup: remove items similar to already-accepted items
         """

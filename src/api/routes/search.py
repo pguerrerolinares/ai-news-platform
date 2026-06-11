@@ -73,7 +73,8 @@ async def search_items(
     if date_from:
         query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
     if date_to:
-        query = query.where(effective_date < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC))
+        end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
+        query = query.where(effective_date < end)
 
     # Count total matching results (before limit/offset)
     count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())
