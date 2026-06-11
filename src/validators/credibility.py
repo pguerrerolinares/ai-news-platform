@@ -1,8 +1,8 @@
 """Credibility validator for classified news items.
 
-Validates items through domain trust checks, SSRF-safe URL verification,
-source credibility weighting, engagement scoring, tone analysis, noise
-filtering, and Jaccard-similarity deduplication.
+Validates items through domain trust checks, source credibility weighting,
+engagement scoring, tone analysis, noise filtering, and Jaccard-similarity
+deduplication.
 """
 
 from __future__ import annotations
@@ -11,12 +11,9 @@ import asyncio
 import re
 from urllib.parse import urlparse
 
-import httpx
-
 from src.classifiers.base import ClassifiedItem
 from src.core.config import get_settings
 from src.core.logging import get_logger
-from src.core.ssrf import is_safe_url as _is_safe_url
 from src.validators.base import BaseValidator
 
 logger = get_logger(__name__)
@@ -24,11 +21,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-_HEADERS = {"User-Agent": "AI-News-Validator/1.0"}
-_MAX_CONTENT_BYTES = 4096
 _JACCARD_THRESHOLD = 0.65
-_URL_TIMEOUT = 5.0
-_SEMAPHORE_LIMIT = 5
 
 _STOPWORDS = frozenset(
     {
@@ -300,25 +293,6 @@ def _is_duplicate_or_similar(
     return False
 
 
-async def _verify_url_content(url: str, client: httpx.AsyncClient) -> float:
-    """Verify that a URL is accessible via HEAD request.
-
-    Returns a bonus score: 0.1 if accessible, 0.0 if not.
-    """
-    try:
-        response = await client.head(
-            url,
-            headers=_HEADERS,
-            timeout=_URL_TIMEOUT,
-            follow_redirects=False,
-        )
-        if response.status_code < 400:
-            return 0.1
-    except (httpx.HTTPError, httpx.TimeoutException):
-        pass
-    return 0.0
-
-
 # ---------------------------------------------------------------------------
 # Credibility Validator
 # ---------------------------------------------------------------------------
@@ -326,10 +300,9 @@ class CredibilityValidator(BaseValidator):
     """Validates news items for credibility, filtering low-quality content.
 
     Scoring components:
-    - Source credibility weight (arxiv=0.3, rss=0.25, hackernews=0.1, reddit=0.05)
+    - Source credibility weight (arxiv=0.3, rss=0.25, hackernews=0.2, reddit=0.1)
     - Domain trust bonus (+0.3 for trusted domains)
     - Engagement score bonus (tiered from item score)
-    - URL verification bonus (+0.1 for accessible URLs)
     - Tone analysis adjustment (suspicious -0.1 each, professional +0.05 each)
 
     Filtering:
@@ -368,25 +341,15 @@ class CredibilityValidator(BaseValidator):
         self,
         items: list[ClassifiedItem],
     ) -> list[ClassifiedItem]:
-        """Score credibility for all items concurrently with a semaphore."""
-        semaphore = asyncio.Semaphore(_SEMAPHORE_LIMIT)
-
-        async with httpx.AsyncClient() as client:
-
-            async def _validate_one(item: ClassifiedItem) -> ClassifiedItem:
-                async with semaphore:
-                    return await self._validate_item(item, client)
-
-            results = await asyncio.gather(
-                *[_validate_one(item) for item in items],
-            )
-
+        """Score credibility for all items concurrently."""
+        results = await asyncio.gather(
+            *[self._validate_item(item) for item in items],
+        )
         return list(results)
 
     async def _validate_item(
         self,
         item: ClassifiedItem,
-        client: httpx.AsyncClient,
     ) -> ClassifiedItem:
         """Compute credibility score for a single item."""
         settings = get_settings()
@@ -410,12 +373,7 @@ class CredibilityValidator(BaseValidator):
         engagement = _score_engagement(item)
         score += engagement * 0.2  # Scale engagement contribution
 
-        # 4. URL verification (SSRF-safe)
-        if item.item.url and await _is_safe_url(item.item.url):
-            url_bonus = await _verify_url_content(item.item.url, client)
-            score += url_bonus
-
-        # 5. Tone analysis
+        # 4. Tone analysis
         tone_adjustment = _analyze_news_tone(item)
         score += tone_adjustment
 

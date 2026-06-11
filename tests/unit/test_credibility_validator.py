@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 from src.core.config import Settings
@@ -191,8 +189,7 @@ class TestDomainTrust:
     """Domain trust is tested through the full validate_item flow."""
 
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_trusted_domain_gets_bonus(self, _mock_safe, mock_settings):
+    async def test_trusted_domain_gets_bonus(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         item = make_classified_item(
@@ -203,15 +200,13 @@ class TestDomainTrust:
                 score=100,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
+        result = await validator._validate_item(item)
         # Source (rss=0.25) + domain trust (0.3) + engagement + tone
         assert result.credibility_score is not None
         assert result.credibility_score >= 0.5
 
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_untrusted_domain_no_bonus(self, _mock_safe, mock_settings):
+    async def test_untrusted_domain_no_bonus(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         item = make_classified_item(
@@ -222,9 +217,8 @@ class TestDomainTrust:
                 score=10,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
-        # Source (reddit=0.05) + no domain trust + low engagement
+        result = await validator._validate_item(item)
+        # Source (reddit=0.1) + no domain trust + low engagement
         assert result.credibility_score is not None
         assert result.credibility_score < 0.4
 
@@ -234,8 +228,7 @@ class TestDomainTrust:
 # ---------------------------------------------------------------------------
 class TestSourceCredibility:
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_arxiv_highest_weight(self, _mock_safe, mock_settings):
+    async def test_arxiv_highest_weight(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         item = make_classified_item(
@@ -246,15 +239,13 @@ class TestSourceCredibility:
                 score=0,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
+        result = await validator._validate_item(item)
         # arxiv = 0.3 source + 0.3 trusted domain + engagement*0.2 + tone
         assert result.credibility_score is not None
         assert result.credibility_score >= 0.5
 
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_rss_medium_weight(self, _mock_safe, mock_settings):
+    async def test_rss_medium_weight(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         item = make_classified_item(
@@ -265,15 +256,13 @@ class TestSourceCredibility:
                 score=0,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
+        result = await validator._validate_item(item)
         # rss = 0.25 source, no trusted domain, low engagement
         assert result.credibility_score is not None
         assert result.credibility_score >= 0.25
 
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_reddit_lowest_weight(self, _mock_safe, mock_settings):
+    async def test_reddit_lowest_weight(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         item = make_classified_item(
@@ -284,9 +273,8 @@ class TestSourceCredibility:
                 score=0,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
-        # reddit = 0.05 source, no trusted domain, low engagement
+        result = await validator._validate_item(item)
+        # reddit = 0.1 source, no trusted domain, low engagement
         assert result.credibility_score is not None
         assert result.credibility_score < 0.3
 
@@ -348,53 +336,6 @@ class TestToneAnalysis:
         )
         adjustment = _analyze_news_tone(item)
         assert adjustment < 0.0
-
-
-# ---------------------------------------------------------------------------
-# URL verification
-# ---------------------------------------------------------------------------
-class TestUrlVerification:
-    async def test_accessible_url_gives_bonus(self):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-
-        mock_client = AsyncMock(spec=httpx.AsyncClient)
-        mock_client.head = AsyncMock(return_value=mock_response)
-
-        from src.validators.credibility import _verify_url_content
-
-        bonus = await _verify_url_content("https://example.com/article", mock_client)
-        assert bonus == 0.1
-
-    async def test_inaccessible_url_no_bonus(self):
-        mock_client = AsyncMock(spec=httpx.AsyncClient)
-        mock_client.head = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
-
-        from src.validators.credibility import _verify_url_content
-
-        bonus = await _verify_url_content("https://example.com/article", mock_client)
-        assert bonus == 0.0
-
-    async def test_404_no_bonus(self):
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-
-        mock_client = AsyncMock(spec=httpx.AsyncClient)
-        mock_client.head = AsyncMock(return_value=mock_response)
-
-        from src.validators.credibility import _verify_url_content
-
-        bonus = await _verify_url_content("https://example.com/missing", mock_client)
-        assert bonus == 0.0
-
-    async def test_http_error_no_bonus(self):
-        mock_client = AsyncMock(spec=httpx.AsyncClient)
-        mock_client.head = AsyncMock(side_effect=httpx.HTTPError("connection error"))
-
-        from src.validators.credibility import _verify_url_content
-
-        bonus = await _verify_url_content("https://example.com/error", mock_client)
-        assert bonus == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -705,9 +646,8 @@ class TestValidateMethod:
         result = await validator.validate([])
         assert result == []
 
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
     @patch("src.validators.credibility.get_settings")
-    async def test_validate_sets_credibility_scores(self, mock_settings, _mock_safe):
+    async def test_validate_sets_credibility_scores(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         items = [
@@ -728,9 +668,8 @@ class TestValidateMethod:
             assert item.credibility_score is not None
             assert 0.0 <= item.credibility_score <= 1.0
 
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
     @patch("src.validators.credibility.get_settings")
-    async def test_validate_filters_low_quality(self, mock_settings, _mock_safe):
+    async def test_validate_filters_low_quality(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         items = [
@@ -769,39 +708,11 @@ class TestValidateMethod:
 # Concurrent validation with Semaphore
 # ---------------------------------------------------------------------------
 class TestConcurrentValidation:
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
     @patch("src.validators.credibility.get_settings")
-    async def test_concurrent_validation_respects_semaphore(
-        self,
-        mock_settings,
-        _mock_safe,
-    ):
+    async def test_concurrent_validation_runs_all(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
 
-        # Track concurrent access
-        max_concurrent = 0
-        current_concurrent = 0
-        lock = asyncio.Lock()
-
-        original_validate_item = validator._validate_item
-
-        async def _tracking_validate(item, client):
-            nonlocal max_concurrent, current_concurrent
-            async with lock:
-                current_concurrent += 1
-                max_concurrent = max(max_concurrent, current_concurrent)
-            try:
-                # Small delay to ensure concurrency is observable
-                await asyncio.sleep(0.01)
-                return await original_validate_item(item, client)
-            finally:
-                async with lock:
-                    current_concurrent -= 1
-
-        validator._validate_item = _tracking_validate
-
-        # Create more items than the semaphore limit (5)
         items = [
             make_classified_item(
                 title=f"Item {i} about research methodology",
@@ -816,14 +727,11 @@ class TestConcurrentValidation:
             for i in range(10)
         ]
 
-        await validator._validate_batch(items)
+        results = await validator._validate_batch(items)
+        assert len(results) == 10
 
-        # Semaphore should limit to 5 concurrent validations
-        assert max_concurrent <= 5
-
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
     @patch("src.validators.credibility.get_settings")
-    async def test_batch_validates_all_items(self, mock_settings, _mock_safe):
+    async def test_batch_validates_all_items(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
 
@@ -852,8 +760,7 @@ class TestConcurrentValidation:
 # ---------------------------------------------------------------------------
 class TestScoreClamping:
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_score_never_exceeds_1(self, _mock_safe, mock_settings):
+    async def test_score_never_exceeds_1(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         # Create item with everything maxed out
@@ -867,14 +774,12 @@ class TestScoreClamping:
                 score=1000,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
+        result = await validator._validate_item(item)
         assert result.credibility_score is not None
         assert result.credibility_score <= 1.0
 
     @patch("src.validators.credibility.get_settings")
-    @patch("src.validators.credibility._is_safe_url", return_value=False)
-    async def test_score_never_below_0(self, _mock_safe, mock_settings):
+    async def test_score_never_below_0(self, mock_settings):
         mock_settings.return_value = _make_settings()
         validator = CredibilityValidator()
         # Create item with very suspicious tone
@@ -889,8 +794,7 @@ class TestScoreClamping:
                 score=0,
             ),
         )
-        async with httpx.AsyncClient() as client:
-            result = await validator._validate_item(item, client)
+        result = await validator._validate_item(item)
         assert result.credibility_score is not None
         assert result.credibility_score >= 0.0
 
@@ -910,33 +814,6 @@ class TestEdgeCasesIsSafeUrl:
     async def test_empty_url_returns_false(self):
         """Completely empty URL string must return False."""
         assert await _is_safe_url("") is False
-
-
-class TestEdgeCasesUrlVerification:
-    """Edge cases for _verify_url_content."""
-
-    async def test_ssl_error_no_bonus(self):
-        """An SSL/TLS error should yield bonus=0.0, not crash."""
-        mock_client = AsyncMock(spec=httpx.AsyncClient)
-        # ConnectError is what httpx raises for SSL failures; it inherits HTTPError
-        mock_client.head = AsyncMock(
-            side_effect=httpx.ConnectError("SSL: CERTIFICATE_VERIFY_FAILED")
-        )
-
-        from src.validators.credibility import _verify_url_content
-
-        bonus = await _verify_url_content("https://bad-cert.example.com/article", mock_client)
-        assert bonus == 0.0
-
-    async def test_read_timeout_no_bonus(self):
-        """A ReadTimeout (very slow response) should yield bonus=0.0."""
-        mock_client = AsyncMock(spec=httpx.AsyncClient)
-        mock_client.head = AsyncMock(side_effect=httpx.ReadTimeout("read timed out"))
-
-        from src.validators.credibility import _verify_url_content
-
-        bonus = await _verify_url_content("https://slow.example.com/article", mock_client)
-        assert bonus == 0.0
 
 
 class TestEdgeCasesTokenize:
