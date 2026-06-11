@@ -19,6 +19,16 @@ from src.rag.retriever import Retriever
 router = APIRouter(prefix="/api/search", tags=["search"])
 limiter = Limiter(key_func=get_client_ip)
 
+# F-11: module-level singleton — avoids rebuilding the OpenAI/httpx client per request.
+_retriever: Retriever | None = None
+
+
+def _get_retriever() -> Retriever:
+    global _retriever
+    if _retriever is None:
+        _retriever = Retriever()
+    return _retriever
+
 
 @router.get(
     "",
@@ -45,16 +55,10 @@ async def search_items(
     relevance and can be filtered by topic and date range.
     """
     ts_query = func.plainto_tsquery("simple", q)
-    ts_vector = func.to_tsvector(
-        "simple",
-        func.coalesce(NewsItem.title, "")
-        + " "
-        + func.coalesce(NewsItem.full_text, "")
-        + " "
-        + func.coalesce(NewsItem.source, ""),
-    )
 
-    fts_match = ts_vector.bool_op("@@")(ts_query)
+    # F-16: use the stored, GIN-indexed search_vector column instead of
+    # recomputing to_tsvector at query time.
+    fts_match = NewsItem.search_vector.bool_op("@@")(ts_query)
     like_pattern = f"%{q}%"
     ilike_match = or_(
         NewsItem.title.ilike(like_pattern),
@@ -82,7 +86,7 @@ async def search_items(
     elif sort_by == "score":
         query = query.order_by(NewsItem.score.desc().nulls_last())
     else:  # relevance (default)
-        query = query.order_by(func.ts_rank(ts_vector, ts_query).desc())
+        query = query.order_by(func.ts_rank(NewsItem.search_vector, ts_query).desc())
 
     query = query.offset(offset).limit(limit)
 
@@ -111,6 +115,5 @@ async def semantic_search_items(
     ranked by cosine distance. Returns an empty list when the embedding
     service is unavailable (e.g. ``embedding_api_key`` not configured).
     """
-    retriever = Retriever()
-    items = await retriever.retrieve(session, q, limit=limit)
+    items = await _get_retriever().retrieve(session, q, limit=limit)
     return [NewsItemResponse.model_validate(item) for item in items]
