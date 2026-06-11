@@ -108,13 +108,13 @@ services:
       - "traefik.http.routers.mcp-https.entrypoints=https"
       - "traefik.http.routers.mcp-https.tls=true"
       - "traefik.http.routers.mcp-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.mcp-https.priority=10"
+      - "traefik.http.routers.mcp-https.priority=100"
       - "traefik.http.routers.mcp-https.middlewares=mcp-ratelimit"
       # HTTP router → redirect to HTTPS
       - "traefik.http.routers.mcp-http.rule=Host(`pguerrero.me`) && PathPrefix(`/mcp`)"
       - "traefik.http.routers.mcp-http.entrypoints=http"
       - "traefik.http.routers.mcp-http.middlewares=frontend-redirect"
-      - "traefik.http.routers.mcp-http.priority=10"
+      - "traefik.http.routers.mcp-http.priority=100"
       # Backend service
       - "traefik.http.services.mcp.loadbalancer.server.port=8001"
       # Rate-limit middleware: 3 req/s average, burst 10, keyed by IP
