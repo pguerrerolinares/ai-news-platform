@@ -7,6 +7,8 @@ Two passes:
 
 from __future__ import annotations
 
+import asyncio
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,24 @@ from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 from src.extractors.base import ExtractedItem
 
 logger = get_logger(__name__)
+
+
+def _title_filter_sync(
+    candidates: list[ExtractedItem],
+    recent_titles: list[str],
+    threshold: float,
+) -> tuple[list[ExtractedItem], int]:
+    """Pure-CPU title-similarity loop; safe to run in a thread pool."""
+    after_title: list[ExtractedItem] = []
+    title_filtered = 0
+    for item in candidates:
+        item_title = item.title.lower()
+        is_duplicate = any(title_similarity(item_title, rt) >= threshold for rt in recent_titles)
+        if is_duplicate:
+            title_filtered += 1
+        else:
+            after_title.append(item)
+    return after_title, title_filtered
 
 
 async def filter_already_seen(
@@ -78,17 +98,9 @@ async def filter_already_seen(
     result = await session.execute(stmt)
     recent_titles = [t.lower() for t in result.scalars().all()]
 
-    after_title: list[ExtractedItem] = []
-    title_filtered = 0
-    for item in candidates:
-        item_title = item.title.lower()
-        is_duplicate = any(
-            title_similarity(item_title, rt) >= TITLE_SIMILARITY_THRESHOLD for rt in recent_titles
-        )
-        if is_duplicate:
-            title_filtered += 1
-        else:
-            after_title.append(item)
+    after_title, title_filtered = await asyncio.to_thread(
+        _title_filter_sync, candidates, recent_titles, TITLE_SIMILARITY_THRESHOLD
+    )
 
     total_filtered = url_filtered + title_filtered
     if total_filtered > 0:
