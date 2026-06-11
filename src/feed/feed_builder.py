@@ -30,6 +30,7 @@ class FeedBuilder:
         self._candidate_multiplier = settings.feed_candidate_multiplier
         self._default_max_age = settings.feed_latest_max_age_hours
         self._min_items = settings.feed_latest_min_items
+        self._scorer = CompositeScorer()
 
     async def build(
         self,
@@ -59,10 +60,9 @@ class FeedBuilder:
 
         # Live rescore with current time
         if all_candidates:
-            scorer = CompositeScorer()
             now = datetime.now(UTC)
             for item in all_candidates:
-                item.composite_score = scorer.score_newsitem(item, now=now)
+                item.composite_score = self._scorer.score_newsitem(item, now=now)
 
         # Collapse HF model variants (GGUF/GPTQ dedup)
         collapsed = collapse_variants(all_candidates)
