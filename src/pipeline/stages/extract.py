@@ -6,7 +6,7 @@ import asyncio
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
-from src.extractors import EXTRACTOR_REGISTRY
+from src.extractors import load_extractor
 from src.extractors.base import BaseExtractor, ExtractedItem
 
 logger = get_logger(__name__)
@@ -24,15 +24,7 @@ def get_extractors(sources: list[str] | None = None) -> list[BaseExtractor]:
     if sources is not None:
         enabled = [s for s in enabled if s in sources]
 
-    extractors: list[BaseExtractor] = []
-    for source in enabled:
-        if source not in EXTRACTOR_REGISTRY:
-            raise KeyError(
-                f"Unknown extractor source {source!r}. " f"Available: {sorted(EXTRACTOR_REGISTRY)}"
-            )
-        extractors.append(EXTRACTOR_REGISTRY[source]())
-
-    return extractors
+    return [load_extractor(source)() for source in enabled]
 
 
 async def run_extraction(
