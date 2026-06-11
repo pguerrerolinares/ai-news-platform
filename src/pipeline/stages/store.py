@@ -148,8 +148,15 @@ async def embed_new_items(
 
     model_name = settings.embedding_model
 
-    subquery = select(ItemEmbedding.item_id).where(ItemEmbedding.model == model_name)
-    stmt = select(NewsItem).where(~NewsItem.id.in_(subquery))
+    stmt = (
+        select(NewsItem)
+        .outerjoin(
+            ItemEmbedding,
+            (NewsItem.id == ItemEmbedding.item_id) & (ItemEmbedding.model == model_name),
+        )
+        .where(ItemEmbedding.item_id.is_(None))
+        .limit(500)
+    )
     result = await session.execute(stmt)
     items = list(result.scalars().all())
 
