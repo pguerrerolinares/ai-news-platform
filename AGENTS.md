@@ -253,7 +253,7 @@ pytest tests/ -x --timeout=30 -q
 - **Gate**: `vars.COOLIFY_DEPLOY_ENABLED == 'true'` (kill switch in GitHub Variables)
 - **Secrets**: `COOLIFY_WEBHOOK` (deploy URL), `COOLIFY_TOKEN` (API bearer token)
 - **What Coolify does**: pulls latest code, builds Docker images, restarts containers
-- **Compose file**: `docker-compose.coolify.yml` (Traefik labels, 4 services)
+- **Compose file**: `docker-compose.coolify.yml` (Traefik labels, 5 services: db, api, frontend, mcp, pipeline-cron)
 - **Rollback**: via Coolify UI deployment history, or revert commit on main
 
 ## Risk-Based Autonomy

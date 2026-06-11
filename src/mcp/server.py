@@ -136,5 +136,28 @@ def get_briefing(date: str | None = None) -> str:
     return "\n".join(lines)
 
 
+_SUPPORTED_TRANSPORTS = ("stdio", "streamable-http")
+
+
+def _resolve_transport() -> str:
+    """Read MCP_TRANSPORT env var and configure FastMCP settings accordingly.
+
+    Returns the resolved transport string.
+    Raises ValueError for unsupported values (fail-fast).
+    """
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    if transport not in _SUPPORTED_TRANSPORTS:
+        raise ValueError(
+            f"Unsupported MCP_TRANSPORT={transport!r}. "
+            f"Supported values: {_SUPPORTED_TRANSPORTS}"
+        )
+    if transport == "streamable-http":
+        # FastMCP captures settings at instantiation (module import), so env
+        # vars set here arrive too late — mutate the settings object directly.
+        mcp.settings.host = "0.0.0.0"  # container-internal bind, Traefik fronts it
+        mcp.settings.port = int(os.environ.get("MCP_PORT", "8001"))
+    return transport
+
+
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    mcp.run(transport=_resolve_transport())

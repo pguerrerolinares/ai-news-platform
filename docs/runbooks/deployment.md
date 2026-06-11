@@ -57,10 +57,11 @@ If deploying via Coolify (`docker-compose.coolify.yml`), Traefik handles SSL via
 3. "Connect to Predefined Network" must be **enabled** in the service settings
 
 **How it works:**
-- `docker-compose.coolify.yml` has Traefik labels on the `frontend` service
-- Frontend uses `expose: "80"` (NOT `ports`) so traffic routes through Traefik
-- Traefik terminates SSL with Let's Encrypt and forwards to nginx on port 80
+- `docker-compose.coolify.yml` has Traefik labels on the `frontend` and `mcp` services
+- Both use `expose` (NOT `ports`) so traffic routes through Traefik
+- Traefik terminates SSL with Let's Encrypt and forwards internally
 - HTTP requests are redirected to HTTPS via middleware
+- The `mcp` service is reachable at `https://pguerrero.me/mcp` (MCP router has priority=10 to match before the frontend catch-all)
 
 **Configuration:**
 1. In Coolify UI → **Environment Variables** → set `CORS_ORIGINS=https://pguerrero.me`

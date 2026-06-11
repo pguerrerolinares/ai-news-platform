@@ -41,7 +41,7 @@ api = [
     # WebAuthn passkeys
     "webauthn~=2.5.0",
     # MCP server
-    "mcp~=1.6.0",
+    "mcp~=1.13",
 ]
 pipeline = [
     # RSS parsing

@@ -70,6 +70,59 @@ services:
       api:
         condition: service_healthy
 
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    restart: unless-stopped
+    expose:
+      - "8001"
+    networks:
+      - coolify
+      - default
+    environment:
+      MCP_TRANSPORT: 'streamable-http'
+      MCP_PORT: '8001'
+      MCP_API_BASE_URL: 'http://api:8000'
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      # /mcp returns 405/406 on GET (correct MCP behaviour) — exit 0 on any response
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/mcp | grep -qE '^[0-9]+$' && exit 0 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      # HTTPS router (higher priority than frontend to match /mcp before catch-all)
+      - "traefik.http.routers.mcp-https.rule=Host(`pguerrero.me`) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.mcp-https.entrypoints=https"
+      - "traefik.http.routers.mcp-https.tls=true"
+      - "traefik.http.routers.mcp-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.mcp-https.priority=10"
+      - "traefik.http.routers.mcp-https.middlewares=mcp-ratelimit"
+      # HTTP router → redirect to HTTPS
+      - "traefik.http.routers.mcp-http.rule=Host(`pguerrero.me`) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.mcp-http.entrypoints=http"
+      - "traefik.http.routers.mcp-http.middlewares=frontend-redirect"
+      - "traefik.http.routers.mcp-http.priority=10"
+      # Backend service
+      - "traefik.http.services.mcp.loadbalancer.server.port=8001"
+      # Rate-limit middleware: 3 req/s average, burst 10, keyed by IP
+      - "traefik.http.middlewares.mcp-ratelimit.ratelimit.average=3"
+      - "traefik.http.middlewares.mcp-ratelimit.ratelimit.burst=10"
+      - "traefik.http.middlewares.mcp-ratelimit.ratelimit.sourcecriterion.ipstrategy.depth=1"
+      - "traefik.docker.network=coolify"
+
   pipeline-cron:
     build:
       context: .

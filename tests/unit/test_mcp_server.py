@@ -10,6 +10,7 @@ import src.mcp.server
 from src.mcp.server import (
     _format_items,
     _get_client,
+    _resolve_transport,
     get_briefing,
     get_latest,
     get_trending,
@@ -20,6 +21,79 @@ from src.mcp.server import (
 
 def _mock_client():
     return MagicMock()
+
+
+class TestTransportSelection:
+    """Tests for _resolve_transport() — transport env-var parsing without starting the server."""
+
+    def test_stdio_is_default(self):
+        env = {k: v for k, v in __import__("os").environ.items() if k != "MCP_TRANSPORT"}
+        with patch.dict("os.environ", env, clear=True):
+            assert _resolve_transport() == "stdio"
+
+    def test_explicit_stdio(self):
+        with patch.dict("os.environ", {"MCP_TRANSPORT": "stdio"}, clear=False):
+            assert _resolve_transport() == "stdio"
+
+    def test_streamable_http_accepted(self):
+        import os
+
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("MCP_TRANSPORT", "MCP_PORT", "FASTMCP_PORT", "FASTMCP_HOST")
+        }
+        env["MCP_TRANSPORT"] = "streamable-http"
+        with patch.dict("os.environ", env, clear=True):
+            result = _resolve_transport()
+        assert result == "streamable-http"
+
+    def test_invalid_transport_raises(self):
+        with (
+            patch.dict("os.environ", {"MCP_TRANSPORT": "grpc"}, clear=False),
+            pytest.raises(ValueError, match="Unsupported MCP_TRANSPORT"),
+        ):
+            _resolve_transport()
+
+    def test_streamable_http_sets_settings_port(self):
+        import os
+
+        env = {k: v for k, v in os.environ.items() if k != "MCP_PORT"}
+        env["MCP_TRANSPORT"] = "streamable-http"
+        env["MCP_PORT"] = "9001"
+        original = (src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port)
+        try:
+            with patch.dict("os.environ", env, clear=True):
+                _resolve_transport()
+            assert src.mcp.server.mcp.settings.port == 9001
+        finally:
+            src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port = original
+
+    def test_streamable_http_default_port_8001(self):
+        import os
+
+        env = {k: v for k, v in os.environ.items() if k not in ("MCP_PORT", "MCP_TRANSPORT")}
+        env["MCP_TRANSPORT"] = "streamable-http"
+        original = (src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port)
+        try:
+            with patch.dict("os.environ", env, clear=True):
+                _resolve_transport()
+            assert src.mcp.server.mcp.settings.port == 8001
+        finally:
+            src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port = original
+
+    def test_streamable_http_sets_settings_host(self):
+        import os
+
+        env = {k: v for k, v in os.environ.items() if k not in ("MCP_PORT", "MCP_TRANSPORT")}
+        env["MCP_TRANSPORT"] = "streamable-http"
+        original = (src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port)
+        try:
+            with patch.dict("os.environ", env, clear=True):
+                _resolve_transport()
+            assert src.mcp.server.mcp.settings.host == "0.0.0.0"
+        finally:
+            src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port = original
 
 
 class TestGetClient:
