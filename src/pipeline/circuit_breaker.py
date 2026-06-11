@@ -28,7 +28,7 @@ class CircuitBreaker:
     def record_failure(self, source: str) -> None:
         """Record a failure for a source."""
         self._failures[source] = self._failures.get(source, 0) + 1
-        if self._failures[source] >= self._threshold:
+        if self._failures[source] >= self._threshold and source not in self._opened_at:
             self._opened_at[source] = time.monotonic()
             logger.warning(
                 "circuit_breaker_opened",

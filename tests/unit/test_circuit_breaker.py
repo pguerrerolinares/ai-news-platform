@@ -39,6 +39,26 @@ class TestCircuitBreaker:
         time.sleep(1.1)
         assert cb.is_open("reddit") is False
 
+    def test_sustained_failures_do_not_reset_cooldown(self):
+        """Sustained failures after threshold must not restart the cooldown timer.
+
+        Regression: record_failure used to re-stamp _opened_at on every call
+        once failures >= threshold, so the cooldown window kept sliding forward
+        and the circuit never re-closed.
+        """
+        cb = CircuitBreaker(threshold=3, cooldown_seconds=1)
+        cb.record_failure("reddit")
+        cb.record_failure("reddit")
+        cb.record_failure("reddit")
+        assert cb.is_open("reddit") is True
+        # Simulate scheduler continuing to call record_failure during cooldown
+        cb.record_failure("reddit")
+        cb.record_failure("reddit")
+        cb.record_failure("reddit")
+        # After cooldown, circuit must allow a retry regardless of extra failures
+        time.sleep(1.1)
+        assert cb.is_open("reddit") is False
+
     def test_independent_per_source(self):
         cb = CircuitBreaker(threshold=2, cooldown_seconds=60)
         cb.record_failure("hackernews")
