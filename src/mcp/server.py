@@ -9,6 +9,7 @@ import os
 import threading
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from src.mcp.client import APIClient
 
 mcp = FastMCP("AI News Platform")
@@ -156,6 +157,13 @@ def _resolve_transport() -> str:
         # vars set here arrive too late — mutate the settings object directly.
         mcp.settings.host = "0.0.0.0"  # container-internal bind, Traefik fronts it
         mcp.settings.port = int(os.environ.get("MCP_PORT", "8001"))
+        # The SDK's DNS-rebinding protection only allows local hosts by default
+        # and rejects proxied requests with 421 Invalid Host header.
+        public_host = os.environ.get("MCP_PUBLIC_HOST", "pguerrero.me")
+        mcp.settings.transport_security = TransportSecuritySettings(
+            allowed_hosts=[public_host, f"localhost:{mcp.settings.port}"],
+            allowed_origins=[f"https://{public_host}"],
+        )
     return transport
 
 
