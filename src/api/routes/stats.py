@@ -288,28 +288,30 @@ async def stats_score_distribution(
     since_dt = datetime.combine(
         (datetime.now(tz=UTC) - timedelta(days=days)).date(), time.min, tzinfo=UTC
     )
-    results: list[ScoreDistributionResponse] = []
+    # Build base filter (date + non-null score + optional source/topic)
+    base_filter = (effective_date >= since_dt) & NewsItem.score.isnot(None)
+    if source:
+        base_filter = base_filter & (NewsItem.source == source)
+    if topic:
+        base_filter = base_filter & (NewsItem.topic == topic)
 
+    # Single query: one COUNT per bucket using CASE expressions
+    bucket_exprs = []
     for label, min_score, max_score in _SCORE_BUCKETS:
-        query = select(func.count(NewsItem.id)).where(
-            (effective_date >= since_dt) & NewsItem.score.isnot(None)
-        )
-        query = query.where(NewsItem.score >= min_score)
+        cond = NewsItem.score >= min_score
         if max_score is not None:
-            query = query.where(NewsItem.score <= max_score)
-        if source:
-            query = query.where(NewsItem.source == source)
-        if topic:
-            query = query.where(NewsItem.topic == topic)
+            cond = cond & (NewsItem.score <= max_score)
+        bucket_exprs.append(func.count(case((cond, NewsItem.id))).label(label))
 
-        count = (await session.execute(query)).scalar_one()
-        results.append(
-            ScoreDistributionResponse(
-                range=label,
-                min_score=min_score,
-                max_score=max_score or 999999,
-                count=count,
-            )
+    query = select(*bucket_exprs).where(base_filter)
+    row = (await session.execute(query)).one()
+
+    return [
+        ScoreDistributionResponse(
+            range=label,
+            min_score=min_score,
+            max_score=max_score or 999999,
+            count=getattr(row, label),
         )
-
-    return results
+        for label, min_score, max_score in _SCORE_BUCKETS
+    ]

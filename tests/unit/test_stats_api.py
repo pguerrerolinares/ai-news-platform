@@ -14,6 +14,11 @@ from src.core.database import get_session
 
 def _make_mock_session():
     """Mock session that handles various query patterns for stats."""
+    # Row returned by the single-query score distribution (one row, one column per bucket)
+    mock_score_row = MagicMock()
+    for label in ("0-10", "11-50", "51-100", "101-250", "251-500", "501+"):
+        setattr(mock_score_row, label, 0)
+
     mock_result = MagicMock()
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = []
@@ -21,6 +26,7 @@ def _make_mock_session():
     mock_result.scalar_one.return_value = 0
     mock_result.scalar_one_or_none.return_value = None
     mock_result.all.return_value = []
+    mock_result.one.return_value = mock_score_row
 
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock(return_value=mock_result)
