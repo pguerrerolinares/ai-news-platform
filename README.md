@@ -85,6 +85,42 @@ ai-news-platform/
 └── scripts/           # Backup, health check, rescore
 ```
 
+## Servidor MCP
+
+La plataforma expone un servidor [MCP](https://modelcontextprotocol.io) publico en
+`https://pguerrero.me/mcp` con 5 tools de solo lectura: `search_news`, `semantic_search`,
+`get_latest`, `get_trending` y `get_briefing`. No requiere autenticacion ni instalacion.
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http ainews https://pguerrero.me/mcp
+```
+
+**claude.ai** (web/desktop): Settings → Connectors → Add custom connector → URL `https://pguerrero.me/mcp`.
+
+**Otros clientes MCP** (config JSON generica para clientes con soporte streamable HTTP):
+
+```json
+{
+  "mcpServers": {
+    "ainews": {
+      "type": "http",
+      "url": "https://pguerrero.me/mcp"
+    }
+  }
+}
+```
+
+Tambien puede ejecutarse en local via stdio contra la API publica:
+
+```bash
+MCP_API_BASE_URL=https://pguerrero.me python -m src.mcp.server
+```
+
+El endpoint tiene rate limiting por IP (3 req/s, burst 10). Detalles de despliegue en
+[`docs/adr/001-remote-mcp-server.md`](docs/adr/001-remote-mcp-server.md).
+
 ## Quality gates
 
 ```bash
