@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -67,8 +68,8 @@ class FeedBuilder:
         # Collapse HF model variants (GGUF/GPTQ dedup)
         collapsed = collapse_variants(all_candidates)
 
-        # Apply MMR diversification
-        ranked = mmr_rank(collapsed, lambda_=lambda_, limit=offset + limit)
+        # Apply MMR diversification — CPU-bound O(n²), run off the event loop
+        ranked = await asyncio.to_thread(mmr_rank, collapsed, lambda_=lambda_, limit=offset + limit)
 
         # Paginate
         page = ranked[offset : offset + limit]

@@ -1,6 +1,6 @@
 """API routes for full-text and semantic (vector) search."""
 
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
@@ -71,9 +71,9 @@ async def search_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(func.date(effective_date) >= date_from)
+        query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
     if date_to:
-        query = query.where(func.date(effective_date) <= date_to)
+        query = query.where(effective_date < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC))
 
     # Count total matching results (before limit/offset)
     count_query = select(func.count()).select_from(query.with_only_columns(NewsItem.id).subquery())

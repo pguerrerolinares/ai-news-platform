@@ -51,9 +51,9 @@ async def list_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(func.date(effective_date) >= date_from)
+        query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
     if date_to:
-        query = query.where(func.date(effective_date) <= date_to)
+        query = query.where(effective_date < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC))
     if trending is not None:
         query = query.where(NewsItem.trending == trending)
 
@@ -93,9 +93,9 @@ async def count_items(
     if topic:
         query = query.where(NewsItem.topic == topic)
     if date_from:
-        query = query.where(func.date(effective_date) >= date_from)
+        query = query.where(effective_date >= datetime.combine(date_from, time.min, tzinfo=UTC))
     if date_to:
-        query = query.where(func.date(effective_date) <= date_to)
+        query = query.where(effective_date < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC))
 
     result = await session.execute(query)
     count = result.scalar_one()

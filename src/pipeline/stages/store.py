@@ -18,6 +18,14 @@ from src.rag.embeddings import EmbeddingService
 logger = get_logger(__name__)
 
 _BATCH_COMMIT_SIZE = 25
+_embed_service: EmbeddingService | None = None
+
+
+def _get_embed_service() -> EmbeddingService:
+    global _embed_service
+    if _embed_service is None:
+        _embed_service = EmbeddingService()
+    return _embed_service
 
 
 async def store_classified_items(session: AsyncSession, items: list[ClassifiedItem]) -> int:
@@ -144,7 +152,7 @@ async def embed_new_items(
     settings = get_settings()
 
     if embed_service is None:
-        embed_service = EmbeddingService()
+        embed_service = _get_embed_service()
 
     model_name = settings.embedding_model
 
