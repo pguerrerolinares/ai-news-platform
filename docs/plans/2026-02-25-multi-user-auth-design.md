@@ -52,21 +52,21 @@ Index on `otp_codes(email, used, expires_at)` for lookup queries.
 
 ### Auth Flow
 
-```
-User enters email
-  → POST /api/auth/otp/request {email}
-  → Backend generates 6-digit code
-  → Stores in otp_codes (expires in 10 min)
-  → Sends email via Resend API
-  → Returns {message: "Code sent"}
+```mermaid
+flowchart TD
+    A["User enters email"] --> B["POST /api/auth/otp/request {email}"]
+    B --> C["Backend generates 6-digit code"]
+    C --> D["Stores in otp_codes (expires in 10 min)"]
+    D --> E["Sends email via Resend API"]
+    E --> F["Returns {message: 'Code sent'}"]
 
-User enters code
-  → POST /api/auth/otp/verify {email, code}
-  → Backend validates: not expired, not used, code matches
-  → Marks OTP as used
-  → Upserts user (create if new, update last_login_at if existing)
-  → If email == ADMIN_EMAIL → role = admin
-  → Returns JWT access + refresh tokens
+    F --> G["User enters code"]
+    G --> H["POST /api/auth/otp/verify {email, code}"]
+    H --> I["Backend validates: not expired, not used, code matches"]
+    I --> J["Marks OTP as used"]
+    J --> K["Upserts user (create if new, update last_login_at if existing)"]
+    K --> L["If email == ADMIN_EMAIL → role = admin"]
+    L --> M["Returns JWT access + refresh tokens"]
 ```
 
 ### OTP Security

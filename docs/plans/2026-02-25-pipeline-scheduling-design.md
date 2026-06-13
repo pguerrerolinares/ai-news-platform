@@ -32,16 +32,15 @@
 
 APScheduler `AsyncIOScheduler` starts/stops in the FastAPI `lifespan` handler. Each source (or source group) is a separate job. Jobs run concurrently but each gets its own DB session.
 
-```
-FastAPI lifespan start
-  → scheduler = AsyncIOScheduler()
-  → scheduler.add_job(run_hn_reddit, IntervalTrigger(minutes=15))
-  → scheduler.add_job(run_rss_gh_hf, IntervalTrigger(minutes=60))
-  → scheduler.add_job(run_arxiv, CronTrigger(hour=1, minute=30))
-  → scheduler.start()
+```mermaid
+flowchart TD
+    Start["FastAPI lifespan start"] --> Create["scheduler = AsyncIOScheduler()"]
+    Create --> Job1["scheduler.add_job(run_hn_reddit, IntervalTrigger(minutes=15))"]
+    Job1 --> Job2["scheduler.add_job(run_rss_gh_hf, IntervalTrigger(minutes=60))"]
+    Job2 --> Job3["scheduler.add_job(run_arxiv, CronTrigger(hour=1, minute=30))"]
+    Job3 --> StartSched["scheduler.start()"]
 
-FastAPI lifespan shutdown
-  → scheduler.shutdown()
+    Shutdown["FastAPI lifespan shutdown"] --> StopSched["scheduler.shutdown()"]
 ```
 
 ### Pipeline Refactor

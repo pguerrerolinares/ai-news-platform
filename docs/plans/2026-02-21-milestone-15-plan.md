@@ -733,14 +733,17 @@ git commit -m "docs: update AGENTS.md for M15 — API Contract Polish complete"
 
 ## Task Dependency Graph
 
-```
-Task 1 (SSE backend) ──→ Task 2 (SSE frontend)
-Task 4 (Auth service) ──→ Task 5 (Interceptor) ──→ Task 6 (Chat 401 retry)
-Task 4 (Auth service) ──→ Task 3 (Chat → AuthService)
-Task 7 (News service) — independent
-Task 8 (Schema cleanup) ──→ Task 9 (OpenAPI docs)
-Task 10 (Verification) — after all above
-Task 11 (AGENTS.md) — after Task 10
+```mermaid
+graph LR
+    T1["Task 1 (SSE backend)"] --> T2["Task 2 (SSE frontend)"]
+    T4["Task 4 (Auth service)"] --> T5["Task 5 (Interceptor)"]
+    T5 --> T6["Task 6 (Chat 401 retry)"]
+    T4 --> T3["Task 3 (Chat → AuthService)"]
+    T7["Task 7 (News service) — independent"]
+    T8["Task 8 (Schema cleanup)"] --> T9["Task 9 (OpenAPI docs)"]
+    T10["Task 10 (Verification) — after all above"]
+    T11["Task 11 (AGENTS.md) — after Task 10"]
+    T10 --> T11
 ```
 
 **Parallelizable pairs:**

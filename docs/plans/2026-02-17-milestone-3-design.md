@@ -74,8 +74,10 @@ Both extractors registered in pipeline config. `ENABLED_SOURCES` updated to incl
 
 ### Architecture
 
-```
-Claude Code  <--stdio-->  MCP Server  <--HTTP-->  FastAPI (localhost:8000)
+```mermaid
+flowchart LR
+    A["Claude Code"] <-->|stdio| B["MCP Server"]
+    B <-->|HTTP| C["FastAPI (localhost:8000)"]
 ```
 
 The MCP server is a thin wrapper: it receives tool calls via stdio, translates them to HTTP requests against the existing FastAPI API, and returns formatted results.

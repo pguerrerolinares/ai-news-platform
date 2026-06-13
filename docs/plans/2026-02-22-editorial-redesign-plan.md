@@ -717,19 +717,21 @@ git commit -m "chore(ui): update visual regression snapshots for editorial redes
 
 ## Dependency Graph
 
-```
-Task 1 (tokens) ──┐
-Task 2 (fonts)  ──┼── Task 3 (Material M3) ──┐
-                  │                           ├── Task 5 (nav)
-                  │                           ├── Task 6 (card) ──┐
-Task 4 (GSAP)  ──┘                           │                   ├── Task 7 (dashboard)
-                                              │                   ├── Task 8 (archive)
-                                              │                   ├── Task 9 (search)
-                                              │                   ├── Task 10 (chat)
-                                              │                   ├── Task 11 (analytics)
-                                              │                   └── Task 12 (login)
-                                              │
-                                              └── Task 13 (GSAP animations) ── Task 14 (cleanup)
+```mermaid
+flowchart LR
+    T1["Task 1 (tokens)"] --> T3["Task 3 (Material M3)"]
+    T2["Task 2 (fonts)"] --> T3
+    T4["Task 4 (GSAP)"] --> T3
+    T3 --> T5["Task 5 (nav)"]
+    T3 --> T6["Task 6 (card)"]
+    T3 --> T13["Task 13 (GSAP animations)"]
+    T6 --> T7["Task 7 (dashboard)"]
+    T6 --> T8["Task 8 (archive)"]
+    T6 --> T9["Task 9 (search)"]
+    T6 --> T10["Task 10 (chat)"]
+    T6 --> T11["Task 11 (analytics)"]
+    T6 --> T12["Task 12 (login)"]
+    T13 --> T14["Task 14 (cleanup)"]
 ```
 
 Tasks 7-12 (page redesigns) are independent and can run in parallel after Tasks 1-6 are done.

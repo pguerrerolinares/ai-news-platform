@@ -51,7 +51,6 @@ plugins:
 nav:
   - Home: index.md
   - Overview:
-      - Development Journey: JOURNEY.md
       - Milestone History: milestone-history.md
   - Architecture:
       - Architecture, File Map & API Reference: architecture/agents.md
@@ -65,7 +64,6 @@ nav:
           - Remote MCP Server via Streamable-HTTP: adr/001-remote-mcp-server.md
   - Frontend:
       - Frontend (React + Vite) Setup: frontend/setup.md
-      - Design System: DESIGN_SYSTEM.md
   - Runbooks:
       - Add a New Extractor: runbooks/add-new-extractor.md
       - Backup & Restore: runbooks/backup-restore.md

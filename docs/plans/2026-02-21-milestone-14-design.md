@@ -161,11 +161,16 @@ without re-entering password.
 
 ### Token flow:
 
-```
-1. POST /api/auth/token {password} → {access_token, refresh_token, expires_in}
-2. GET /api/items (Authorization: Bearer <access_token>)
-3. ... 30 min later, access_token expires ...
-4. POST /api/auth/refresh {refresh_token} → {access_token, refresh_token, expires_in}
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API
+    C->>API: 1. POST /api/auth/token {password}
+    API-->>C: {access_token, refresh_token, expires_in}
+    C->>API: 2. GET /api/items (Authorization: Bearer <access_token>)
+    Note over C,API: 3. ... 30 min later, access_token expires ...
+    C->>API: 4. POST /api/auth/refresh {refresh_token}
+    API-->>C: {access_token, refresh_token, expires_in}
 ```
 
 ### Implementation details:

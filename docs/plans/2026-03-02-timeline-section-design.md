@@ -88,15 +88,16 @@ lookback. This enables efficient per-month queries for historical navigation.
 
 ### Data Flow
 
-```
-Mount → fetch /stats/by-date?date_from=2026-03-01&date_to=2026-03-31
-      → fetch /stats/by-topic-date?date_from=2026-03-01&date_to=2026-03-31
-      → render calendar with heatmap
-      → auto-select today → fetch /items/by-date/2026-03-02
-      → group items by topic → render topic groups
+```mermaid
+flowchart TD
+    Mount["Mount"] --> ByDate["fetch /stats/by-date?date_from=2026-03-01&date_to=2026-03-31"]
+    ByDate --> ByTopicDate["fetch /stats/by-topic-date?date_from=2026-03-01&date_to=2026-03-31"]
+    ByTopicDate --> RenderCal["render calendar with heatmap"]
+    RenderCal --> AutoSelect["auto-select today → fetch /items/by-date/2026-03-02"]
+    AutoSelect --> Group["group items by topic → render topic groups"]
 
-Month change → refetch stats for new month range
-Date click → fetch /items/by-date/{date} → regroup by topic
+    MonthChange["Month change"] --> Refetch["refetch stats for new month range"]
+    DateClick["Date click"] --> FetchItems["fetch /items/by-date/{date} → regroup by topic"]
 ```
 
 ## Future Section Ideas (Backlog)

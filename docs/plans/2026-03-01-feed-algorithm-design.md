@@ -16,8 +16,12 @@ The current `/items/latest` feed has several quality issues:
 
 Replace the simple `ORDER BY composite_score` with a multi-step feed construction pipeline:
 
-```
-Candidate Pool → Score → Collapse Variants → Diversify (MMR) → Paginate
+```mermaid
+flowchart LR
+    A["Candidate Pool"] --> B["Score"]
+    B --> C["Collapse Variants"]
+    C --> D["Diversify (MMR)"]
+    D --> E["Paginate"]
 ```
 
 ## Components

@@ -15,12 +15,12 @@ Rediseñar visualmente el frontend Angular de ai-news-platform usando Google Sti
 
 ### Workflow
 
-```
-[Prompt en Stitch] → [Stitch genera UI variantes] → [Stitch MCP] → [Claude Code lee diseño]
-                                                                            ↓
-                                                                   [Genera Angular code]
-                                                                   (Material funcional +
-                                                                    SCSS inline + tokens CSS)
+```mermaid
+flowchart LR
+    A["Prompt en Stitch"] --> B["Stitch genera UI variantes"]
+    B --> C["Stitch MCP"]
+    C --> D["Claude Code lee diseño"]
+    D --> E["Genera Angular code<br/>(Material funcional +<br/>SCSS inline + tokens CSS)"]
 ```
 
 ### Workflow por página

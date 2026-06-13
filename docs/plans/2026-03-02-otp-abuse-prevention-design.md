@@ -80,12 +80,12 @@ After OTP login, if user has no registered passkeys:
 
 ## Protection Summary
 
-```
-Request OTP flow:
-  |-- IP rate limit (3/min)      [existing - slowapi]
-  |-- Email rate limit (5/hour)  [NEW - DB query]
-  |-- Global daily cap (50/day)  [NEW - DB query]
-  \-- send_otp_email()           [existing - Resend API]
+```mermaid
+flowchart TD
+    Start["Request OTP flow"] --> IP["IP rate limit (3/min) [existing - slowapi]"]
+    IP --> Email["Email rate limit (5/hour) [NEW - DB query]"]
+    Email --> Daily["Global daily cap (50/day) [NEW - DB query]"]
+    Daily --> Send["send_otp_email() [existing - Resend API]"]
 ```
 
 Worst case for an attacker: 50 wasted emails in a day (not 100).

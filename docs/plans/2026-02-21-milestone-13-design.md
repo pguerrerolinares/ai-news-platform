@@ -92,30 +92,39 @@ Parameters:
 
 ### 3. Backfill Flow
 
-```
-Phase 1 — Extract & Store Raw (no cost)
-├── For each source:
-│   ├── Iterate month by month (from → to)
-│   ├── Paginate through all API results
-│   ├── Store each item in raw_extractions (JSONB)
-│   └── Save checkpoint (last month + page completed)
-│
-Phase 2 — Filter & Classify ($3 LLM cost)
-├── Load raw_extractions not yet in news_items
-├── Dedup: check content_hash against existing news_items
-├── Keyword pre-filter (KeywordClassifier, local, free)
-├── Quality filter (points/stars thresholds)
-├── LLM classification in batches of 10
-├── Store classified items in news_items
-└── Save checkpoint after each batch
-│
-Phase 3 — Embeddings ($0.30)
-├── Find news_items without embeddings
-├── Generate in batches of 100
-└── Store in item_embeddings
-│
-Phase 4 — Briefings (optional, no cost)
-└── Generate DailyBriefing records for dates with items
+```mermaid
+flowchart TD
+    P1["Phase 1 — Extract & Store Raw (no cost)"]
+    P1a["For each source"]
+    P1b["Iterate month by month (from → to)"]
+    P1c["Paginate through all API results"]
+    P1d["Store each item in raw_extractions (JSONB)"]
+    P1e["Save checkpoint (last month + page completed)"]
+    P1 --> P1a --> P1b --> P1c --> P1d --> P1e
+
+    P2["Phase 2 — Filter & Classify ($3 LLM cost)"]
+    P2a["Load raw_extractions not yet in news_items"]
+    P2b["Dedup: check content_hash against existing news_items"]
+    P2c["Keyword pre-filter (KeywordClassifier, local, free)"]
+    P2d["Quality filter (points/stars thresholds)"]
+    P2e["LLM classification in batches of 10"]
+    P2f["Store classified items in news_items"]
+    P2g["Save checkpoint after each batch"]
+    P2 --> P2a --> P2b --> P2c --> P2d --> P2e --> P2f --> P2g
+
+    P3["Phase 3 — Embeddings ($0.30)"]
+    P3a["Find news_items without embeddings"]
+    P3b["Generate in batches of 100"]
+    P3c["Store in item_embeddings"]
+    P3 --> P3a --> P3b --> P3c
+
+    P4["Phase 4 — Briefings (optional, no cost)"]
+    P4a["Generate DailyBriefing records for dates with items"]
+    P4 --> P4a
+
+    P1e --> P2
+    P2g --> P3
+    P3c --> P4
 ```
 
 Phases are independent — can run separately, resume after interruption.

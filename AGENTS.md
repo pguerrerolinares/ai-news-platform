@@ -18,42 +18,43 @@
 
 ## Architecture
 
-```
-Docker Compose on Hetzner VPS
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  ┌──────────┐  ┌──────────┐  ┌─────────────────────┐    │
-│  │  Nginx   │  │ Pipeline │  │  PostgreSQL 16       │    │
-│  │  (TLS +  │  │ (sched)  │──│  + pgvector          │    │
-│  │  proxy + │  └──────────┘  │                      │    │
-│  │  static) │  ┌──────────┐  │  Tables:             │    │
-│  └────┬─────┘  │ FastAPI  │──│  - news_items        │    │
-│       └────────│ (REST)   │  │  - daily_briefings   │    │
-│                └──────────┘  │  - item_embeddings   │    │
-│                              │  - users             │    │
-│                              │  - otp_codes         │    │
-│                              │  - webauthn_creds    │    │
-│                              └─────────────────────┘    │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph VPS["Docker Compose on Hetzner VPS"]
+        Nginx["Nginx (TLS + proxy + static)"]
+        Pipeline["Pipeline (sched)"]
+        FastAPI["FastAPI (REST)"]
+        DB[("PostgreSQL 16 + pgvector<br/>Tables:<br/>- news_items<br/>- daily_briefings<br/>- item_embeddings<br/>- users<br/>- otp_codes<br/>- webauthn_creds")]
+        Nginx --> FastAPI
+        Pipeline --> DB
+        FastAPI --> DB
+    end
 ```
 
 ### Data Flow
 
-```
-Sources -> Extract (+ quant filter on HF, + arXiv abstracts on daily papers)
-  -> Dedup -> Seen Filter (DB: url_hash + title similarity)
-    -> Two-Phase Classify (keyword pre-filter → LLM for ambiguous)
-      -> Event Dedup (fuzzy title matching) -> Variant Collapse
-        -> Validate -> Store (url_hash upsert with GREATEST)
-          -> Embed (512-dim) -> Save PipelineRun stats
-                                                    |
-                                       FastAPI API <-+-> React UI
-                                                    |
-                                       RAG Chat (SSE)
+```mermaid
+flowchart TD
+    Sources["Sources"] --> Extract["Extract (+ quant filter on HF, + arXiv abstracts on daily papers)"]
+    Extract --> Dedup["Dedup"]
+    Dedup --> SeenFilter["Seen Filter (DB: url_hash + title similarity)"]
+    SeenFilter --> Classify["Two-Phase Classify (keyword pre-filter → LLM for ambiguous)"]
+    Classify --> EventDedup["Event Dedup (fuzzy title matching)"]
+    EventDedup --> VariantCollapse["Variant Collapse"]
+    VariantCollapse --> Validate["Validate"]
+    Validate --> Store["Store (url_hash upsert with GREATEST)"]
+    Store --> Embed["Embed (512-dim)"]
+    Embed --> SaveStats["Save PipelineRun stats"]
+    SaveStats --> API["FastAPI API"]
+    API <--> UI["React UI"]
+    API --> Chat["RAG Chat (SSE)"]
 
-Feed Pipeline (query-time):
-  Time-window filter (48h→72h→168h expansion) -> Live rescore (CompositeScorer.score_newsitem)
-  -> Variant Collapse -> MMR Diversification -> Paginate
+    subgraph Feed["Feed Pipeline (query-time)"]
+        TimeWindow["Time-window filter (48h→72h→168h expansion)"] --> Rescore["Live rescore (CompositeScorer.score_newsitem)"]
+        Rescore --> FeedCollapse["Variant Collapse"]
+        FeedCollapse --> MMR["MMR Diversification"]
+        MMR --> Paginate["Paginate"]
+    end
 ```
 
 ## How to Run

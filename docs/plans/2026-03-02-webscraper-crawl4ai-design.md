@@ -82,31 +82,35 @@ WEBSCRAPER_PAGE_TIMEOUT=30
 
 ### Phase 1: Link Discovery
 
-```
-For each configured URL (index page):
-  1. Crawl4AI renders the page with Chromium
-  2. Extract all internal <a href="..."> links
-  3. Filter: keep only links that look like articles (same domain, path depth > 1)
-  4. Pre-check against DB: SELECT url_hash FROM news_items WHERE url_hash IN (...)
-  5. Discard already-known URLs
-  6. Result: list of new article URLs to scrape
+```mermaid
+flowchart TD
+    Start["For each configured URL (index page)"]
+    S1["1. Crawl4AI renders the page with Chromium"]
+    S2["2. Extract all internal &lt;a href=&quot;...&quot;&gt; links"]
+    S3["3. Filter: keep only links that look like articles (same domain, path depth &gt; 1)"]
+    S4["4. Pre-check against DB: SELECT url_hash FROM news_items WHERE url_hash IN (...)"]
+    S5["5. Discard already-known URLs"]
+    S6["6. Result: list of new article URLs to scrape"]
+    Start --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
 ### Phase 2: Article Scraping
 
-```
-For each new URL (max_items_per_source applies):
-  1. Crawl4AI renders the full article page
-  2. Extracts clean markdown (strips nav, footer, scripts)
-  3. Maps to ExtractedItem:
-     - title: from <h1> or <title>
-     - source: "webscraper"
-     - url: article URL
-     - text: full markdown content
-     - author: from domain/meta tags
-     - published_at: from <time> element if available
-     - score: 0 (no engagement metric)
-     - metadata: {domain, scraper_source, word_count}
+```mermaid
+flowchart TD
+    Start["For each new URL (max_items_per_source applies)"]
+    S1["1. Crawl4AI renders the full article page"]
+    S2["2. Extracts clean markdown (strips nav, footer, scripts)"]
+    S3["3. Maps to ExtractedItem"]
+    Start --> S1 --> S2 --> S3
+    S3 --> M1["title: from &lt;h1&gt; or &lt;title&gt;"]
+    S3 --> M2["source: &quot;webscraper&quot;"]
+    S3 --> M3["url: article URL"]
+    S3 --> M4["text: full markdown content"]
+    S3 --> M5["author: from domain/meta tags"]
+    S3 --> M6["published_at: from &lt;time&gt; element if available"]
+    S3 --> M7["score: 0 (no engagement metric)"]
+    S3 --> M8["metadata: {domain, scraper_source, word_count}"]
 ```
 
 ### Deduplication

@@ -51,19 +51,18 @@ Fixtures for integration tests:
 
 ### Database Lifecycle
 
-```
-Session start:
-  1. Create ainews_test DB (if not exists)
-  2. Run alembic upgrade head (idempotent)
-  3. CREATE EXTENSION IF NOT EXISTS vector
-
-Per test:
-  1. BEGIN transaction
-  2. Run test (inserts, queries, etc.)
-  3. ROLLBACK transaction
-
-Session end:
-  (nothing — DB stays for next run)
+```mermaid
+flowchart TD
+    subgraph SessionStart["Session start"]
+        S1["1. Create ainews_test DB (if not exists)"] --> S2["2. Run alembic upgrade head (idempotent)"] --> S3["3. CREATE EXTENSION IF NOT EXISTS vector"]
+    end
+    subgraph PerTest["Per test"]
+        T1["1. BEGIN transaction"] --> T2["2. Run test (inserts, queries, etc.)"] --> T3["3. ROLLBACK transaction"]
+    end
+    subgraph SessionEnd["Session end"]
+        E1["(nothing — DB stays for next run)"]
+    end
+    SessionStart --> PerTest --> SessionEnd
 ```
 
 ### CI Integration
