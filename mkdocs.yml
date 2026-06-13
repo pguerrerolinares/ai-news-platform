@@ -1,0 +1,176 @@
+site_name: "AI News Platform"
+site_url: https://pguerrerolinares.github.io/ai-news-platform/
+repo_url: https://github.com/pguerrerolinares/ai-news-platform
+repo_name: pguerrerolinares/ai-news-platform
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.indexes
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+
+plugins:
+  - search
+  - include-markdown
+
+nav:
+  - Home: index.md
+  - Overview:
+      - Project Overview: index.md
+      - Background:
+          - Development Journey: JOURNEY.md
+          - Milestone History: milestone-history.md
+  - Architecture:
+      - Architecture, File Map & API Reference: architecture/agents.md
+      - Architecture Overview: architecture/overview.md
+      - Architecture Decisions:
+          - PostgreSQL over SQLite: architecture/decisions/001-postgresql-over-sqlite.md
+          - httpx over requests: architecture/decisions/002-httpx-over-requests.md
+          - structlog over stdlib logging: architecture/decisions/003-structlog-over-stdlib.md
+          - Kimi/Moonshot as Primary LLM: architecture/decisions/004-kimi-as-primary-llm.md
+          - Risk-Based Autonomy for Agent Development: architecture/decisions/005-risk-based-autonomy.md
+          - Remote MCP Server via Streamable-HTTP: adr/001-remote-mcp-server.md
+  - Frontend:
+      - Frontend (React + Vite) Setup: frontend/setup.md
+      - Design System: DESIGN_SYSTEM.md
+  - Runbooks:
+      - Add a New Extractor: runbooks/add-new-extractor.md
+      - Backup & Restore: runbooks/backup-restore.md
+      - Deployment: runbooks/deployment.md
+      - "MCP Server: Claude Code Integration": runbooks/mcp-claude-code.md
+      - Troubleshooting: runbooks/troubleshooting.md
+  - Design Docs & Plans:
+      - Milestones:
+          - Milestone 0 — Foundation: plans/milestone-0-foundation.md
+          - Milestone 1 — First Vertical Slice: plans/milestone-1-first-slice.md
+          - Milestone 2 — Full Pipeline: plans/milestone-2-full-pipeline.md
+          - Milestone 3 — New Sources + MCP Server + Polish: plans/milestone-3-new-sources.md
+          - Milestone 4 — RAG + Q&A: plans/milestone-4-rag.md
+          - Milestone 3 — Design (New Sources + MCP + Polish): plans/2026-02-17-milestone-3-design.md
+          - Milestone 3 — Implementation Plan: plans/2026-02-17-milestone-3-plan.md
+          - Milestone 4 — RAG + Q&A Design: plans/2026-02-18-milestone-4-design.md
+          - Milestone 4 — RAG + Q&A Plan: plans/2026-02-18-milestone-4-plan.md
+          - Milestone 5 — Production Hardening Design: plans/2026-02-18-milestone-5-design.md
+          - Milestone 5 — Production Hardening Plan: plans/2026-02-18-milestone-5-plan.md
+          - Milestone 6 — Frontend Polish Design: plans/2026-02-18-milestone-6-design.md
+          - Milestone 6 — Frontend Polish Plan: plans/2026-02-18-milestone-6-plan.md
+          - Milestone 9 — Backend Edge Cases & Robustness Design: plans/2026-02-19-milestone-9-design.md
+          - Milestone 9 — Backend Edge Cases & Robustness Plan: plans/2026-02-19-milestone-9-plan.md
+          - Milestone 10 — Integration Testing Design: plans/2026-02-21-milestone-10-design.md
+          - Milestone 10 — Integration Testing Plan: plans/2026-02-21-milestone-10-plan.md
+          - Milestone 11 — Security Hardening (Tests Only) Design: plans/2026-02-21-milestone-11-design.md
+          - Milestone 11 — Security Hardening Plan: plans/2026-02-21-milestone-11-plan.md
+          - Milestone 12 — Security Fixes Design: plans/2026-02-21-milestone-12-design.md
+          - Milestone 12 — Security Fixes Plan: plans/2026-02-21-milestone-12-plan.md
+          - Milestone 13 — Historical Backfill (2023–now) Design: plans/2026-02-21-milestone-13-design.md
+          - Milestone 13 — Historical Backfill Plan: plans/2026-02-21-milestone-13-plan.md
+          - Milestone 14 — DB + Backend API Polish Design: plans/2026-02-21-milestone-14-design.md
+          - Milestone 14 — DB + Backend API Polish Plan: plans/2026-02-21-milestone-14-plan.md
+          - Milestone 15 — API Contract Polish Design: plans/2026-02-21-milestone-15-design.md
+          - Milestone 15 — API Contract Polish Plan: plans/2026-02-21-milestone-15-plan.md
+          - Milestone 16 — API Endpoint Expansion Design: plans/2026-02-22-milestone-16-design.md
+          - Milestone 16 — API Endpoint Expansion Plan: plans/2026-02-22-milestone-16-plan.md
+      - Feature Designs:
+          - Design Overhaul — Minimal Luxury (Raycast-inspired): plans/2026-02-18-design-overhaul-design.md
+          - E2E Tests — Playwright Functional Tests: plans/2026-02-19-e2e-tests-design.md
+          - Visual Regression Tests Design: plans/2026-02-19-visual-regression-design.md
+          - Pencil + React Frontend Experiment — Design: plans/2026-02-22-pencil-react-frontend-design.md
+          - Frontend Visual Redesign — Google Stitch + Claude Code: plans/2026-02-22-stitch-redesign-design.md
+          - React Frontend v1 — Design: plans/2026-02-23-react-frontend-v1-design.md
+          - React Frontend Animations — Design: plans/2026-02-24-react-animations-design.md
+          - Wire React Frontend to Real API — Design: plans/2026-02-24-wire-react-api-design.md
+          - Multi-User Auth — Design: plans/2026-02-25-multi-user-auth-design.md
+          - Pipeline Scheduling + Live Feeds — Design: plans/2026-02-25-pipeline-scheduling-design.md
+          - Context Optimization Design: plans/2026-02-27-context-optimization-design.md
+          - Data Migration — Historical Data to Production: plans/2026-02-27-data-migration-design.md
+          - Infinite Scroll — Design: plans/2026-02-27-infinite-scroll-design.md
+          - Pipeline + Latest Endpoint Refactor — Design: plans/2026-02-27-pipeline-latest-refactor-design.md
+          - Coolify Auto-Deploy Configuration Design: plans/2026-02-28-coolify-auto-deploy-design.md
+          - HTTPS Setup via Coolify/Traefik: plans/2026-02-28-https-setup-design.md
+          - Language Standardization + Bug Fixes + Schema Optimization: plans/2026-02-28-language-standardization-design.md
+          - Login Page i18n + Spanish Text Cleanup: plans/2026-02-28-login-i18n-design.md
+          - Card Uniformity & Layout Fixes — Design: plans/2026-03-01-card-uniformity-design.md
+          - Composite Scoring System — Design: plans/2026-03-01-composite-scoring-design.md
+          - Feed Algorithm Redesign — Design: plans/2026-03-01-feed-algorithm-design.md
+          - Feed Freshness & Pipeline Fix Design: plans/2026-03-01-feed-freshness-pipeline-fix-design.md
+          - Feed Redesign — Design: plans/2026-03-01-feed-redesign-design.md
+          - Source Diversity Cap — Design: plans/2026-03-01-source-diversity-cap-design.md
+          - WebAuthn Passkeys — Design: plans/2026-03-01-webauthn-passkeys-design.md
+          - Architecture Retrospective — AI News Platform: plans/2026-03-02-architecture-retrospective-design.md
+          - OTP Abuse Prevention — Design: plans/2026-03-02-otp-abuse-prevention-design.md
+          - Timeline Section — Design: plans/2026-03-02-timeline-section-design.md
+          - WebScraperExtractor with Crawl4AI — Design: plans/2026-03-02-webscraper-crawl4ai-design.md
+          - Lightweight Pipeline — Design: plans/2026-03-03-lightweight-pipeline-design.md
+          - Pipeline Quality Fix — GitHub + HuggingFace Design: plans/2026-03-04-pipeline-quality-fix-design.md
+          - Public Access with Guest Tokens + Legacy Auth Removal — Design: plans/2026-03-04-public-access-design.md
+          - Production Quality Fixes — Design Spec: plans/2026-03-16-production-quality-fixes-design.md
+      - Implementation Plans:
+          - Editorial Design Integration — Plan: plans/2026-02-22-editorial-redesign-plan.md
+          - Design Overhaul — Implementation Plan: plans/2026-02-18-design-overhaul-plan.md
+          - Design Fixes — Implementation Plan: plans/2026-02-19-design-fixes-plan.md
+          - E2E Playwright Tests — Plan: plans/2026-02-19-e2e-playwright-plan.md
+          - Plan de Mejora Premium — AI News Platform: plans/2026-02-19-premium-design-plan.md
+          - Visual Regression Tests — Plan: plans/2026-02-19-visual-regression-plan.md
+          - Pencil + React Frontend Experiment — Plan: plans/2026-02-22-pencil-react-frontend-plan.md
+          - React Frontend v1 — Plan: plans/2026-02-23-react-frontend-v1-plan.md
+          - React Frontend Animations — Plan: plans/2026-02-24-react-animations-plan.md
+          - Wire React Frontend to Real API — Plan: plans/2026-02-24-wire-react-api-plan.md
+          - Multi-User Auth — Plan: plans/2026-02-25-multi-user-auth-plan.md
+          - Pipeline Scheduling + Live Feeds — Plan: plans/2026-02-25-pipeline-scheduling-plan.md
+          - Context Optimization — Plan: plans/2026-02-27-context-optimization-plan.md
+          - Infinite Scroll with TanStack Query — Plan: plans/2026-02-27-infinite-scroll-plan.md
+          - HTTPS Setup via Coolify/Traefik — Plan: plans/2026-02-28-https-setup-plan.md
+          - Language Standardization — Plan: plans/2026-02-28-language-standardization-plan.md
+          - Login i18n + Spanish Text Cleanup — Plan: plans/2026-02-28-login-i18n-plan.md
+          - Card Uniformity & Layout Fixes — Plan: plans/2026-03-01-card-uniformity-plan.md
+          - Composite Scoring System — Plan: plans/2026-03-01-composite-scoring-plan.md
+          - Feed Algorithm Redesign — Plan: plans/2026-03-01-feed-algorithm-plan.md
+          - Feed Freshness & Pipeline Fix — Plan: plans/2026-03-01-feed-freshness-pipeline-fix-plan.md
+          - Feed Redesign — Plan: plans/2026-03-01-feed-redesign-plan.md
+          - Source Diversity Cap — Plan: plans/2026-03-01-source-diversity-cap-plan.md
+          - WebAuthn Passkeys — Plan: plans/2026-03-01-webauthn-passkeys-plan.md
+          - OTP Abuse Prevention — Plan: plans/2026-03-02-otp-abuse-prevention-plan.md
+          - Timeline Section — Plan: plans/2026-03-02-timeline-section-plan.md
+          - Lightweight Pipeline — Plan: plans/2026-03-03-lightweight-pipeline-plan.md
+          - Pipeline Quality Fix — Plan: plans/2026-03-04-pipeline-quality-fix-plan.md
+          - Public Access + Guest Tokens — Plan: plans/2026-03-04-public-access-plan.md
+          - Production Quality Fixes — Plan: plans/2026-03-16-production-quality-fixes-plan.md
+      - Backlog & Notes:
+          - Pipeline + Latest Endpoint Refactor — Implementation Plan: plans/2026-02-27-pipeline-latest-refactor.md
+          - WebScraperExtractor — Implementation Plan: plans/2026-03-02-webscraper-implementation.md
+          - Autonomous Session — 2026-06-10: plans/autonomous-session-2026-06-10.md
+          - Efficiency & Optimization Findings — 2026-06-10: plans/efficiency-findings-2026-06-10.md
+          - Ideas Backlog — Future Features: plans/ideas-backlog.md
+  - Contributing:
+      - Coding Conventions: contributing/conventions.md

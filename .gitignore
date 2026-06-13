@@ -83,3 +83,6 @@ docs/DESIGN_SYSTEM.md
 # Misc
 *.bak
 *.tmp
+
+# MkDocs build output
+/site/
