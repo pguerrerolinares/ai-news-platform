@@ -2,7 +2,7 @@
 
 ## Language & Style
 - **Code and comments**: English
-- **Backend user-facing text** (Telegram messages, LLM summaries): Spanish
+- **Backend user-facing text** (LLM summaries): Spanish
 - **Frontend text**: English (all UI labels, buttons, errors via i18n)
 - **Type hints**: Required everywhere. Use `from __future__ import annotations` in every module.
 - **Docstrings**: Public APIs only. Google style, concise.
@@ -38,7 +38,7 @@
 ## Observability
 - structlog with `correlation_id` on every log entry
 - Prometheus metric on every pipeline step
-- Telegram alert on every failure mode
+- Pipeline run stats (per-stage counts, failures, duration) persisted to the `pipeline_runs` table, queryable via the admin API (audit, freshness, pipeline-runs)
 
 ## Dependencies
 - Pin with `~=` in `pyproject.toml`

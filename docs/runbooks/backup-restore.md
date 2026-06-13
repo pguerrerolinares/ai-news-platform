@@ -66,6 +66,7 @@ docker compose exec db psql -U ainews ainews_test_restore -c "SELECT count(*) FR
 docker compose exec db dropdb -U ainews ainews_test_restore
 ```
 
-## Alerts
+## Failure visibility
 
-Backup script failures trigger Telegram alerts via AlertService.
+The backup script exits non-zero on failure (`set -euo pipefail`). Surface failures via
+the cron runner's logging / exit-code monitoring — there is no push-alert channel.

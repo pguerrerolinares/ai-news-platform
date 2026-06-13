@@ -1,10 +1,10 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-03-17 | **Current milestone**: Production Quality & Observability | **Status**: Active
+> **Last updated**: 2026-06-13 | **Current milestone**: Production Quality & Observability | **Status**: Active
 
 ## Project Overview
 
-**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace, WebScraper), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat.
+**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews keyword + leading, arXiv, RSS, GitHub Trending, GitHub Search, HuggingFace, WebScraper; Reddit present but disabled by default), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat.
 
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
@@ -13,7 +13,7 @@
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 1,046+ passed (after Telegram removal), 92% coverage
+- **Tests**: 1,179+ passed (after Telegram removal), 92% coverage
 - **Embeddings**: 512 dimensions (text-embedding-3-small, native)
 
 ## Architecture
@@ -107,9 +107,9 @@ ai-news-platform/
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   ├── metrics.py                # Prometheus counters + histograms
 │   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
-│   ├── extractors/                   # 8 extractors (HN keyword, HN leading, arXiv, RSS, GitHub, HF, WebScraper[httpx+readability]; Reddit present but disabled)
+│   ├── extractors/                   # 9 extractors (HN keyword, HN leading, arXiv, RSS, GitHub trending, GitHub search, HF, WebScraper[httpx+readability]; Reddit present but disabled)
 │   │   │                            # HN leading: HackerNewsLeadingExtractor — per-domain Algolia url query for authoritative AI domains (anthropic.com, openai.com, ...) caught at 0 points; emits source="hackernews", metadata.lane="leading"
-│   │   │                            # GitHub: GitHubTrendingExtractor scrapes github.com/trending (HTML), filters AI repos by keyword
+│   │   │                            # GitHub: id "github" = GitHubTrendingExtractor scrapes github.com/trending (HTML), filters AI repos by keyword; id "github_search" = GitHubExtractor (search API)
 │   │   │                            # HuggingFace: trending models (filtered: skips quantized re-uploads) + daily papers (with arXiv abstracts)
 │   │   │                            # WebScraper: TechCrunch AI + Ars Technica AI (httpx + readability-lxml)
 │   ├── classifiers/                  # Two-phase (keyword pre-filter → LLM), fuzzy event dedup
@@ -144,7 +144,7 @@ ai-news-platform/
 │       ├── lib/                      # api.ts, auth.ts, webauthn.ts, constants.ts, types.ts
 │       ├── hooks/                    # use-auth, use-theme, use-mobile
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
-│       └── pages/                    # Login, Dashboard, Trending, Search, Timeline, Chat, Settings
+│       └── pages/                    # Admin, Briefing, Chat, Dashboard, Discover, Login, Search, Settings, Timeline, Trending
 ├── tests/                            # 1,179+ unit + 35 E2E (Playwright)
 ├── scripts/                          # backup, health check, rescore_composite, rescore_all
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
@@ -159,7 +159,7 @@ ai-news-platform/
   Constraint: valid_topic CHECK (models, papers, agents, products, tools, open_source, regulation)
 - **raw_extractions**: id(SERIAL PK), title, url, source, extracted_at, data(JSONB) — staging table
 - **daily_briefings**: date(DATE PK), total_items, items_extracted, items_after_dedup, items_filtered, trending_count, duration_seconds, sources_used(JSONB), generated_at
-- **item_embeddings**: item_id(UUID FK→news_items PK), model(TEXT PK), embedding(vector(1536)), created_at
+- **item_embeddings**: item_id(UUID FK→news_items PK), model(TEXT PK), embedding(vector(512)), created_at
   Indexes: HNSW(embedding vector_cosine_ops)
 - **users**: id(UUID PK), email(UNIQUE), name, role(admin|reader), created_at, last_login_at
 - **otp_codes**: id(SERIAL PK), email, code(6-digit), expires_at, used, created_at — purged daily by scheduler
@@ -213,7 +213,7 @@ Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, 
 Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MULTIPLIER=5` (pool size = limit × N)
 Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
 Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
-Scheduler: HN+Reddit every 15min, RSS+GitHub+HF every 60min, arXiv daily 01:30 UTC. Circuit breaker: 3 failures → 1h cooldown.
+Scheduler: HN every 30min (since 6h), HN-leading every 15min (since 2h), RSS+GitHub-trending+HF+WebScraper every 60min (since 3h), GitHub-search every 4h/240min (since 12h), arXiv daily cron 01:30 UTC (since 24h), OTP cleanup daily 02:00 UTC. Reddit NOT scheduled (disabled by default). Circuit breaker: 3 failures → 1h cooldown.
 Auth: Guest tokens (public, read-only) + Passwordless OTP via Resend API + WebAuthn passkeys (biometric). `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. WebAuthn config: `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`.
 
 ## Testing

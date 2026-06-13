@@ -52,8 +52,20 @@ class SourceNameExtractor(BaseExtractor):
 ### 3. Add Config (if needed)
 Add environment variables to `src/core/config.py` and `.env.example`.
 
-### 4. Register in Pipeline
-Add to the extractor registry in the pipeline module.
+### 4. Register in the Extractor Registry
+Add an entry to `EXTRACTOR_REGISTRY` in `src/extractors/__init__.py`, mapping the
+`source_name` to a `"module:ClassName"` string (imported lazily via `load_extractor`):
+
+```python
+EXTRACTOR_REGISTRY: dict[str, str] = {
+    # ...
+    "source_name": "src.extractors.source_name:SourceNameExtractor",
+}
+```
+
+The key must match the extractor's `source_name` property and the value used in
+`settings.enabled_sources_list`. To enable the source, add it to the
+`enabled_sources` default in `src/core/config.py`.
 
 ### 5. Write Tests
 ```bash

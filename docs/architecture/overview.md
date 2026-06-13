@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Last updated**: 2026-03-05 | **Status**: Production (pguerrero.me)
+> **Last updated**: 2026-06-13 | **Status**: Production (pguerrero.me)
 
 ## System Architecture
 
@@ -19,7 +19,6 @@ graph TB
         LLM[Kimi/Moonshot LLM]
         EMB[OpenAI Embeddings]
         RE[Resend Email API]
-        TG[Telegram Bot API]
     end
 
     subgraph "Docker Compose — Hetzner VPS (4GB)"
@@ -31,20 +30,20 @@ graph TB
         subgraph "API Container"
             FA[FastAPI<br/>uvicorn 2 workers]
             AUTH[Auth<br/>JWT + OTP + WebAuthn]
-            ROUTES[25+ REST Endpoints]
-            SCHED[APScheduler<br/>3-tier jobs]
+            ROUTES[40 REST Endpoints]
+            SCHED[APScheduler<br/>multi-tier jobs]
             RAG[RAG Chat<br/>SSE streaming]
         end
 
         subgraph "Pipeline Container"
             PIPE[Pipeline Orchestrator]
-            EXT[7 Extractors]
+            EXT[9 Extractors]
             CLASS[LLM + Keyword<br/>Classifiers]
             SCORE[Composite Scorer<br/>+ MMR Ranker]
         end
 
         subgraph "PostgreSQL 16"
-            DB[(news_items<br/>+ 6 tables)]
+            DB[(news_items<br/>+ 7 tables)]
             VEC[(pgvector<br/>embeddings)]
             FTS[(tsvector<br/>full-text search)]
         end
@@ -62,7 +61,6 @@ graph TB
     PIPE --> DB
     PIPE --> VEC
     PIPE -.- EMB
-    PIPE -.- TG
 
     REACT --> NG
     NG --> STATIC
@@ -91,18 +89,20 @@ graph TB
 
 ## Data Flow — Pipeline
 
-The pipeline runs on a 3-tier schedule (15min / 60min / daily) with per-source circuit breakers.
+The pipeline runs on a multi-tier schedule (15min / 30min / 60min / 4h / daily) with per-source circuit breakers.
 
 ```mermaid
 flowchart LR
     subgraph Extract
-        E1[HackerNews<br/>every 15min]
-        E2[Reddit<br/>every 15min]
+        E1[HackerNews<br/>every 30min<br/>since 6h]
+        E1B[HackerNews Leading<br/>every 15min<br/>since 2h]
         E3[RSS<br/>every 60min]
-        E4[GitHub<br/>every 60min<br/>pushed>=date]
+        E4[GitHub Trending<br/>every 60min]
         E5[HuggingFace<br/>every 60min<br/>quant filter + papers]
         E6[WebScraper<br/>every 60min]
+        E4S[GitHub Search<br/>every 4h<br/>pushed>=date, since 12h]
         E7[arXiv<br/>daily 01:30]
+        E2[Reddit<br/>disabled by default]
     end
 
     subgraph Process
@@ -119,22 +119,26 @@ flowchart LR
         DB[(PostgreSQL)]
         EM[Generate<br/>Embeddings]
         BR[Daily<br/>Briefing]
-        TG[Telegram<br/>Notification]
     end
 
-    E1 & E2 & E3 & E4 & E5 & E6 & E7 --> DD
+    E1 & E1B & E3 & E4 & E5 & E6 & E4S & E7 --> DD
     DD --> VL --> CL --> ED --> VC --> CS --> CR
     CR --> DB
-    DB --> EM & BR & TG
+    DB --> EM & BR
 ```
 
 ### Pipeline Schedule
 
 | Tier | Sources | Interval | Extraction Window |
 |------|---------|----------|-------------------|
-| 1 | HackerNews, Reddit | 15 min | 6 hours |
-| 2 | RSS, GitHub, HuggingFace, WebScraper | 60 min | 3 hours |
+| 1 | HackerNews | 30 min | 6 hours |
+| 1b | HackerNews Leading | 15 min | 2 hours |
+| 2 | RSS, GitHub (trending), HuggingFace, WebScraper | 60 min | 3 hours |
+| 2b | GitHub Search | 4 hours (240 min) | 12 hours |
 | 3 | arXiv | Daily 01:30 UTC | 24 hours |
+| — | OTP cleanup | Daily 02:00 UTC | — |
+
+Reddit is registered but **disabled by default** (not scheduled; `reddit_poll_interval_minutes=15` is defined but unused).
 
 Circuit breaker: 3 consecutive failures → 1 hour cooldown per source.
 
@@ -195,15 +199,13 @@ classDiagram
         <<abstract>>
         +validate(items) list~ClassifiedItem~
     }
-    class BaseNotifier {
-        <<abstract>>
-        +send_briefing(items)
-    }
 
     BaseExtractor <|-- HackerNewsExtractor
+    BaseExtractor <|-- HackerNewsLeadingExtractor
     BaseExtractor <|-- ArxivExtractor
     BaseExtractor <|-- RedditExtractor
     BaseExtractor <|-- RSSExtractor
+    BaseExtractor <|-- GitHubTrendingExtractor
     BaseExtractor <|-- GitHubExtractor
     BaseExtractor <|-- HuggingFaceExtractor
     BaseExtractor <|-- WebScraperExtractor
@@ -212,8 +214,6 @@ classDiagram
     BaseClassifier <|-- KeywordClassifier
 
     BaseValidator <|-- CredibilityValidator
-
-    BaseNotifier <|-- TelegramNotifier
 ```
 
 ## Authentication Flow
@@ -279,7 +279,7 @@ erDiagram
     item_embeddings {
         uuid item_id PK,FK
         text model PK
-        vector embedding "vector(1536)"
+        vector embedding "vector(512)"
         timestamptz created_at
     }
 
@@ -320,6 +320,15 @@ erDiagram
         jsonb raw_json
     }
 
+    pipeline_runs {
+        uuid id PK
+        timestamptz started_at
+        float duration_seconds
+        varchar status "success | empty | error"
+        jsonb sources
+        int items_stored
+    }
+
     news_items ||--o{ item_embeddings : "has embeddings"
     users ||--o{ webauthn_credentials : "has passkeys"
     users ||--o{ otp_codes : "has OTP codes"
@@ -357,8 +366,8 @@ erDiagram
   - `api_requests_total`, `api_request_duration_seconds`
   - `pipeline_runs_total`, `pipeline_duration_seconds`
   - Per-extractor duration, items stored, classification duration
-  - Embedding failures, notification errors, validation failures
-- **Alerts**: Telegram notifications for pipeline failures, empty extractors, deploy issues
+  - Embedding failures, validation failures
+- **Run tracking**: Per-stage stats (items extracted/deduped/filtered/stored, failures, duration) persisted to the `pipeline_runs` table on every pipeline run; surfaced via the admin API (audit, freshness, pipeline-runs). No push-alert channel — observability is pull-based.
 
 ## Feed Algorithm
 

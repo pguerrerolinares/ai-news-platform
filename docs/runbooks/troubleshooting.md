@@ -12,7 +12,7 @@
 4. Test connection: `docker compose exec db psql -U ainews ainews -c "SELECT 1"`
 
 ### Pipeline Returns 0 Items
-**Symptom**: Telegram alert "extractor returned 0 items"
+**Symptom**: a `pipeline_runs` row shows 0 items extracted/stored (check via admin freshness/audit endpoints or pipeline logs)
 
 **Fixes**:
 1. Check source API is accessible from VPS: `curl -sf https://hn.algolia.com/api/v1/search?query=AI`
@@ -21,7 +21,7 @@
 4. Verify extractor config in `.env` (queries, time windows)
 
 ### Deploy Failed / Health Check Timeout
-**Symptom**: Telegram alert "Deploy FAILED"
+**Symptom**: Coolify deployment marked failed, or the container health check never turns healthy
 
 **Fixes**:
 1. Check API logs: `docker compose logs api --tail=50`

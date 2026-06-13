@@ -1,14 +1,14 @@
 # AI News Platform
 
 Plataforma de agregacion, clasificacion y busqueda de noticias de inteligencia artificial.
-Extrae noticias de 7 fuentes, las clasifica con LLM, almacena en PostgreSQL con embeddings
+Extrae noticias de 9 fuentes, las clasifica con LLM, almacena en PostgreSQL con embeddings
 vectoriales, y las sirve a traves de una API REST + frontend React.
 
 **100% construido por agentes de IA. Cero lineas de codigo escritas por un humano.**
 
 ## Que hace
 
-- **Extraccion automatica** de HackerNews, arXiv, Reddit, RSS, GitHub Trending, HuggingFace y sitios web configurables
+- **Extraccion automatica** de HackerNews, HackerNews Leading, arXiv, Reddit, RSS, GitHub Trending, GitHub Search, HuggingFace y sitios web configurables
 - **Clasificacion inteligente** — two-phase: keyword pre-filter (>=3 matches auto-accept, 0 reject) + LLM para ambiguos. Fuzzy event dedup entre sources
 - **Feed con ranking** — composite scoring (velocidad + relevancia + recencia), variant collapse para modelos HF duplicados, diversificacion MMR
 - **Busqueda full-text** (PostgreSQL tsvector) + **busqueda semantica** (pgvector 512-dim cosine similarity)
@@ -16,7 +16,7 @@ vectoriales, y las sirve a traves de una API REST + frontend React.
 - **Autenticacion** — OTP por email (Resend API) + WebAuthn passkeys
 - **Dedup persistente** — URL hash unique index + title similarity contra DB (cross-source, cross-tier)
 - **Observabilidad** — pipeline_runs table con stats por etapa, admin API endpoints (audit, freshness, pipeline-runs)
-- **Pipeline programado** — 3 tiers de frecuencia (30min / 60min / diario) con circuit breaker y seen filter
+- **Pipeline programado** — 5 tiers de frecuencia (15min / 30min / 60min / 4h / diario) con circuit breaker y seen filter
 
 ## Stack
 
@@ -69,8 +69,8 @@ docker compose --profile pipeline run --rm pipeline           # ejecucion unica
 ```
 ai-news-platform/
 ├── src/
-│   ├── api/           # FastAPI app, auth, routes (25+ endpoints)
-│   ├── extractors/    # 7 extractors (HN, arXiv, Reddit, RSS, GitHub, HF, WebScraper)
+│   ├── api/           # FastAPI app, auth, routes (40+ endpoints)
+│   ├── extractors/    # 9 extractors (HN, HN-leading, arXiv, Reddit, RSS, GitHub Trending, GitHub Search, HF, WebScraper)
 │   ├── classifiers/   # Two-phase (keyword→LLM), fuzzy event dedup
 │   ├── validators/    # Credibility validation
 │   ├── pipeline/      # Orchestrator + 5 stages (extract/classify/score/seen_filter/store), scheduler, scoring
@@ -78,9 +78,9 @@ ai-news-platform/
 │   ├── rag/           # Embeddings (512-dim), retriever, chat service (SSE)
 │   ├── mcp/           # MCP server + client
 │   └── core/          # Config, models, database, logging, metrics
-├── frontend/          # React 19 + Vite + Shadcn UI (6 paginas)
-├── tests/             # 1,046+ tests (unit + E2E Playwright), 92% coverage
-├── alembic/           # 15 migraciones de DB
+├── frontend/          # React 19 + Vite + Shadcn UI (10 paginas)
+├── tests/             # 1,179+ tests (unit + integration + E2E Playwright), 92% coverage
+├── alembic/           # 17 migraciones de DB
 ├── docs/              # Arquitectura, ADRs, planes, runbooks
 └── scripts/           # Backup, health check, rescore
 ```
@@ -142,16 +142,18 @@ bandit -r src/                           # Seguridad
 
 | Metrica | Valor |
 |---------|-------|
-| Commits | 480 |
-| Backend (Python) | ~8,800 LOC |
-| Frontend (TypeScript) | ~5,400 LOC |
-| Tests | ~17,700 LOC |
-| Tests passing | 1,046+ |
+| Commits | 592 |
+| Backend (Python) | ~9,500 LOC |
+| Frontend (TypeScript) | ~6,900 LOC |
+| Tests | ~18,600 LOC |
+| Tests passing | 1,179+ |
 | Coverage | 92% |
-| Design docs | ~80 |
-| Tiempo de desarrollo | ~2.5 semanas |
+| Design docs | ~110 |
 | Codigo humano | 0 lineas |
 
 ## Licencia
 
-Proyecto privado.
+Codigo publico para consulta. Todos los derechos reservados.
+
+No se concede licencia de uso, copia, modificacion ni distribucion. El repositorio
+es visible con fines de demostracion y portfolio; no es software de codigo abierto.
