@@ -33,7 +33,11 @@ markdown_extensions:
   - attr_list
   - toc:
       permalink: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight
   - pymdownx.inlinehilite
   - pymdownx.tabbed:
@@ -47,10 +51,8 @@ plugins:
 nav:
   - Home: index.md
   - Overview:
-      - Project Overview: index.md
-      - Background:
-          - Development Journey: JOURNEY.md
-          - Milestone History: milestone-history.md
+      - Development Journey: JOURNEY.md
+      - Milestone History: milestone-history.md
   - Architecture:
       - Architecture, File Map & API Reference: architecture/agents.md
       - Architecture Overview: architecture/overview.md

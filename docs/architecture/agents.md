@@ -1,3 +1,6 @@
 # Architecture, File Map & API Reference
 
-{% include-markdown "../../AGENTS.md" %}
+{%
+  include-markdown "../../AGENTS.md"
+  start="# AGENTS.md — AI News Platform"
+%}

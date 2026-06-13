@@ -411,4 +411,4 @@ flowchart LR
 
 ---
 
-*See also: [`AGENTS.md`](../../AGENTS.md) for the complete file map, endpoint reference, and DB schema details.*
+*See also: [Architecture, File Map & API Reference](agents.md) for the complete file map, endpoint reference, and DB schema details.*
