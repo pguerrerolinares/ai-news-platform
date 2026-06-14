@@ -12,9 +12,13 @@ import Briefing from '@/pages/Briefing'
 import Admin from '@/pages/Admin'
 import Discover from '@/pages/Discover'
 
+// import.meta.env.BASE_URL es '/' en dev y '/ai-news/' en prod (de la base de Vite).
+// react-router quiere el basename sin la barra final.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
+
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AuthProvider>
         <Routes>
           <Route path="login" element={<Login />} />
