@@ -6,6 +6,7 @@ import path from 'path'
 const proxyTarget = process.env.VITE_PROXY_TARGET
 
 export default defineConfig({
+  base: process.env.PUBLIC_BASE_PATH ?? '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
