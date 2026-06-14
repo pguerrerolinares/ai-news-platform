@@ -48,6 +48,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        PUBLIC_BASE_PATH: "/ai-news/"
+        VITE_API_URL: "/ai-news"
     restart: unless-stopped
     expose:
       - "80"
@@ -56,15 +59,21 @@ services:
       - default
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend-https.rule=Host(`pguerrero.me`)"
-      - "traefik.http.routers.frontend-https.entrypoints=https"
-      - "traefik.http.routers.frontend-https.tls=true"
-      - "traefik.http.routers.frontend-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.frontend-http.rule=Host(`pguerrero.me`)"
-      - "traefik.http.routers.frontend-http.entrypoints=http"
-      - "traefik.http.routers.frontend-http.middlewares=frontend-redirect"
+      # HTTPS router: ai-news bajo /ai-news, StripPrefix antes de nginx (recibe /, /api/...)
+      - "traefik.http.routers.ainews-fe-https.rule=Host(`pguerrero.me`) && PathPrefix(`/ai-news`)"
+      - "traefik.http.routers.ainews-fe-https.entrypoints=https"
+      - "traefik.http.routers.ainews-fe-https.tls=true"
+      - "traefik.http.routers.ainews-fe-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ainews-fe-https.priority=50"
+      - "traefik.http.routers.ainews-fe-https.middlewares=ainews-fe-strip"
+      # HTTP router → redirect a HTTPS (mismo prefijo)
+      - "traefik.http.routers.ainews-fe-http.rule=Host(`pguerrero.me`) && PathPrefix(`/ai-news`)"
+      - "traefik.http.routers.ainews-fe-http.entrypoints=http"
+      - "traefik.http.routers.ainews-fe-http.priority=50"
+      - "traefik.http.routers.ainews-fe-http.middlewares=frontend-redirect"
       - "traefik.http.middlewares.frontend-redirect.redirectscheme.scheme=https"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.ainews-fe-strip.stripprefix.prefixes=/ai-news"
+      - "traefik.http.services.ainews-fe.loadbalancer.server.port=80"
       - "traefik.docker.network=coolify"
     depends_on:
       api:
@@ -103,18 +112,21 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      # HTTPS router (higher priority than frontend to match /mcp before catch-all)
-      - "traefik.http.routers.mcp-https.rule=Host(`pguerrero.me`) && PathPrefix(`/mcp`)"
+      # HTTPS router: /ai-news/mcp con StripPrefix → el contenedor recibe /mcp.
+      # priority 100 > 50 del frontend para que /ai-news/mcp no caiga en el SPA.
+      - "traefik.http.routers.mcp-https.rule=Host(`pguerrero.me`) && PathPrefix(`/ai-news/mcp`)"
       - "traefik.http.routers.mcp-https.entrypoints=https"
       - "traefik.http.routers.mcp-https.tls=true"
       - "traefik.http.routers.mcp-https.tls.certresolver=letsencrypt"
       - "traefik.http.routers.mcp-https.priority=100"
-      - "traefik.http.routers.mcp-https.middlewares=mcp-ratelimit"
+      - "traefik.http.routers.mcp-https.middlewares=mcp-strip,mcp-ratelimit"
       # HTTP router → redirect to HTTPS
-      - "traefik.http.routers.mcp-http.rule=Host(`pguerrero.me`) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.mcp-http.rule=Host(`pguerrero.me`) && PathPrefix(`/ai-news/mcp`)"
       - "traefik.http.routers.mcp-http.entrypoints=http"
       - "traefik.http.routers.mcp-http.middlewares=frontend-redirect"
       - "traefik.http.routers.mcp-http.priority=100"
+      # StripPrefix: quita /ai-news → el contenedor recibe /mcp (healthcheck localhost:8001/mcp sigue válido)
+      - "traefik.http.middlewares.mcp-strip.stripprefix.prefixes=/ai-news"
       # Backend service
       - "traefik.http.services.mcp.loadbalancer.server.port=8001"
       # Rate-limit middleware: 3 req/s average, burst 10, keyed by IP
