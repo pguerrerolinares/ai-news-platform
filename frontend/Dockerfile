@@ -4,7 +4,10 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
-ENV VITE_API_URL=""
+ARG PUBLIC_BASE_PATH="/ai-news/"
+ARG VITE_API_URL="/ai-news"
+ENV PUBLIC_BASE_PATH=$PUBLIC_BASE_PATH
+ENV VITE_API_URL=$VITE_API_URL
 RUN bun run build
 
 FROM nginx:1.27-alpine AS frontend
