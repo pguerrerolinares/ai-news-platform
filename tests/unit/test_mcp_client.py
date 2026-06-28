@@ -39,6 +39,65 @@ class TestAuth:
         assert client.token == "pre-existing-jwt"
 
 
+class TestTokenRefresh:
+    """A long-lived client must recover from an expired guest token (401)."""
+
+    @respx.mock
+    def test_refreshes_token_and_retries_on_401(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            side_effect=[
+                httpx.Response(200, json={"access_token": "token-1", "token_type": "bearer"}),
+                httpx.Response(200, json={"access_token": "token-2", "token_type": "bearer"}),
+            ]
+        )
+        respx.get(f"{BASE}/api/items/today").mock(
+            side_effect=[
+                httpx.Response(401, json={"detail": "Token expired"}),
+                httpx.Response(200, json=[{"title": "Fresh"}]),
+            ]
+        )
+        client = APIClient(base_url=BASE)
+        result = client.get_latest()
+        assert result == [{"title": "Fresh"}]
+        # Guest endpoint hit twice: once on init, once to refresh after 401.
+        assert respx.calls.call_count == 4  # guest, 401 GET, guest, 200 GET
+
+    @respx.mock
+    def test_retried_request_uses_refreshed_token(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            side_effect=[
+                httpx.Response(200, json={"access_token": "stale", "token_type": "bearer"}),
+                httpx.Response(200, json={"access_token": "fresh", "token_type": "bearer"}),
+            ]
+        )
+        respx.get(f"{BASE}/api/items/today").mock(
+            side_effect=[
+                httpx.Response(401, json={"detail": "Token expired"}),
+                httpx.Response(200, json=[]),
+            ]
+        )
+        client = APIClient(base_url=BASE)
+        client.get_latest()
+        assert client.token == "fresh"
+        assert respx.calls.last.request.headers["Authorization"] == "Bearer fresh"
+
+    @respx.mock
+    def test_persistent_401_raises_without_infinite_retry(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(
+            return_value=httpx.Response(200, json={"access_token": "jwt", "token_type": "bearer"})
+        )
+        guest_route = respx.routes[0]
+        items_route = respx.get(f"{BASE}/api/items/today").mock(
+            return_value=httpx.Response(401, json={"detail": "Token expired"})
+        )
+        client = APIClient(base_url=BASE)
+        with pytest.raises(httpx.HTTPStatusError):
+            client.get_latest()
+        # One refresh attempt only: init + one retry = 2 guest acquisitions, 2 GETs.
+        assert guest_route.call_count == 2
+        assert items_route.call_count == 2
+
+
 class TestClose:
     @respx.mock
     def test_close_closes_http_client(self):

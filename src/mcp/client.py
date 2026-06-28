@@ -34,6 +34,20 @@ class APIClient:
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.token}"}
 
+    def _get(self, path: str, params: dict[str, str | int] | None = None) -> httpx.Response:
+        """GET *path* with auth, refreshing the guest token once on 401.
+
+        The MCP server is long-lived but guest tokens are short-lived, so a
+        cached token will eventually expire. On 401 we re-acquire a token once
+        and retry; a second 401 propagates via ``raise_for_status``.
+        """
+        resp = self._http.get(path, params=params, headers=self._headers)
+        if resp.status_code == 401:
+            self.token = self._acquire_guest_token()
+            resp = self._http.get(path, params=params, headers=self._headers)
+        resp.raise_for_status()
+        return resp
+
     def search(
         self,
         q: str,
@@ -49,33 +63,23 @@ class APIClient:
             params["date_from"] = date_from
         if date_to:
             params["date_to"] = date_to
-        resp = self._http.get("/api/search", params=params, headers=self._headers)
-        resp.raise_for_status()
-        return resp.json()
+        return self._get("/api/search", params=params).json()
 
     def semantic_search(self, q: str, limit: int = 10) -> list[dict]:
         params: dict[str, str | int] = {"q": q, "limit": limit}
-        resp = self._http.get("/api/search/semantic", params=params, headers=self._headers)
-        resp.raise_for_status()
-        return resp.json()
+        return self._get("/api/search/semantic", params=params).json()
 
     def get_latest(self, topic: str | None = None, limit: int = 10) -> list[dict]:
         params: dict[str, str | int] = {"limit": limit}
         if topic:
             params["topic"] = topic
-        resp = self._http.get("/api/items/today", params=params, headers=self._headers)
-        resp.raise_for_status()
-        return resp.json()
+        return self._get("/api/items/today", params=params).json()
 
     def get_trending(self) -> list[dict]:
-        params = {"trending": "true", "limit": 20}
-        resp = self._http.get("/api/items", params=params, headers=self._headers)
-        resp.raise_for_status()
-        return resp.json()
+        params: dict[str, str | int] = {"trending": "true", "limit": 20}
+        return self._get("/api/items", params=params).json()
 
     def get_briefing(self, date: str | None = None) -> dict:
         if not date:
             date = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-        resp = self._http.get(f"/api/briefings/{date}", headers=self._headers)
-        resp.raise_for_status()
-        return resp.json()
+        return self._get(f"/api/briefings/{date}").json()
