@@ -76,7 +76,12 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
             # set unconditionally -- when the WHERE fires only for a score
             # improvement (content unchanged), excluded.title/content_hash
             # equal the stored values anyway, so this is a no-op then too.
-            content_changed = base_stmt.excluded.content_hash != NewsItem.content_hash
+            # is_distinct_from (not !=) because plain `!=` against a NULL
+            # stored content_hash evaluates to SQL NULL, not true, and would
+            # never fire -- IS DISTINCT FROM treats NULL as a comparable value.
+            content_changed = NewsItem.content_hash.is_distinct_from(
+                base_stmt.excluded.content_hash
+            )
             stmt = base_stmt.on_conflict_do_update(
                 index_elements=["url_hash"],
                 index_where=text("url_hash IS NOT NULL"),

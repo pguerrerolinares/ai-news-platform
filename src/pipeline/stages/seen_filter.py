@@ -3,7 +3,8 @@
 Two passes:
 1. URL hash + content signal: same URL within the window is only filtered
    if its content_hash also matches what's stored (fast, indexed).
-   A same-URL item whose content changed is treated as an update, not a dup.
+   A same-URL item whose content changed is treated as an update, not a
+   dup, and skips Pass 2 (see filter_already_seen docstring for why).
 2. Title similarity: fuzzy match against recent titles (cross-source event dedup)
 """
 
@@ -49,9 +50,16 @@ async def filter_already_seen(
 
     Pass 1 — URL hash: items whose url_hash exists in DB are only filtered
     if their content_hash also matches the stored one. A same-URL item with
-    a different content_hash is a content update, not a duplicate, and is
-    passed through (logged as `content_updated`) so it reaches storage,
-    where store_classified_items() upserts it on the url_hash conflict.
+    a different content_hash is a content update, not a duplicate: it
+    skips Pass 2 entirely and is passed straight through (logged as
+    `content_updated`) so it reaches storage, where store_classified_items()
+    upserts it on the url_hash conflict. It must skip Pass 2 because that
+    pass's recent-titles snapshot still holds THIS row's own (stale, not
+    yet updated) title — a minor title edit (typo fix, capitalization,
+    added suffix) would score >=80% similar to itself and be wrongly
+    dropped as a cross-source duplicate. Pass 2 exists to dedup the same
+    event reported by a *different* source/URL, not to re-check a row
+    against its own prior version.
     Pass 2 — Title similarity: items whose title is >=80% similar to a
     recently stored title are filtered (cross-source event dedup).
 
@@ -84,19 +92,19 @@ async def filter_already_seen(
         result = await session.execute(stmt)
         stored_content_by_url_hash = dict(result.all())
 
-    after_url: list[ExtractedItem] = []
+    never_seen: list[ExtractedItem] = []
+    content_updates: list[ExtractedItem] = []
     url_filtered = 0
-    content_updated = 0
     for i in items_with_url:
         if i.url_hash not in stored_content_by_url_hash:
-            after_url.append(i)  # URL not seen before in the window
+            never_seen.append(i)  # URL not seen before in the window
         elif stored_content_by_url_hash[i.url_hash] != i.content_hash:
-            content_updated += 1  # same URL, content changed -> pass through as update
-            after_url.append(i)
+            content_updates.append(i)  # same URL, content changed -> update, skips Pass 2
         else:
             url_filtered += 1  # identical to what's already stored
 
-    candidates = after_url + items_without_url
+    candidates = never_seen + items_without_url
+    content_updated = len(content_updates)
 
     if not candidates:
         if url_filtered > 0 or content_updated > 0:
@@ -108,7 +116,7 @@ async def filter_already_seen(
                 title_filtered=0,
                 window_days=window_days,
             )
-        return []
+        return content_updates
 
     # --- Pass 2: Title similarity (cross-source event dedup) ---
     # Limit to most recent titles to bound O(N*M) comparison cost
@@ -136,4 +144,4 @@ async def filter_already_seen(
             window_days=window_days,
         )
 
-    return after_title
+    return after_title + content_updates

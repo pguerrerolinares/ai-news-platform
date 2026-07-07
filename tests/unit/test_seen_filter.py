@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 from src.extractors.base import ExtractedItem
 from src.pipeline.stages.seen_filter import filter_already_seen
 
@@ -72,6 +73,40 @@ class TestUrlHashFilter:
             result = await filter_already_seen(session, [item])
 
         assert len(result) == 1
+
+    async def test_content_update_with_minor_title_edit_skips_title_pass(self):
+        """A same-URL content update whose new title is a MINOR edit of the
+        stored one (capitalization only, here) must still pass through --
+        Pass 2 exists for cross-source dedup between different articles,
+        not to re-check a row against its own stale stored title. If a
+        content update went through Pass 2, this pair would score >=80%
+        similar and get wrongly dropped as a "duplicate"."""
+        original_title = "OpenAI launches GPT-5 today"
+        updated_title = "OpenAI launches GPT-5 Today"  # capitalization-only edit
+        item = _make_item("https://example.com/breaking-news", title=updated_title)
+        original = _make_item("https://example.com/breaking-news", title=original_title)
+        assert original.content_hash != item.content_hash  # sanity: a real content change
+
+        # Sanity: if Pass 2 ran on this pair, it WOULD filter it as a dup.
+        similarity = title_similarity(updated_title.lower(), original_title.lower())
+        assert similarity >= TITLE_SIMILARITY_THRESHOLD
+
+        # DB has the stale original title/content_hash for this url_hash,
+        # and recent_titles (Pass 2's snapshot) still holds that same stale
+        # title -- if Pass 2 ran on this item, it would self-match.
+        session = _mock_session_two_queries(
+            [(item.url_hash, original.content_hash)],
+            [original_title.lower()],
+        )
+
+        with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
+            mock_settings.return_value.seen_window_days = 7
+            result = await filter_already_seen(session, [item])
+
+        assert len(result) == 1, (
+            "content update was re-filtered by Pass 2 title similarity "
+            "against its own stale stored title"
+        )
 
 
 class TestTitleSimilarityFilter:
