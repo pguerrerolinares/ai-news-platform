@@ -12,12 +12,21 @@ def _make_item(url: str | None = "https://example.com/test", title: str = "Test"
     return ExtractedItem(title=title, source="hackernews", url=url)
 
 
-def _mock_session_two_queries(url_hashes: list[str | None], titles: list[str]) -> AsyncMock:
-    """Mock session that returns url_hashes on first execute, titles on second."""
+def _mock_session_two_queries(
+    url_content_pairs: list[tuple[str, str | None]], titles: list[str]
+) -> AsyncMock:
+    """Mock session that returns (url_hash, content_hash) rows on first
+    execute, titles on second.
+
+    `url_content_pairs` models the DB rows matched by url_hash within the
+    seen window, each paired with its stored content_hash — this is what
+    filter_already_seen() now compares against an incoming item's own
+    content_hash to tell an unchanged duplicate from a content update.
+    """
     session = AsyncMock()
 
     result_url = MagicMock()
-    result_url.scalars.return_value.all.return_value = url_hashes
+    result_url.all.return_value = url_content_pairs
 
     result_titles = MagicMock()
     result_titles.scalars.return_value.all.return_value = titles
@@ -28,9 +37,10 @@ def _mock_session_two_queries(url_hashes: list[str | None], titles: list[str]) -
 
 class TestUrlHashFilter:
     async def test_filters_out_items_with_known_url_hash(self):
-        """Items whose url_hash exists in DB are filtered out."""
+        """Items whose url_hash AND content_hash both match a stored row
+        are filtered out as an unchanged duplicate."""
         item = _make_item("https://example.com/already-seen")
-        session = _mock_session_two_queries([item.url_hash], [])
+        session = _mock_session_two_queries([(item.url_hash, item.content_hash)], [])
 
         with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
             mock_settings.return_value.seen_window_days = 7
@@ -42,6 +52,20 @@ class TestUrlHashFilter:
         """Items whose url_hash is NOT in DB pass through."""
         item = _make_item("https://example.com/brand-new", title="Unique Article Title XYZ")
         session = _mock_session_two_queries([], [])
+
+        with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
+            mock_settings.return_value.seen_window_days = 7
+            result = await filter_already_seen(session, [item])
+
+        assert len(result) == 1
+
+    async def test_same_url_different_content_hash_passes_through(self):
+        """A known url_hash whose stored content_hash differs from the
+        incoming item's is a content update, not a duplicate -- it must
+        not be silently dropped."""
+        item = _make_item("https://example.com/already-seen", title="Updated headline")
+        stale_content_hash = "0123456789abcdef"  # deliberately not item.content_hash
+        session = _mock_session_two_queries([(item.url_hash, stale_content_hash)], [])
 
         with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
             mock_settings.return_value.seen_window_days = 7
@@ -114,7 +138,7 @@ class TestCombinedFilter:
         unique = _make_item("https://example.com/unique", title="Completely New Topic XYZ")
 
         session = _mock_session_two_queries(
-            [url_seen.url_hash],  # url_seen filtered by hash
+            [(url_seen.url_hash, url_seen.content_hash)],  # url_seen: unchanged, filtered by hash
             ["GPT-5 Released by OpenAI"],  # title_similar filtered by title
         )
 

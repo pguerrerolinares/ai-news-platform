@@ -1,7 +1,9 @@
 """Seen filter stage — skip items already stored in recent days.
 
 Two passes:
-1. URL hash: exact match against stored url_hashes (fast, indexed)
+1. URL hash + content signal: same URL within the window is only filtered
+   if its content_hash also matches what's stored (fast, indexed).
+   A same-URL item whose content changed is treated as an update, not a dup.
 2. Title similarity: fuzzy match against recent titles (cross-source event dedup)
 """
 
@@ -45,7 +47,11 @@ async def filter_already_seen(
 ) -> list[ExtractedItem]:
     """Filter out items already stored: by URL hash or by similar title.
 
-    Pass 1 — URL hash: items whose url_hash exists in DB are filtered.
+    Pass 1 — URL hash: items whose url_hash exists in DB are only filtered
+    if their content_hash also matches the stored one. A same-URL item with
+    a different content_hash is a content update, not a duplicate, and is
+    passed through (logged as `content_updated`) so it reaches storage,
+    where store_classified_items() upserts it on the url_hash conflict.
     Pass 2 — Title similarity: items whose title is >=80% similar to a
     recently stored title are filtered (cross-source event dedup).
 
@@ -58,30 +64,47 @@ async def filter_already_seen(
     window_days = settings.seen_window_days
     cutoff = func.now() - func.make_interval(0, 0, 0, window_days)
 
-    # --- Pass 1: URL hash dedup ---
+    # --- Pass 1: URL hash dedup, guarded by content signal ---
+    # A url_hash match alone doesn't mean "already seen": a source can
+    # update the same URL later, the same day (or any day within the
+    # window), with different content. content_hash is fetched alongside
+    # url_hash in the same indexed, batched query (no N+1) so a same-URL
+    # item whose content actually changed is treated as an update rather
+    # than silently dropped.
     items_with_url = [i for i in items if i.url_hash is not None]
     items_without_url = [i for i in items if i.url_hash is None]
 
-    existing_hashes: set[str] = set()
+    stored_content_by_url_hash: dict[str, str | None] = {}
     if items_with_url:
         url_hashes = [i.url_hash for i in items_with_url]
-        stmt = select(NewsItem.url_hash).where(
+        stmt = select(NewsItem.url_hash, NewsItem.content_hash).where(
             NewsItem.url_hash.in_(url_hashes),
             NewsItem.created_at >= cutoff,
         )
         result = await session.execute(stmt)
-        existing_hashes = set(result.scalars().all())
+        stored_content_by_url_hash = dict(result.all())
 
-    after_url = [i for i in items_with_url if i.url_hash not in existing_hashes]
-    url_filtered = len(items_with_url) - len(after_url)
+    after_url: list[ExtractedItem] = []
+    url_filtered = 0
+    content_updated = 0
+    for i in items_with_url:
+        if i.url_hash not in stored_content_by_url_hash:
+            after_url.append(i)  # URL not seen before in the window
+        elif stored_content_by_url_hash[i.url_hash] != i.content_hash:
+            content_updated += 1  # same URL, content changed -> pass through as update
+            after_url.append(i)
+        else:
+            url_filtered += 1  # identical to what's already stored
+
     candidates = after_url + items_without_url
 
     if not candidates:
-        if url_filtered > 0:
+        if url_filtered > 0 or content_updated > 0:
             logger.info(
                 "seen_filter_applied",
                 input_count=len(items),
                 url_filtered=url_filtered,
+                content_updated=content_updated,
                 title_filtered=0,
                 window_days=window_days,
             )
@@ -103,11 +126,12 @@ async def filter_already_seen(
     )
 
     total_filtered = url_filtered + title_filtered
-    if total_filtered > 0:
+    if total_filtered > 0 or content_updated > 0:
         logger.info(
             "seen_filter_applied",
             input_count=len(items),
             url_filtered=url_filtered,
+            content_updated=content_updated,
             title_filtered=title_filtered,
             window_days=window_days,
         )

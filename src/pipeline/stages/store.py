@@ -31,7 +31,15 @@ def _get_embed_service() -> EmbeddingService:
 async def store_classified_items(session: AsyncSession, items: list[ClassifiedItem]) -> int:
     """Store classified items in PostgreSQL with batch commits.
 
-    Items WITH a URL: upsert on url_hash — update scores if new values are higher.
+    Items WITH a URL: upsert on url_hash — update scores if new values are
+    higher, and refresh title/content_hash when seen_filter let a same-day/
+    in-window content update through (content_hash actually changed).
+    NOTE: full_text/summary/topic/etc. are NOT refreshed on a content
+    update yet -- only title, since it's the one field content_hash covers
+    and is guaranteed correct when the WHERE clause fires for that reason.
+    Refreshing the rest would risk clobbering good data on a pure
+    score-reinforcement pass (same content, unrelated rescan). Left as a
+    follow-up; see fix report.
     Items WITHOUT a URL: insert with on_conflict_do_nothing on content_hash.
     """
     if not items:
@@ -63,12 +71,18 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
         )
 
         if item.url_hash is not None:
-            # Upsert: update scores only when new values are strictly higher.
-            # WHERE clause ensures rowcount=0 for exact duplicates (no-op update).
+            # content_hash is sha256(title+url): if it differs, title is the
+            # part that changed (url can't have, url_hash matched). Safe to
+            # set unconditionally -- when the WHERE fires only for a score
+            # improvement (content unchanged), excluded.title/content_hash
+            # equal the stored values anyway, so this is a no-op then too.
+            content_changed = base_stmt.excluded.content_hash != NewsItem.content_hash
             stmt = base_stmt.on_conflict_do_update(
                 index_elements=["url_hash"],
                 index_where=text("url_hash IS NOT NULL"),
                 set_={
+                    "title": base_stmt.excluded.title,
+                    "content_hash": base_stmt.excluded.content_hash,
                     "composite_score": func.greatest(
                         NewsItem.composite_score, base_stmt.excluded.composite_score
                     ),
@@ -77,8 +91,11 @@ async def store_classified_items(session: AsyncSession, items: list[ClassifiedIt
                         NewsItem.relevance_score, base_stmt.excluded.relevance_score
                     ),
                 },
+                # WHERE clause ensures rowcount=0 (no-op update) unless the
+                # content genuinely changed or a score genuinely improved.
                 where=(
-                    (base_stmt.excluded.composite_score > NewsItem.composite_score)
+                    content_changed
+                    | (base_stmt.excluded.composite_score > NewsItem.composite_score)
                     | (base_stmt.excluded.score > NewsItem.score)
                     | (base_stmt.excluded.relevance_score > NewsItem.relevance_score)
                 ),

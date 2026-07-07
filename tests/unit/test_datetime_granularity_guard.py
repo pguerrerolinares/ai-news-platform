@@ -27,15 +27,22 @@ from src.extractors.base import ExtractedItem
 from src.pipeline.stages.seen_filter import filter_already_seen
 
 
-def _mock_session_two_queries(url_hashes: list[str | None], titles: list[str]) -> AsyncMock:
-    """Mock session that returns url_hashes on first execute, titles on second.
+def _mock_session_two_queries(
+    url_content_pairs: list[tuple[str, str | None]], titles: list[str]
+) -> AsyncMock:
+    """Mock session that returns (url_hash, content_hash) rows on first
+    execute, titles on second.
 
     Mirrors the helper in tests/unit/test_seen_filter.py to match repo style.
+    `url_content_pairs` models DB rows matched by url_hash within the seen
+    window, paired with their stored content_hash -- the signal
+    filter_already_seen() needs to tell an unchanged duplicate from a
+    same-day content update.
     """
     session = AsyncMock()
 
     result_url = MagicMock()
-    result_url.scalars.return_value.all.return_value = url_hashes
+    result_url.all.return_value = url_content_pairs
 
     result_titles = MagicMock()
     result_titles.scalars.return_value.all.return_value = titles
@@ -66,8 +73,9 @@ class TestSameDayUpdateGuard:
         )
         assert original.url_hash == updated.url_hash  # sanity: identical identity key
 
-        # DB already has this url_hash stored from the morning run.
-        session = _mock_session_two_queries([updated.url_hash], [])
+        # DB already has this url_hash stored from the morning run, with the
+        # ORIGINAL content_hash -- the afternoon update's content_hash differs.
+        session = _mock_session_two_queries([(updated.url_hash, original.content_hash)], [])
 
         with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
             mock_settings.return_value.seen_window_days = 7
