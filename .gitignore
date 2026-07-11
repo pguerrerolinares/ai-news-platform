@@ -88,3 +88,7 @@ docs/DESIGN_SYSTEM.md
 /site/
 .superpowers/fabrica/ledger.md
 .superpowers/fabrica/ACTIVE
+
+# Claude Code local state + playwright MCP artifacts
+.claude/
+.playwright-mcp/
