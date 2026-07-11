@@ -1,14 +1,4 @@
-import {
-  getAccessToken,
-  getRefreshToken,
-  storeTokens,
-  storeGuestToken,
-  clearTokens,
-  hasTokens,
-  isTokenExpired,
-  isGuestToken,
-  type AuthTokens,
-} from './auth'
+import { getAccessToken, storeGuestToken, clearTokens, isTokenExpired } from './auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -21,37 +11,6 @@ class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
     this.code = code
-  }
-}
-
-let inflightRefresh: Promise<boolean> | null = null
-
-async function doRefreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
-
-  try {
-    const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-    if (!res.ok) return false
-    const tokens: AuthTokens = await res.json()
-    storeTokens(tokens)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function refreshAccessToken(): Promise<boolean> {
-  if (inflightRefresh) return inflightRefresh
-  inflightRefresh = doRefreshAccessToken()
-  try {
-    return await inflightRefresh
-  } finally {
-    inflightRefresh = null
   }
 }
 
@@ -68,7 +27,6 @@ async function fetchGuestToken(): Promise<void> {
 
 async function ensureToken(): Promise<void> {
   if (getAccessToken() && !isTokenExpired()) return
-  if (getRefreshToken()) return
 
   if (inflightGuestToken) return inflightGuestToken
   inflightGuestToken = fetchGuestToken()
@@ -102,17 +60,9 @@ async function request<T>(
   })
 
   if (res.status === 401 && retry) {
-    const refreshed = await refreshAccessToken()
-    if (refreshed) {
-      return request<T>(path, options, false)
-    }
-    if (isGuestToken() || !hasTokens()) {
-      clearTokens()
-      await ensureToken()
-      return request<T>(path, options, false)
-    }
     clearTokens()
-    throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
+    await ensureToken()
+    return request<T>(path, options, false)
   }
 
   if (!res.ok) {
@@ -157,57 +107,6 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
 export async function apiDelete(path: string): Promise<void> {
   await request(path, { method: 'DELETE' })
-}
-
-export async function apiStream(
-  path: string,
-  body: unknown,
-  signal?: AbortSignal,
-): Promise<Response> {
-  await ensureToken()
-  const url = `${BASE_URL}${path}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-    },
-    body: JSON.stringify(body),
-    signal,
-  })
-
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken()
-    if (refreshed) {
-      return fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify(body),
-        signal,
-      })
-    }
-    if (isGuestToken()) {
-      throw new ApiError(401, 'UNAUTHORIZED', 'Chat requires authentication')
-    }
-    clearTokens()
-    throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
-  }
-
-  if (!res.ok) {
-    let message = `Error ${res.status}`
-    try {
-      const errorBody = await res.json()
-      message = errorBody.error?.message ?? message
-    } catch {
-      // ignore
-    }
-    throw new ApiError(res.status, 'STREAM_ERROR', message)
-  }
-
-  return res
 }
 
 export { ApiError, BASE_URL }

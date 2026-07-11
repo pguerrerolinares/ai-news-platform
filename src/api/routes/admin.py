@@ -1,7 +1,7 @@
 """Admin API routes — pipeline audit, runs, and source freshness.
 
 NOTE: No `from __future__ import annotations` — slowapi @limiter.limit
-breaks with PEP 563 deferred evaluation. See src/api/routes/otp.py.
+breaks with PEP 563 deferred evaluation. See src/api/routes/auth.py.
 """
 
 import re

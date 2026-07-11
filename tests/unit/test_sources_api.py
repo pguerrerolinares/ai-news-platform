@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
-from src.api.auth import require_auth, require_auth_or_guest
+from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
 
 
@@ -30,7 +30,6 @@ def _override_dependencies():
     app.dependency_overrides[require_auth_or_guest] = lambda: "test-user"
     yield
     app.dependency_overrides.pop(get_session, None)
-    app.dependency_overrides.pop(require_auth, None)
     app.dependency_overrides.pop(require_auth_or_guest, None)
 
 

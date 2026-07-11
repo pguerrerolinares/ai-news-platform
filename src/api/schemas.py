@@ -80,21 +80,10 @@ class ErrorWrapper(BaseModel):
     error: ErrorResponse
 
 
-class TokenResponseV2(BaseModel):
-    access_token: str
-    refresh_token: str
-    expires_in: int
-    token_type: str = "bearer"
-
-
 class GuestTokenResponse(BaseModel):
     access_token: str
     expires_in: int
     token_type: str = "bearer"
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
 
 
 class ChatRequest(BaseModel):
@@ -123,51 +112,3 @@ class ScoreDistributionResponse(BaseModel):
     min_score: int
     max_score: int
     count: int
-
-
-# --- OTP Auth ---
-class OtpRequestBody(BaseModel):
-    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-class OtpVerifyBody(BaseModel):
-    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
-
-
-class OtpRequestResponse(BaseModel):
-    message: str
-
-
-class UserResponse(BaseModel):
-    id: uuid.UUID
-    email: str
-    name: str | None
-    role: str
-
-    model_config = {"from_attributes": True}
-
-
-# --- WebAuthn (Passkeys) ---
-class WebAuthnLoginOptionsRequest(BaseModel):
-    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-class WebAuthnRegisterVerifyRequest(BaseModel):
-    device_name: str = Field(..., min_length=1, max_length=100)
-    credential: dict  # Raw authenticator response from browser
-
-
-class WebAuthnLoginVerifyRequest(BaseModel):
-    email: str = Field(..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    credential: dict  # Raw authenticator assertion from browser
-
-
-class WebAuthnCredentialResponse(BaseModel):
-    id: uuid.UUID
-    device_name: str
-    backed_up: bool
-    created_at: datetime
-    last_used_at: datetime | None
-
-    model_config = {"from_attributes": True}
