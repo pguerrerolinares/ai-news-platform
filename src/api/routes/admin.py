@@ -4,6 +4,7 @@ NOTE: No `from __future__ import annotations` — slowapi @limiter.limit
 breaks with PEP 563 deferred evaluation. See src/api/routes/otp.py.
 """
 
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
@@ -20,6 +21,25 @@ from src.core.models import NewsItem, PipelineRun
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 limiter = Limiter(key_func=get_client_ip)
+
+_ERROR_MESSAGE_MAX_LEN = 120
+_ABSOLUTE_PATH_RE = re.compile(r"(?:[A-Za-z]:\\|/)[\w./\\-]+")
+
+
+def _sanitize_error_message(raw: str | None) -> str | None:
+    """Redact internal detail from a stored pipeline error before it leaves the API.
+
+    The DB keeps the full exception string (up to 500 chars) for internal debugging,
+    but `/api/admin/*` is publicly readable (guest tokens), so the served value must
+    not leak absolute paths, internal hosts/IPs, or multi-line tracebacks.
+    """
+    if raw is None:
+        return None
+    first_line = raw.splitlines()[0] if raw else ""
+    redacted = _ABSOLUTE_PATH_RE.sub("[path]", first_line)
+    if len(redacted) > _ERROR_MESSAGE_MAX_LEN:
+        redacted = redacted[: _ERROR_MESSAGE_MAX_LEN - 1].rstrip() + "…"
+    return redacted
 
 
 # --- Schemas ---
@@ -187,7 +207,7 @@ async def admin_pipeline_runs(
             items_classified=r.items_classified or 0,
             items_validated=r.items_validated or 0,
             items_stored=r.items_stored or 0,
-            error_message=r.error_message,
+            error_message=_sanitize_error_message(r.error_message),
             correlation_id=r.correlation_id,
         )
         for r in runs

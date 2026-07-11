@@ -1,7 +1,9 @@
 """Unit tests for admin API routes (audit, pipeline-runs, freshness).
 
 These endpoints are publicly readable (require_auth_or_guest, no admin needed).
-error_message is exposed as-is in pipeline-runs responses (admin debugging tool).
+error_message is sanitized before being served: the DB keeps the raw exception
+string for internal debugging, but the response only exposes a short, path-free
+first line (see `_sanitize_error_message` in src/api/routes/admin.py).
 """
 
 from __future__ import annotations
@@ -167,11 +169,12 @@ class TestAdminPipelineRuns:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_error_message_exposed_for_debugging(self, api_client: AsyncClient):
-        """A run with a raw error_message in the DB must return the real string in JSON."""
+    async def test_error_message_is_sanitized_for_public_response(self, api_client: AsyncClient):
+        """A raw multi-line error_message with an internal path must be sanitized before serving."""
         raw_error = (
-            "could not connect to server: Connection refused\n"
-            "\tIs the server running on host 'db.internal' (192.168.1.5) and port 5432?"
+            "could not connect to server: Connection refused at /home/deploy/app/db/pool.py:42\n"
+            "\tIs the server running on host 'db.internal' (192.168.1.5) and port 5432?\n"
+            "\tTraceback (most recent call last): ..."
         )
         run = _make_pipeline_run(error_message=raw_error, status="error")
         session = self._session_with_runs([run])
@@ -188,7 +191,11 @@ class TestAdminPipelineRuns:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
-        assert data[0]["error_message"] == raw_error, "error_message must be exposed for debugging"
+        sanitized = data[0]["error_message"]
+        assert sanitized is not None
+        assert "/home/deploy/app/db/pool.py" not in sanitized, "must not leak absolute paths"
+        assert "\n" not in sanitized, "must not leak multi-line tracebacks"
+        assert len(sanitized) <= 120, "must be capped to a short length"
         assert data[0]["status"] == "error", "Status must still reflect the failure"
 
     async def test_null_error_message_stays_none(self, api_client: AsyncClient):
