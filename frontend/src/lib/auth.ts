@@ -18,6 +18,12 @@ export function storeTokens(tokens: AuthTokens): void {
   localStorage.setItem(STORAGE_KEYS.expiresAt, String(expiresAt))
 }
 
+export function storeGuestToken(accessToken: string, expiresIn: number): void {
+  const expiresAt = Date.now() + expiresIn * 1000
+  localStorage.setItem(STORAGE_KEYS.accessToken, accessToken)
+  localStorage.setItem(STORAGE_KEYS.expiresAt, String(expiresAt))
+}
+
 export function getAccessToken(): string | null {
   return localStorage.getItem(STORAGE_KEYS.accessToken)
 }
