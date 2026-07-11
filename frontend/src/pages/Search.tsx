@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { Input } from '@/components/ui/input'
 import {
@@ -31,9 +31,16 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Cancel any in-flight search on unmount
+  useEffect(() => () => { abortRef.current?.abort() }, [])
 
   const search = useCallback(async () => {
     if (!query.trim()) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setLoading(true)
     setError('')
     setSearched(true)
@@ -46,15 +53,18 @@ export default function Search() {
       if (topic !== 'all') params.topic = topic
       if (dateFrom) params.date_from = format(dateFrom, 'yyyy-MM-dd')
       if (dateTo) params.date_to = format(dateTo, 'yyyy-MM-dd')
-      const { data, totalCount: count } = await apiGet<NewsItem[]>('/api/search', params)
+      const { data, totalCount: count } = await apiGet<NewsItem[]>(
+        '/api/search', params, controller.signal,
+      )
       setResults(data)
       setTotalCount(count)
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Search failed')
       setResults([])
       setTotalCount(null)
     } finally {
-      setLoading(false)
+      if (abortRef.current === controller) setLoading(false)
     }
   }, [query, topic, sortBy, dateFrom, dateTo])
 
