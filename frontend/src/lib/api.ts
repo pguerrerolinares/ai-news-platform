@@ -1,4 +1,14 @@
-import { getAccessToken, getRefreshToken, storeTokens, clearTokens, hasTokens, isTokenExpired, isGuestToken, type AuthTokens } from './auth'
+import {
+  getAccessToken,
+  getRefreshToken,
+  storeTokens,
+  storeGuestToken,
+  clearTokens,
+  hasTokens,
+  isTokenExpired,
+  isGuestToken,
+  type AuthTokens,
+} from './auth'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -14,7 +24,9 @@ class ApiError extends Error {
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+let inflightRefresh: Promise<boolean> | null = null
+
+async function doRefreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) return false
 
@@ -33,19 +45,37 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+async function refreshAccessToken(): Promise<boolean> {
+  if (inflightRefresh) return inflightRefresh
+  inflightRefresh = doRefreshAccessToken()
+  try {
+    return await inflightRefresh
+  } finally {
+    inflightRefresh = null
+  }
+}
+
+let inflightGuestToken: Promise<void> | null = null
+
+async function fetchGuestToken(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/auth/guest`, { method: 'POST' })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'GUEST_TOKEN_ERROR', 'Failed to obtain guest token')
+  }
+  const data = await res.json()
+  storeGuestToken(data.access_token, data.expires_in)
+}
+
 async function ensureToken(): Promise<void> {
   if (getAccessToken() && !isTokenExpired()) return
-  if (!getRefreshToken()) {
-    try {
-      const res = await fetch(`${BASE_URL}/api/auth/guest`, { method: 'POST' })
-      if (res.ok) {
-        const data = await res.json()
-        localStorage.setItem('auth_access_token', data.access_token)
-        localStorage.setItem('auth_expires_at', String(Date.now() + data.expires_in * 1000))
-      }
-    } catch {
-      // Guest token fetch failed — continue without token
-    }
+  if (getRefreshToken()) return
+
+  if (inflightGuestToken) return inflightGuestToken
+  inflightGuestToken = fetchGuestToken()
+  try {
+    await inflightGuestToken
+  } finally {
+    inflightGuestToken = null
   }
 }
 
@@ -82,7 +112,6 @@ async function request<T>(
       return request<T>(path, options, false)
     }
     clearTokens()
-    window.location.replace('/login')
     throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
   }
 
@@ -164,7 +193,6 @@ export async function apiStream(
       throw new ApiError(401, 'UNAUTHORIZED', 'Chat requires authentication')
     }
     clearTokens()
-    window.location.replace('/login')
     throw new ApiError(401, 'UNAUTHORIZED', 'Session expired')
   }
 
