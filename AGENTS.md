@@ -1,19 +1,19 @@
 # AGENTS.md — AI News Platform
 
-> **Last updated**: 2026-06-13 | **Current milestone**: Production Quality & Observability | **Status**: Active
+> **Last updated**: 2026-07-11 | **Current milestone**: Production Quality & Observability | **Status**: Active
 
 ## Project Overview
 
-**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews keyword + leading, arXiv, RSS, GitHub Trending, GitHub Search, HuggingFace, WebScraper; Reddit present but disabled by default), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat.
+**AI News Platform** is a web-based AI news aggregation, classification, and search platform. It extracts news from multiple sources (HackerNews keyword + leading, arXiv, RSS, GitHub Trending, GitHub Search, HuggingFace, WebScraper; Reddit present but disabled by default), classifies them using LLM (Kimi/Moonshot), stores in PostgreSQL with pgvector embeddings, and serves via a FastAPI REST API + React frontend. Includes RAG-based Q&A chat (currently inaccessible from the web — see Auth below).
 
 **Evolved from**: `x-news-summarizer` (Telegram-only pipeline). This project adds a web UI, database, full-text search, RAG chat, and MCP integration.
 
 **Key facts**:
-- **Audience**: Public (guest tokens for read-only access) + registered users (OTP + WebAuthn passkeys)
+- **Audience**: Public, guest-only (guest tokens, read-only access). No registered users, no login.
 - **Development**: 100% by AI agents. Zero human coding.
 - **Infrastructure**: Hetzner VPS (4GB RAM, ~5 EUR/month)
 - **LLM**: Kimi/Moonshot API (OpenAI-compatible, cheapest option)
-- **Tests**: 1,179+ passed (after Telegram removal), 92% coverage
+- **Tests**: 1,050 passed (`pytest tests/unit/ -q`), 92% coverage
 - **Embeddings**: 512 dimensions (text-embedding-3-small, native)
 
 ## Architecture
@@ -24,7 +24,7 @@ flowchart LR
         Nginx["Nginx (TLS + proxy + static)"]
         Pipeline["Pipeline (sched)"]
         FastAPI["FastAPI (REST)"]
-        DB[("PostgreSQL 16 + pgvector<br/>Tables:<br/>- news_items<br/>- daily_briefings<br/>- item_embeddings<br/>- users<br/>- otp_codes<br/>- webauthn_creds")]
+        DB[("PostgreSQL 16 + pgvector<br/>Tables:<br/>- news_items<br/>- daily_briefings<br/>- item_embeddings")]
         Nginx --> FastAPI
         Pipeline --> DB
         FastAPI --> DB
@@ -98,13 +98,13 @@ ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
 ├── Dockerfile.api / Dockerfile.pipeline / docker-compose.coolify.yml
-├── alembic/                          # DB migrations (17 versions)
+├── alembic/                          # DB migrations (18 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
 │   ├── core/
 │   │   ├── config.py                 # Pydantic Settings (all env vars)
 │   │   ├── database.py               # Async SQLAlchemy engine + get_async_session()
-│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, PipelineRun, User, OtpCode, RawExtraction, WebAuthnCredential
+│   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, PipelineRun, RawExtraction
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   ├── metrics.py                # Prometheus counters + histograms
 │   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
@@ -118,11 +118,9 @@ ai-news-platform/
 │   ├── notifiers/                    # (Telegram removed — replaced by pipeline_runs table)
 │   ├── api/
 │   │   ├── app.py                    # FastAPI app, middleware, lifespan
-│   │   ├── auth.py                   # JWT + refresh tokens, require_auth, require_auth_or_guest, require_admin, create_guest_token
-│   │   ├── otp.py                    # OTP generation + Resend API
+│   │   ├── auth.py                   # Guest tokens: create_guest_token, require_auth, require_auth_or_guest
 │   │   ├── schemas.py                # Pydantic response models
-│   │   ├── webauthn.py                # WebAuthn challenge store
-│   │   └── routes/                   # auth, otp, webauthn, items, briefings, search, chat, stats, sources, admin
+│   │   └── routes/                   # auth (guest), items, briefings, search, chat, topics, sources, stats, admin
 │   ├── feed/                           # Feed algorithm (query-time ranking)
 │   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ/FP8/FP16/NVFP4/abliterated/censored + param size normalization)
 │   │   ├── mmr_ranker.py             # MMR diversification (quality vs source diversity)
@@ -142,11 +140,11 @@ ai-news-platform/
 │   └── mcp/                          # MCP server + client
 ├── frontend/                         # React 19 (Vite + Shadcn UI + Tailwind CSS 4)
 │   └── src/
-│       ├── lib/                      # api.ts, auth.ts, webauthn.ts, constants.ts, types.ts
-│       ├── hooks/                    # use-auth, use-theme, use-mobile
+│       ├── lib/                      # api.ts, auth.ts (guest tokens), constants.ts, types.ts
+│       ├── hooks/                    # use-theme, use-mobile, use-scroll-direction, use-reduced-motion
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
-│       └── pages/                    # Admin, Briefing, Chat, Dashboard, Discover, Login, Search, Settings, Timeline, Trending
-├── tests/                            # 1,179+ unit + 35 E2E (Playwright)
+│       └── pages/                    # Admin, Briefing, Dashboard, Discover, Search, Timeline, Trending
+├── tests/                            # 1,050 unit + 19 E2E (Playwright, currently skipped — see Testing)
 ├── scripts/                          # backup, health check, rescore_composite, rescore_all
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
@@ -162,10 +160,8 @@ ai-news-platform/
 - **daily_briefings**: date(DATE PK), total_items, items_extracted, items_after_dedup, items_filtered, trending_count, duration_seconds, sources_used(JSONB), generated_at
 - **item_embeddings**: item_id(UUID FK→news_items PK), model(TEXT PK), embedding(vector(512)), created_at
   Indexes: HNSW(embedding vector_cosine_ops)
-- **users**: id(UUID PK), email(UNIQUE), name, role(admin|reader), created_at, last_login_at
-- **otp_codes**: id(SERIAL PK), email, code(6-digit), expires_at, used, created_at — purged daily by scheduler
-- **webauthn_credentials**: id(UUID PK), user_id(UUID FK→users CASCADE), credential_id(BYTEA UNIQUE), public_key(BYTEA), sign_count, device_name, transports(JSONB), backed_up, last_used_at, created_at
-  Indexes: user_id
+
+> `users`, `otp_codes`, `webauthn_credentials` were dropped in migration 018 (web pública guest-only — see ADR-002). `downgrade()` recreates the schema but not the data.
 
 ## API Endpoints
 
@@ -174,16 +170,6 @@ ai-news-platform/
 | GET | /health | No | Health check (200/503) |
 | GET | /metrics | No | Prometheus (localhost only) |
 | POST | /api/auth/guest | No | Get guest token (read-only, 24h TTL, 10/min) |
-| POST | /api/auth/refresh | No | Refresh access token (rotation, 10/min) |
-| POST | /api/auth/otp/request | No | Send OTP email (3/min) |
-| POST | /api/auth/otp/verify | No | Verify OTP → JWT (5/min) |
-| POST | /api/auth/webauthn/register/options | JWT | Generate passkey registration options (3/min) |
-| POST | /api/auth/webauthn/register/verify | JWT | Verify and store new passkey (3/min) |
-| POST | /api/auth/webauthn/login/options | No | Generate passkey login options (5/min) |
-| POST | /api/auth/webauthn/login/verify | No | Verify passkey login → JWT (5/min) |
-| GET | /api/auth/webauthn/credentials | JWT | List user's passkeys (10/min) |
-| DELETE | /api/auth/webauthn/credentials/{id} | JWT | Delete a passkey (3/min) |
-| GET | /api/auth/me | JWT | Current user info |
 | GET | /api/items | Guest/JWT | List items (filters: source, topic, date, limit, offset) |
 | GET | /api/items/count | Guest/JWT | Count matching items |
 | GET | /api/items/latest | Guest/JWT | Latest items (sort=relevance uses FeedBuilder with time filter + live rescore + MMR, sort=recent is chronological with 48h window) |
@@ -197,12 +183,12 @@ ai-news-platform/
 | GET | /api/search | Guest/JWT | Full-text search (FTS, sort_by) |
 | GET | /api/sources | Guest/JWT | Sources with item counts |
 | GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution |
-| POST | /api/chat | JWT | RAG Q&A (SSE streaming, 10/min) — requires full auth |
+| POST | /api/chat | JWT (`require_auth`) | RAG Q&A (SSE streaming, 10/min) — inaccessible from the web: there is no current issuer of full (non-guest) user tokens. Kept for a possible future token issuer (e.g. MCP) so the LLM spend stays gated, not open to any guest. |
 
 Pagination: all paginated endpoints return `X-Total-Count` header.
 Errors: `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}`.
-Auth: Guest token (24h, read-only) or access token (30min) + refresh token (7d with rotation). `Authorization: Bearer`.
-Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests).
+Auth: Guest token only (24h TTL, read-only). `Authorization: Bearer`.
+Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests, and nothing currently issues non-guest tokens).
 Rate limiting: JWT-aware — guest by `jti`, user by `sub`, fallback to IP. Guests: 30 req/min, users: 120 req/min.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 
@@ -214,8 +200,8 @@ Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-latest`, 
 Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MULTIPLIER=5` (pool size = limit × N)
 Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
 Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
-Scheduler: HN every 30min (since 6h), HN-leading every 15min (since 2h), RSS+GitHub-trending+HF+WebScraper every 60min (since 3h), GitHub-search every 4h/240min (since 12h), arXiv daily cron 01:30 UTC (since 24h), OTP cleanup daily 02:00 UTC. Reddit NOT scheduled (disabled by default). Circuit breaker: 3 failures → 1h cooldown.
-Auth: Guest tokens (public, read-only) + Passwordless OTP via Resend API + WebAuthn passkeys (biometric). `ADMIN_EMAIL` auto-promotes to admin. OTP expires in 10min. WebAuthn config: `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`.
+Scheduler: HN every 30min (since 6h), HN-leading every 15min (since 2h), RSS+GitHub-trending+HF+WebScraper every 60min (since 3h), GitHub-search every 4h/240min (since 12h), arXiv daily cron 01:30 UTC (since 24h). Reddit NOT scheduled (disabled by default). Circuit breaker: 3 failures → 1h cooldown.
+Auth: Guest tokens only (public, read-only, 24h TTL). No registered users, no login — OTP/Resend and WebAuthn/passkeys were removed (see ADR-002).
 
 ## Testing
 
@@ -237,8 +223,10 @@ pytest tests/ -x --timeout=30 -q
 ```
 
 **Coverage target**: 80% minimum (enforced in CI, unit tests only)
-**Current coverage**: 92% (1,179+ passed)
-**E2E tests**: Playwright — login, dashboard, archive, search, chat, analytics, navigation flows
+**Current coverage**: 92% (1,050 passed, `pytest tests/unit/ -q`)
+**E2E tests**: Playwright — dashboard, archive, search, analytics, navigation flows (19 tests total)
+
+**Known issue**: the E2E harness (`tests/e2e/conftest.py::_find_dist_dir`) only looks for `web/dist/web/browser` or `web/dist/browser` (leftover from the pre-React Angular frontend) and skips all 19 tests when neither exists — `pytest.skip("Angular build not found - run 'ng build' first.")`. The current frontend builds to `frontend/dist`, so this always skips today; it is not "35 E2E passing" as documented previously. Fixing the harness path is tracked as follow-up work, not part of this doc update.
 
 ## CI/CD Pipeline
 
