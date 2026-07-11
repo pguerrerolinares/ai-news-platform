@@ -1,9 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router'
-import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useScrollDirection } from '@/hooks/use-scroll-direction'
-import { IconLogout } from '@tabler/icons-react'
-import { useAuth } from '@/hooks/use-auth'
 import { PillTabs } from '@/components/pill-tabs'
 
 const links = [
@@ -19,7 +16,6 @@ const links = [
 const NAV_ITEMS = links.map(({ to, label }) => ({ value: to, label }))
 
 export function AppNav() {
-  const { isFullUser, logout } = useAuth()
   const scrollDir = useScrollDirection()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -41,11 +37,6 @@ export function AppNav() {
         </NavLink>
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
-          {isFullUser && (
-            <Button variant="ghost" size="icon" className="size-8" onClick={logout} aria-label="Log out">
-              <IconLogout className="size-4" />
-            </Button>
-          )}
         </div>
       </div>
       {/* Horizontally scrollable pill nav — same PillTabs component as topic filter */}
