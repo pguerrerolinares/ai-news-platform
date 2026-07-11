@@ -25,6 +25,16 @@ async def run_scheduled_pipeline(sources: list[str], since_hours: int | None = N
     Creates its own DB session and catches all exceptions
     so that one failed job does not crash the scheduler.
     Sources with open circuits are skipped until cooldown expires.
+
+    Per-source success/failure is tracked by the extract stage itself (see
+    ``src.pipeline.stages.extract.run_extraction``), which receives
+    ``_circuit_breaker`` as an explicit parameter. This function no longer
+    records success/failure per source on the happy path: doing so here,
+    for every source in the tier whenever the overall pipeline succeeded,
+    used to reset the breaker for a source that had just failed extraction
+    within that same run (a source-specific extraction failure does not
+    stop the pipeline — see run_extraction — so `result` can be True even
+    though one of the tier's sources just tripped its breaker).
     """
     # Filter out sources with open circuits
     active_sources = [s for s in sources if not _circuit_breaker.is_open(s)]
@@ -35,11 +45,12 @@ async def run_scheduled_pipeline(sources: list[str], since_hours: int | None = N
     logger.info("scheduled_pipeline_start", sources=active_sources)
     try:
         async with get_async_session() as session:
-            result = await run_pipeline(session, sources=active_sources, since_hours=since_hours)
-            # Record success for all active sources
-            if result:
-                for source in active_sources:
-                    _circuit_breaker.record_success(source)
+            await run_pipeline(
+                session,
+                sources=active_sources,
+                since_hours=since_hours,
+                circuit_breaker=_circuit_breaker,
+            )
     except Exception as exc:
         # Pipeline catches per-extractor errors internally; exceptions here
         # are infrastructure-level (DB, network), so penalizing all sources
