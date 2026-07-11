@@ -19,6 +19,7 @@ from src.core.metrics import (
     validation_duration_seconds,
 )
 from src.core.models import PipelineRun
+from src.pipeline.circuit_breaker import CircuitBreaker
 from src.pipeline.dedup import deduplicate_items
 from src.pipeline.stages.classify import run_classification
 from src.pipeline.stages.extract import get_extractors, run_extraction
@@ -35,6 +36,7 @@ async def run_pipeline(
     session: AsyncSession,
     sources: list[str] | None = None,
     since_hours: int | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> bool:
     """Execute the full news pipeline.
 
@@ -49,6 +51,10 @@ async def run_pipeline(
     7. Store in PostgreSQL
     8. Save daily briefing stats
     9. Generate embeddings
+
+    ``circuit_breaker``, if given, is passed through to the extract stage so
+    each source's success/failure is tracked independently (see
+    ``src.pipeline.stages.extract.run_extraction``).
     """
     cid = set_correlation_id()
     start = datetime.now(tz=UTC)
@@ -66,7 +72,9 @@ async def run_pipeline(
         effective_since = (
             since_hours if since_hours is not None else settings.extraction_since_hours
         )
-        all_items = await run_extraction(extractors, effective_since)
+        all_items = await run_extraction(
+            extractors, effective_since, circuit_breaker=circuit_breaker
+        )
         items_extracted = len(all_items)
 
         if not all_items:

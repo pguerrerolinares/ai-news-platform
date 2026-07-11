@@ -102,8 +102,13 @@ class TestRunScheduledPipeline:
         ):
             await run_scheduled_pipeline(sources=["hackernews", "reddit"])
 
+        from src.pipeline.scheduler import _circuit_breaker
+
         mock_run.assert_called_once_with(
-            mock_session, sources=["hackernews", "reddit"], since_hours=None
+            mock_session,
+            sources=["hackernews", "reddit"],
+            since_hours=None,
+            circuit_breaker=_circuit_breaker,
         )
 
     @pytest.mark.asyncio
@@ -145,6 +150,54 @@ class TestSchedulerSinceHours:
         ):
             await run_scheduled_pipeline(sources=["hackernews", "reddit"], since_hours=1)
 
+        from src.pipeline.scheduler import _circuit_breaker
+
         mock_run.assert_called_once_with(
-            mock_session, sources=["hackernews", "reddit"], since_hours=1
+            mock_session,
+            sources=["hackernews", "reddit"],
+            since_hours=1,
+            circuit_breaker=_circuit_breaker,
         )
+
+
+class TestSchedulerDoesNotBlanketResetBreaker:
+    """Regression: a pipeline-wide success must not mask a per-source failure.
+
+    Before this fix, run_scheduled_pipeline called record_success for every
+    source in the tier whenever run_pipeline returned True, even though a
+    single source's extractor can fail (return []) without the overall
+    pipeline failing. That blanket reset undid the per-source failure the
+    extract stage had just recorded for the broken source.
+    """
+
+    @pytest.mark.asyncio
+    async def test_success_does_not_reset_a_sibling_sources_failures(self):
+        from src.pipeline.scheduler import _circuit_breaker, run_scheduled_pipeline
+
+        # Pre-existing failures for "reddit", below threshold, simulating a
+        # source the extract stage just marked as failing during this run.
+        _circuit_breaker.record_failure("reddit")
+        _circuit_breaker.record_failure("reddit")
+        try:
+            mock_session = AsyncMock()
+            mock_session_cm = AsyncMock()
+            mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cm.__aexit__ = AsyncMock(return_value=False)
+
+            with (
+                patch("src.pipeline.scheduler.get_async_session", return_value=mock_session_cm),
+                patch(
+                    "src.pipeline.scheduler.run_pipeline",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ),
+            ):
+                await run_scheduled_pipeline(sources=["hackernews", "reddit"])
+
+            # One more failure should be enough to open the circuit — proving
+            # run_scheduled_pipeline did not silently reset the counter.
+            _circuit_breaker.record_failure("reddit")
+            assert _circuit_breaker.is_open("reddit") is True
+        finally:
+            _circuit_breaker.record_success("reddit")
+            _circuit_breaker.record_success("hackernews")
