@@ -162,7 +162,6 @@ def base_url():
 def setup_mock_routes(
     page,
     *,
-    login_status: int = 200,
     briefing: dict | None = None,
     briefing_status: int = 200,
     items: list | None = None,
@@ -172,20 +171,6 @@ def setup_mock_routes(
     _briefing = briefing if briefing is not None else MOCK_BRIEFING
     _items = items if items is not None else MOCK_NEWS_ITEMS
     _search = search if search is not None else MOCK_NEWS_ITEMS
-
-    def handle_auth(route):
-        if login_status == 200:
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({"access_token": MOCK_TOKEN, "token_type": "bearer"}),
-            )
-        else:
-            route.fulfill(
-                status=login_status,
-                content_type="application/json",
-                body=json.dumps({"detail": "Invalid credentials"}),
-            )
 
     def handle_briefing(route):
         route.fulfill(
@@ -215,22 +200,6 @@ def setup_mock_routes(
             body=json.dumps([_briefing]),
         )
 
-    def handle_chat(route):
-        body = (
-            'data: {"token": "This week "}\n\n'
-            'data: {"token": "several models "}\n\n'
-            'data: {"token": "were released."}\n\n'
-            'data: {"sources": [{"id": "1", "title": "New AI Model Released", '
-            '"url": "https://example.com/news/1", "topic": "models"}]}\n\n'
-            "data: [DONE]\n\n"
-        )
-        route.fulfill(
-            status=200,
-            content_type="text/event-stream",
-            body=body,
-        )
-
-    page.route("**/api/auth/token", handle_auth)
     page.route("**/api/items/today*", handle_items)
     page.route("**/api/items?*", handle_items)
 
@@ -256,7 +225,6 @@ def setup_mock_routes(
     page.route("**/api/briefings/*", handle_briefing)
     page.route("**/api/briefings", handle_briefings_list)
     page.route("**/api/search*", handle_search)
-    page.route("**/api/chat", handle_chat)
     page.route("**/api/topics", handle_topics)
 
 

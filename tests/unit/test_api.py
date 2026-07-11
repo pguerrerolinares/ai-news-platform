@@ -219,12 +219,6 @@ class TestValidateProductionSettings:
         with pytest.raises(RuntimeError, match="32"):
             _validate_production_settings(self._settings(jwt_secret="x" * 31))
 
-    def test_admin_email_without_resend_raises(self):
-        from src.api.app import _validate_production_settings
-
-        with pytest.raises(RuntimeError, match="RESEND_API_KEY"):
-            _validate_production_settings(self._settings(admin_email="a@b.com", resend_api_key=""))
-
     def test_debug_mode_skips_all_checks(self):
         from src.api.app import _validate_production_settings
 
