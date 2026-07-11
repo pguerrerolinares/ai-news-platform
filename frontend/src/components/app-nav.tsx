@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useScrollDirection } from '@/hooks/use-scroll-direction'
-import { IconLogin, IconLogout, IconSettings } from '@tabler/icons-react'
+import { IconLogout } from '@tabler/icons-react'
 import { useAuth } from '@/hooks/use-auth'
 import { PillTabs } from '@/components/pill-tabs'
 
@@ -41,26 +41,9 @@ export function AppNav() {
         </NavLink>
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
-          {isFullUser ? (
-            <>
-              <NavLink to="/settings">
-                <Button variant="ghost" size="icon" className="size-8" aria-label="Settings">
-                  <IconSettings className="size-4" />
-                </Button>
-              </NavLink>
-              <Button variant="ghost" size="icon" className="size-8" onClick={logout} aria-label="Log out">
-                <IconLogout className="size-4" />
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-sm"
-              onClick={() => navigate('/login')}
-            >
-              <IconLogin className="size-4" />
-              Sign in
+          {isFullUser && (
+            <Button variant="ghost" size="icon" className="size-8" onClick={logout} aria-label="Log out">
+              <IconLogout className="size-4" />
             </Button>
           )}
         </div>
