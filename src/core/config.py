@@ -36,7 +36,6 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-me-in-production", description="JWT signing secret")
     jwt_algorithm: str = "HS256"
     jwt_access_expire_minutes: int = 30
-    jwt_refresh_expire_days: int = 7
     # --- LLM (Kimi/Moonshot, OpenAI-compatible) ---
     openai_api_key: str = ""
     openai_base_url: str = "https://api.moonshot.cn/v1"
@@ -158,18 +157,6 @@ class Settings(BaseSettings):
     # --- Reddit OAuth ---
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
-
-    # --- Auth (multi-user) ---
-    admin_email: str = ""
-    resend_api_key: str = ""
-    otp_from_email: str = "noreply@resend.dev"
-    otp_expire_minutes: int = 10
-    otp_daily_limit: int = 50
-
-    # --- WebAuthn (Passkeys) ---
-    webauthn_rp_id: str = "localhost"
-    webauthn_rp_name: str = "AI News"
-    webauthn_origin: str = "http://localhost:5173"
 
     # --- Observability ---
     log_level: str = "INFO"

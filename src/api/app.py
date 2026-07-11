@@ -21,12 +21,10 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.briefings import router as briefings_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.items import router as items_router
-from src.api.routes.otp import router as otp_router
 from src.api.routes.search import router as search_router
 from src.api.routes.sources import router as sources_router
 from src.api.routes.stats import router as stats_router
 from src.api.routes.topics import router as topics_router
-from src.api.routes.webauthn import router as webauthn_router
 from src.core.config import Settings, get_settings
 from src.core.database import close_db, get_engine, init_db
 from src.core.logging import get_logger, set_correlation_id, setup_logging
@@ -106,8 +104,7 @@ def _validate_production_settings(settings: Settings) -> None:
     No-op in debug mode so local dev isn't blocked.
 
     Raises:
-        RuntimeError: if JWT_SECRET is the default or too short, or if
-            ADMIN_EMAIL is set without RESEND_API_KEY.
+        RuntimeError: if JWT_SECRET is the default or too short.
     """
     if settings.debug:
         return
@@ -115,8 +112,6 @@ def _validate_production_settings(settings: Settings) -> None:
         raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
     if len(settings.jwt_secret) < 32:
         raise RuntimeError("JWT_SECRET must be at least 32 characters in production")
-    if settings.admin_email and not settings.resend_api_key:
-        raise RuntimeError("RESEND_API_KEY must be set when ADMIN_EMAIL is configured")
 
 
 @asynccontextmanager
@@ -189,8 +184,6 @@ app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore
 
 # Register route modules
 app.include_router(auth_router)
-app.include_router(otp_router)
-app.include_router(webauthn_router)
 app.include_router(items_router)
 app.include_router(briefings_router)
 app.include_router(search_router)

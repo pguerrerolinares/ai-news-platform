@@ -29,7 +29,6 @@ dependencies = [
     "prometheus-client~=0.21.0",
     # Auth (PyJWT: maintained; replaced python-jose for CVE-2024-33663/33664)
     "pyjwt[crypto]~=2.10",
-    "passlib[bcrypt]~=1.7.0",
     # Text similarity (C-optimized, replaces difflib.SequenceMatcher)
     "rapidfuzz~=3.10.0",
 ]
@@ -38,8 +37,6 @@ dependencies = [
 api = [
     # Rate limiting
     "slowapi~=0.1.0",
-    # WebAuthn passkeys
-    "webauthn~=2.5.0",
     # MCP server
     "mcp~=1.13",
 ]
