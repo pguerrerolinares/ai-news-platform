@@ -86,3 +86,5 @@ docs/DESIGN_SYSTEM.md
 
 # MkDocs build output
 /site/
+.superpowers/fabrica/ledger.md
+.superpowers/fabrica/ACTIVE
