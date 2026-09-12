@@ -16,6 +16,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir ".[pipeline]" 2>&1 || true
 
 COPY src/ src/
+COPY scripts/ scripts/
 COPY alembic/ alembic/
 COPY alembic.ini ./
 COPY docker-entrypoint-pipeline.sh ./
@@ -26,7 +27,17 @@ RUN chmod +x docker-entrypoint-pipeline.sh && \
     chown -R appuser:appuser /app
 USER appuser
 
-HEALTHCHECK --interval=60s --timeout=5s --retries=3 \
-    CMD python -c "import os, signal; os.kill(1, 0)" || exit 1
+# Liveness is derived from pipeline_runs (src/pipeline/health.py), not PID 1
+# aliveness -- a hung event loop stays alive but never inserts a new run.
+# start_period=20m: the shortest scheduler tier (hn_leading/reddit, 15 min)
+# fires its FIRST job at now+interval, not immediately -- verified against
+# apscheduler 3.11.3 source (.venv/lib/.../apscheduler/triggers/interval.py:69,
+# IntervalTrigger.__init__: `start_date = start_date or (datetime.now(...) + self.interval)`).
+# A pipeline_runs row is only written once that run *completes* (see
+# PipelineRun inserts in src/pipeline/pipeline.py), so 20 min gives ~5 min of
+# slack after the 15-min mark for the run itself -- comfortably enough for a
+# single-source extraction (the common case, "empty" status, no LLM calls).
+HEALTHCHECK --interval=60s --timeout=5s --retries=3 --start-period=20m \
+    CMD python -m scripts.pipeline_healthcheck || exit 1
 
 ENTRYPOINT ["./docker-entrypoint-pipeline.sh"]
