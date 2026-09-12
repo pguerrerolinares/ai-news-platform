@@ -10,6 +10,7 @@ import { AnimatedCardGrid, AnimatedCardItem } from '@/components/animated-card-g
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/date-picker'
 import { apiGet } from '@/lib/api'
+import { createAbortSwitch } from '@/lib/abortable'
 import type { NewsItem } from '@/lib/types'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -33,16 +34,14 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
+  const abortSwitch = useRef(createAbortSwitch()).current
 
   // Cancel any in-flight search on unmount
-  useEffect(() => () => { abortRef.current?.abort() }, [])
+  useEffect(() => () => abortSwitch.abort(), [abortSwitch])
 
   const search = useCallback(async () => {
     if (!query.trim()) return
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+    const signal = abortSwitch.next()
     setLoading(true)
     setError('')
     setSearched(true)
@@ -56,7 +55,7 @@ export default function Search() {
       if (dateFrom) params.date_from = format(dateFrom, 'yyyy-MM-dd')
       if (dateTo) params.date_to = format(dateTo, 'yyyy-MM-dd')
       const { data, totalCount: count } = await apiGet<NewsItem[]>(
-        '/api/search', params, controller.signal,
+        '/api/search', params, signal,
       )
       setResults(data)
       setTotalCount(count)
@@ -66,9 +65,9 @@ export default function Search() {
       setResults([])
       setTotalCount(null)
     } finally {
-      if (abortRef.current === controller) setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
-  }, [query, topic, sortBy, dateFrom, dateTo])
+  }, [query, topic, sortBy, dateFrom, dateTo, abortSwitch])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') search()

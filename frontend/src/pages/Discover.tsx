@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NewsCard } from '@/components/news-card'
 import { apiGet } from '@/lib/api'
+import { createAbortSwitch } from '@/lib/abortable'
 import type { NewsItem } from '@/lib/types'
 import { IconSearch, IconRefresh, IconNetwork } from '@tabler/icons-react'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -121,16 +122,14 @@ export default function Discover() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
+  const abortSwitch = useRef(createAbortSwitch()).current
 
   // Cancel any in-flight search on unmount
-  useEffect(() => () => { abortRef.current?.abort() }, [])
+  useEffect(() => () => abortSwitch.abort(), [abortSwitch])
 
   const search = useCallback(async () => {
     if (!query.trim()) return
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+    const signal = abortSwitch.next()
     setLoading(true)
     setError('')
     setSearched(true)
@@ -139,15 +138,15 @@ export default function Discover() {
       const { data } = await apiGet<NewsItem[]>('/api/search/semantic', {
         q: query.trim(),
         limit: '20',
-      }, controller.signal)
+      }, signal)
       setResults(data)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Semantic search failed')
     } finally {
-      if (abortRef.current === controller) setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
-  }, [query])
+  }, [query, abortSwitch])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') search()
