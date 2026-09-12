@@ -189,7 +189,7 @@ Pagination: all paginated endpoints return `X-Total-Count` header.
 Errors: `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}`.
 Auth: Guest token only (24h TTL, read-only). `Authorization: Bearer`.
 Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests, and nothing currently issues non-guest tokens).
-Rate limiting: JWT-aware — guest by `jti`, user by `sub`, fallback to IP. Guests: 30 req/min, users: 120 req/min.
+Rate limiting: por IP (`get_client_ip` — rightmost non-private X-Forwarded-For, trusts only private/docker-network proxies). Per-route limits (10-30 req/min, see `@limiter.limit(...)` in each router). MemoryStorage (slowapi default): contador por worker, no compartido entre procesos.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 
 ## Configuration
