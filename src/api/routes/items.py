@@ -15,6 +15,7 @@ from src.api.errors import APIError
 from src.api.pagination import count_query, set_total_count_header
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
+from src.core.config import get_settings
 from src.core.database import get_session
 from src.core.models import ItemEmbedding, NewsItem
 from src.core.queries import day_end_exclusive, day_start, effective_date, since_days
@@ -22,8 +23,6 @@ from src.feed.feed_builder import FeedBuilder
 
 router = APIRouter(prefix="/api/items", tags=["items"])
 limiter = Limiter(key_func=get_client_ip)
-
-_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # NewsItemResponse never serializes these — deferring them keeps listing
 # queries from pulling full article text and the FTS vector over the wire.
@@ -387,11 +386,13 @@ async def get_similar_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """Find similar items using pgvector cosine distance."""
+    embedding_model = get_settings().embedding_model
+
     # Get embedding for the source item
     result = await session.execute(
         select(ItemEmbedding)
         .where(ItemEmbedding.item_id == item_id)
-        .where(ItemEmbedding.model == _DEFAULT_EMBEDDING_MODEL)
+        .where(ItemEmbedding.model == embedding_model)
         .limit(1)
     )
     embedding_row = result.scalar_one_or_none()
@@ -405,7 +406,7 @@ async def get_similar_items(
         .options(*_DEFER_HEAVY_COLUMNS)
         .join(ItemEmbedding, NewsItem.id == ItemEmbedding.item_id)
         .where(ItemEmbedding.item_id != item_id)
-        .where(ItemEmbedding.model == _DEFAULT_EMBEDDING_MODEL)
+        .where(ItemEmbedding.model == embedding_model)
         .order_by(ItemEmbedding.embedding.cosine_distance(embedding_row.embedding))
         .limit(limit)
     )

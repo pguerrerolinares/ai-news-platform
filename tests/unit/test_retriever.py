@@ -128,3 +128,30 @@ class TestRetrieve:
         result = await retriever.retrieve(mock_session, "test", recency_days=7)
         assert len(result) == 5
         mock_session.execute.assert_called_once()
+
+
+class TestEmbeddingModelFilter:
+    """The similarity search must only consider embeddings from the
+    currently configured model — mixing embeddings from two different
+    models would rank items by non-comparable cosine distances (the same
+    bug already avoided in items.py's /{item_id}/similar).
+    """
+
+    async def test_search_filters_by_configured_embedding_model(self):
+        from src.core.config import get_settings
+        from src.core.models import ItemEmbedding
+
+        mock_embed = AsyncMock()
+        mock_embed.embed_text.return_value = _fake_embedding()
+        items = [_make_news_item(f"Item {i}") for i in range(5)]
+        mock_session = _mock_session_returning(items)
+
+        retriever = Retriever(embedding_service=mock_embed)
+        await retriever.retrieve(mock_session, "AI models")
+
+        # Inspect the compiled statement passed to session.execute()
+        stmt = mock_session.execute.call_args_list[0].args[0]
+        compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+
+        assert str(ItemEmbedding.model) in compiled or "item_embeddings.model" in compiled
+        assert get_settings().embedding_model in compiled
