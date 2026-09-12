@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -35,9 +35,11 @@ function RelatedPanel({ parentId }: RelatedPanelProps) {
     }
   }, [parentId, fetched])
 
-  // Lazy-load on first mount (called when the panel is opened by the parent)
-  // The parent controls visibility; this component fetches once on first render.
-  useState(() => { load() })
+  // Lazy-load on first mount (the parent controls visibility; this component
+  // fetches once when it's rendered, i.e. when the panel is opened).
+  useEffect(() => {
+    load()
+  }, [load])
 
   if (loading) {
     return (
