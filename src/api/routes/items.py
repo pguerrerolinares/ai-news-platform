@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.errors import APIError
@@ -22,6 +23,12 @@ router = APIRouter(prefix="/api/items", tags=["items"])
 limiter = Limiter(key_func=get_client_ip)
 
 _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+
+# NewsItemResponse never serializes these — deferring them keeps listing
+# queries from pulling full article text and the FTS vector over the wire.
+# metadata_ must NOT be deferred: composite_scorer.score_newsitem reads it
+# via getattr() outside the original async session in some callers.
+_DEFER_HEAVY_COLUMNS = (defer(NewsItem.full_text), defer(NewsItem.search_vector))
 
 
 @router.get(
@@ -44,7 +51,7 @@ async def list_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """List news items with optional filters."""
-    query = select(NewsItem)
+    query = select(NewsItem).options(*_DEFER_HEAVY_COLUMNS)
 
     if source:
         query = query.where(NewsItem.source == source)
@@ -120,8 +127,13 @@ async def list_items_by_date(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """List news items for a specific date, sorted by score."""
-    query = select(NewsItem).where(
-        (effective_date >= day_start(item_date)) & (effective_date < day_end_exclusive(item_date))
+    query = (
+        select(NewsItem)
+        .options(*_DEFER_HEAVY_COLUMNS)
+        .where(
+            (effective_date >= day_start(item_date))
+            & (effective_date < day_end_exclusive(item_date))
+        )
     )
     if topic:
         query = query.where(NewsItem.topic == topic)
@@ -159,8 +171,10 @@ async def list_trending_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """List trending items from the last N days, sorted by score."""
-    query = select(NewsItem).where(
-        NewsItem.trending.is_(True) & (effective_date >= since_days(days))
+    query = (
+        select(NewsItem)
+        .options(*_DEFER_HEAVY_COLUMNS)
+        .where(NewsItem.trending.is_(True) & (effective_date >= since_days(days)))
     )
     if topic:
         query = query.where(NewsItem.topic == topic)
@@ -197,8 +211,10 @@ async def list_today_items(
 ) -> list[NewsItemResponse]:
     """List today's news items, sorted chronologically (newest first)."""
     today = datetime.now(tz=UTC).date()
-    query = select(NewsItem).where(
-        (effective_date >= day_start(today)) & (effective_date < day_end_exclusive(today))
+    query = (
+        select(NewsItem)
+        .options(*_DEFER_HEAVY_COLUMNS)
+        .where((effective_date >= day_start(today)) & (effective_date < day_end_exclusive(today)))
     )
     if topic:
         query = query.where(NewsItem.topic == topic)
@@ -231,8 +247,10 @@ async def list_top_items(
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """Top items by score in the last N days."""
-    query = select(NewsItem).where(
-        (effective_date >= since_days(days)) & NewsItem.composite_score.isnot(None)
+    query = (
+        select(NewsItem)
+        .options(*_DEFER_HEAVY_COLUMNS)
+        .where((effective_date >= since_days(days)) & NewsItem.composite_score.isnot(None))
     )
     if topic:
         query = query.where(NewsItem.topic == topic)
@@ -284,7 +302,7 @@ async def list_latest_items(
 
     # Chronological (sort=recent) — with time window
     cutoff = datetime.now(tz=UTC) - timedelta(hours=48)
-    query = select(NewsItem).where(effective_date >= cutoff)
+    query = select(NewsItem).options(*_DEFER_HEAVY_COLUMNS).where(effective_date >= cutoff)
     if topic:
         query = query.where(NewsItem.topic == topic)
     if source:
@@ -328,7 +346,9 @@ async def get_item(
     Raises:
         APIError: 404 if no item with the given UUID exists.
     """
-    result = await session.execute(select(NewsItem).where(NewsItem.id == item_id))
+    result = await session.execute(
+        select(NewsItem).options(*_DEFER_HEAVY_COLUMNS).where(NewsItem.id == item_id)
+    )
     item = result.scalar_one_or_none()
     if item is None:
         raise APIError(404, "NOT_FOUND", f"Item {item_id} not found")
@@ -368,6 +388,7 @@ async def get_similar_items(
     # Find nearest neighbors (exclude the source item)
     similar_query = (
         select(NewsItem)
+        .options(*_DEFER_HEAVY_COLUMNS)
         .join(ItemEmbedding, NewsItem.id == ItemEmbedding.item_id)
         .where(ItemEmbedding.item_id != item_id)
         .where(ItemEmbedding.model == _DEFAULT_EMBEDDING_MODEL)

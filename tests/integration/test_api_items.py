@@ -2,13 +2,31 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 import pytest
+from sqlalchemy import event
 
 from tests.integration.conftest import seed_news_item
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
+
+
+async def _capture_sql(integration_engine, coro):
+    """Run *coro* while capturing every SQL statement executed on the engine."""
+    statements: list[str] = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(integration_engine.sync_engine, "before_cursor_execute", _capture)
+    try:
+        result = await coro
+    finally:
+        event.remove(integration_engine.sync_engine, "before_cursor_execute", _capture)
+    return result, statements
 
 
 class TestListItems:
@@ -114,3 +132,104 @@ class TestItemsToday:
         data = resp.json()
         assert len(data) >= 1
         assert any(item["title"] == "Today Item" for item in data)
+
+
+def _assert_full_text_not_selected(statements: list[str], context: str) -> None:
+    """Fail if any SELECT against news_items includes the heavy full_text column."""
+    leaking = [s for s in statements if "FROM news_items" in s and "full_text" in s]
+    assert not leaking, f"{context}: full_text leaked into SQL: {leaking}"
+
+
+class TestDeferredHeavyColumns:
+    """`full_text`/`search_vector` must never be selected in read listings.
+
+    Uses a `before_cursor_execute` listener to inspect the literal SQL sent to
+    PostgreSQL — a direct, falsifiable check that the ORM-level `defer()` is
+    actually applied (unlike counting queries, which would stay constant here
+    regardless of `defer()` since `NewsItemResponse` never triggers a lazy
+    load on these columns after the session closes).
+    """
+
+    _LIST_PATHS: ClassVar[list[str]] = [
+        "/api/items",
+        "/api/items/today",
+        "/api/items/trending",
+        "/api/items/top",
+        "/api/items/latest?sort=recent",
+    ]
+
+    @pytest.mark.parametrize("path", _LIST_PATHS)
+    async def test_list_endpoints_defer_full_text(
+        self, client, db_session, integration_engine, auth_headers, path
+    ):
+        await seed_news_item(
+            db_session,
+            full_text="x" * 5000,
+            trending=True,
+            composite_score=1.0,
+        )
+
+        resp, statements = await _capture_sql(
+            integration_engine, client.get(path, headers=auth_headers)
+        )
+
+        assert resp.status_code == 200
+        assert resp.json(), f"{path}: expected at least one seeded item in the response"
+        _assert_full_text_not_selected(statements, path)
+
+    async def test_by_date_defers_full_text(
+        self, client, db_session, integration_engine, auth_headers
+    ):
+        today = datetime.now(tz=UTC).date()
+        await seed_news_item(db_session, full_text="x" * 5000, published_at=datetime.now(tz=UTC))
+
+        resp, statements = await _capture_sql(
+            integration_engine,
+            client.get(f"/api/items/by-date/{today.isoformat()}", headers=auth_headers),
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()
+        _assert_full_text_not_selected(statements, "/api/items/by-date/{date}")
+
+    async def test_get_item_defers_full_text(
+        self, client, db_session, integration_engine, auth_headers
+    ):
+        item = await seed_news_item(db_session, full_text="x" * 5000)
+
+        resp, statements = await _capture_sql(
+            integration_engine, client.get(f"/api/items/{item.id}", headers=auth_headers)
+        )
+
+        assert resp.status_code == 200
+        _assert_full_text_not_selected(statements, "/api/items/{item_id}")
+
+    async def test_get_item_404_defers_full_text(
+        self, client, db_session, integration_engine, auth_headers
+    ):
+        """Even the not-found path must not have selected full_text before raising."""
+        resp, statements = await _capture_sql(
+            integration_engine,
+            client.get(f"/api/items/{uuid.uuid4()}", headers=auth_headers),
+        )
+
+        assert resp.status_code == 404
+        _assert_full_text_not_selected(statements, "/api/items/{item_id} (404)")
+
+    async def test_similar_items_defers_full_text(
+        self, client, db_session, integration_engine, auth_headers
+    ):
+        from tests.integration.conftest import seed_embedding
+
+        item = await seed_news_item(db_session, full_text="x" * 5000)
+        await seed_embedding(db_session, item)
+        other = await seed_news_item(db_session, full_text="y" * 5000, url="https://x.com/other")
+        await seed_embedding(db_session, other, vector=[0.2] * 512)
+
+        resp, statements = await _capture_sql(
+            integration_engine,
+            client.get(f"/api/items/{item.id}/similar", headers=auth_headers),
+        )
+
+        assert resp.status_code == 200
+        _assert_full_text_not_selected(statements, "/api/items/{item_id}/similar")
