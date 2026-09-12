@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -121,9 +121,16 @@ export default function Discover() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Cancel any in-flight search on unmount
+  useEffect(() => () => { abortRef.current?.abort() }, [])
 
   const search = useCallback(async () => {
     if (!query.trim()) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setLoading(true)
     setError('')
     setSearched(true)
@@ -132,12 +139,13 @@ export default function Discover() {
       const { data } = await apiGet<NewsItem[]>('/api/search/semantic', {
         q: query.trim(),
         limit: '20',
-      })
+      }, controller.signal)
       setResults(data)
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Semantic search failed')
     } finally {
-      setLoading(false)
+      if (abortRef.current === controller) setLoading(false)
     }
   }, [query])
 
