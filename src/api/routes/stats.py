@@ -3,12 +3,13 @@
 from datetime import UTC, datetime
 from datetime import date as date_type
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth_or_guest
+from src.api.caching import set_cache_header
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import (
     ErrorWrapper,
@@ -57,6 +58,7 @@ def _build_date_filter(
 @limiter.limit("30/minute")
 async def stats_summary(
     request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> StatsSummaryResponse:
@@ -80,6 +82,7 @@ async def stats_summary(
     )
     row = result.one()
 
+    set_cache_header(response)
     return StatsSummaryResponse(
         total_items=row.total,
         items_today=row.items_today,
@@ -97,6 +100,7 @@ async def stats_summary(
 @limiter.limit("30/minute")
 async def stats_by_source(
     request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupResponse]:
@@ -106,6 +110,7 @@ async def stats_by_source(
         .group_by(NewsItem.source)
         .order_by(func.count(NewsItem.id).desc())
     )
+    set_cache_header(response)
     return [StatsGroupResponse(name=row.source, count=row.count) for row in result.all()]
 
 
@@ -117,6 +122,7 @@ async def stats_by_source(
 @limiter.limit("30/minute")
 async def stats_by_topic(
     request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[StatsGroupResponse]:
@@ -127,6 +133,7 @@ async def stats_by_topic(
         .group_by(NewsItem.topic)
         .order_by(func.count(NewsItem.id).desc())
     )
+    set_cache_header(response)
     return [StatsGroupResponse(name=row.topic, count=row.count) for row in result.all()]
 
 
@@ -138,6 +145,7 @@ async def stats_by_topic(
 @limiter.limit("30/minute")
 async def stats_by_date(
     request: Request,
+    response: Response,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     date_from: date_type | None = Query(default=None, description="Start date (inclusive)"),
     date_to: date_type | None = Query(default=None, description="End date (inclusive)"),
@@ -157,6 +165,7 @@ async def stats_by_date(
         .group_by(eff_date)
         .order_by(eff_date.desc())
     )
+    set_cache_header(response)
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
 
 
@@ -168,6 +177,7 @@ async def stats_by_date(
 @limiter.limit("30/minute")
 async def stats_by_topic_date(
     request: Request,
+    response: Response,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     date_from: date_type | None = Query(default=None, description="Start date (inclusive)"),
     date_to: date_type | None = Query(default=None, description="End date (inclusive)"),
@@ -188,6 +198,7 @@ async def stats_by_topic_date(
         .group_by(eff_date, NewsItem.topic)
         .order_by(eff_date.asc(), NewsItem.topic.asc())
     )
+    set_cache_header(response)
     return [
         StatsGroupDateResponse(date=row.date, group=row.group, count=row.count)
         for row in result.all()
@@ -202,6 +213,7 @@ async def stats_by_topic_date(
 @limiter.limit("30/minute")
 async def stats_by_source_date(
     request: Request,
+    response: Response,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
@@ -218,6 +230,7 @@ async def stats_by_source_date(
         .group_by(eff_date, NewsItem.source)
         .order_by(eff_date.asc(), NewsItem.source.asc())
     )
+    set_cache_header(response)
     return [
         StatsGroupDateResponse(date=row.date, group=row.group, count=row.count)
         for row in result.all()
@@ -232,6 +245,7 @@ async def stats_by_source_date(
 @limiter.limit("30/minute")
 async def stats_trending_timeline(
     request: Request,
+    response: Response,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
@@ -247,6 +261,7 @@ async def stats_trending_timeline(
         .group_by(eff_date)
         .order_by(eff_date.asc())
     )
+    set_cache_header(response)
     return [StatsDateResponse(date=row.date, count=row.count) for row in result.all()]
 
 
@@ -268,6 +283,7 @@ _SCORE_BUCKETS = [
 @limiter.limit("30/minute")
 async def stats_score_distribution(
     request: Request,
+    response: Response,
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
     source: str | None = Query(None, description="Filter by source"),
     topic: str | None = Query(None, description="Filter by topic"),
@@ -293,6 +309,7 @@ async def stats_score_distribution(
     query = select(*bucket_exprs).where(base_filter)
     row = (await session.execute(query)).one()
 
+    set_cache_header(response)
     return [
         ScoreDistributionResponse(
             range=label,

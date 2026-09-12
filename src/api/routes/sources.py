@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from slowapi import Limiter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth_or_guest
+from src.api.caching import set_cache_header
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import SourceInfo, SourcesResponse
 from src.core.database import get_session
@@ -21,6 +22,7 @@ limiter = Limiter(key_func=get_client_ip)
 @limiter.limit("30/minute")
 async def list_sources(
     request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> SourcesResponse:
@@ -31,4 +33,5 @@ async def list_sources(
         .order_by(func.count(NewsItem.id).desc())
     )
     sources = [SourceInfo(name=row.source, count=row.count) for row in result.all()]
+    set_cache_header(response)
     return SourcesResponse(sources=sources)

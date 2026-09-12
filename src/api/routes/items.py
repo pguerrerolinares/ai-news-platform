@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from src.api.auth import UserClaims, require_auth_or_guest
+from src.api.caching import set_cache_header
 from src.api.errors import APIError
 from src.api.pagination import count_query, set_total_count_header
 from src.api.ratelimit import get_client_ip
@@ -73,6 +74,7 @@ async def list_items(
     result = await session.execute(query)
     items = result.scalars().all()
 
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
@@ -84,6 +86,7 @@ async def list_items(
 @limiter.limit("30/minute")
 async def count_items(
     request: Request,
+    response: Response,
     source: str | None = Query(None),
     topic: str | None = Query(None),
     date_from: date | None = Query(None),
@@ -106,6 +109,7 @@ async def count_items(
     result = await session.execute(query)
     count = result.scalar_one()
 
+    set_cache_header(response)
     return CountResponse(count=count)
 
 
@@ -150,6 +154,7 @@ async def list_items_by_date(
     )
     result = await session.execute(query)
     items = result.scalars().all()
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
@@ -191,6 +196,7 @@ async def list_trending_items(
     )
     result = await session.execute(query)
     items = result.scalars().all()
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
@@ -226,6 +232,7 @@ async def list_today_items(
     query = query.order_by(effective_date.desc()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
@@ -263,6 +270,7 @@ async def list_top_items(
     query = query.order_by(NewsItem.composite_score.desc().nulls_last()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
@@ -298,6 +306,7 @@ async def list_latest_items(
             diversity=diversity,
         )
         set_total_count_header(response, total)
+        set_cache_header(response)
         return [NewsItemResponse.model_validate(item) for item in items]
 
     # Chronological (sort=recent) — with time window
@@ -314,6 +323,7 @@ async def list_latest_items(
     query = query.order_by(effective_date.desc()).offset(offset).limit(limit)
     result = await session.execute(query)
     items = result.scalars().all()
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]
 
 
@@ -328,6 +338,7 @@ async def list_latest_items(
 @limiter.limit("30/minute")
 async def get_item(
     request: Request,
+    response: Response,
     item_id: uuid_mod.UUID,
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
@@ -336,6 +347,7 @@ async def get_item(
 
     Args:
         request: FastAPI request (required by slowapi).
+        response: FastAPI response (used to set the Cache-Control header).
         item_id: UUID of the news item to retrieve.
         session: Async database session.
         _user: Authenticated or guest user claims.
@@ -352,6 +364,7 @@ async def get_item(
     item = result.scalar_one_or_none()
     if item is None:
         raise APIError(404, "NOT_FOUND", f"Item {item_id} not found")
+    set_cache_header(response)
     return NewsItemResponse.model_validate(item)
 
 
@@ -367,6 +380,7 @@ async def get_item(
 @limiter.limit("20/minute")
 async def get_similar_items(
     request: Request,
+    response: Response,
     item_id: uuid_mod.UUID,
     limit: int = Query(5, ge=1, le=20, description="Number of similar items"),
     session: AsyncSession = Depends(get_session),
@@ -397,4 +411,5 @@ async def get_similar_items(
     )
     similar_result = await session.execute(similar_query)
     items = similar_result.scalars().all()
+    set_cache_header(response)
     return [NewsItemResponse.model_validate(item) for item in items]

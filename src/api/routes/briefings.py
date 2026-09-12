@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from src.api.auth import UserClaims, require_auth_or_guest
+from src.api.caching import set_cache_header
 from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
 from src.api.ratelimit import get_client_ip
@@ -73,6 +74,8 @@ async def get_briefing(
     )
     items = items_result.scalars().all()
 
+    set_cache_header(response)
+
     if briefing:
         return BriefingResponse(
             date=briefing.date,
@@ -118,6 +121,7 @@ async def list_briefings(
     )
     briefings = result.scalars().all()
 
+    set_cache_header(response)
     return [
         BriefingResponse(
             date=b.date,
