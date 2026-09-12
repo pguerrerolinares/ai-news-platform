@@ -29,9 +29,6 @@ os.environ.setdefault(
 )
 os.environ["TESTING"] = "1"
 os.environ["DEBUG"] = "true"
-os.environ["TELEGRAM_BOT_TOKEN"] = ""
-os.environ["TELEGRAM_CHAT_ID"] = ""
-os.environ["TELEGRAM_ALERTS_ENABLED"] = "false"
 
 from src.core.config import get_settings  # must be after env setup
 

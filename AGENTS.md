@@ -115,7 +115,6 @@ ai-news-platform/
 │   │   │                            # WebScraper: TechCrunch AI + Ars Technica AI (httpx + readability-lxml)
 │   ├── classifiers/                  # Two-phase (keyword pre-filter → LLM), fuzzy event dedup
 │   ├── validators/                   # CredibilityValidator
-│   ├── notifiers/                    # (Telegram removed — replaced by pipeline_runs table)
 │   ├── api/
 │   │   ├── app.py                    # FastAPI app, middleware, lifespan
 │   │   ├── auth.py                   # Guest tokens: create_guest_token, require_auth, require_auth_or_guest

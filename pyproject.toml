@@ -45,8 +45,6 @@ pipeline = [
     "feedparser~=6.0.0",
     # Web scraping (lightweight: no Chromium)
     "readability-lxml~=0.8",
-    # Telegram notifications
-    "python-telegram-bot~=21.9",
     # Scheduling
     "apscheduler~=3.10",
 ]
