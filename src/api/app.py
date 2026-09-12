@@ -99,18 +99,29 @@ class BodySizeLimitMiddleware:
 
 
 def _validate_production_settings(settings: Settings) -> None:
-    """Fail fast on insecure production configuration (DEBUG=false).
+    """Warn or fail fast on an insecure JWT_SECRET.
 
-    No-op in debug mode so local dev isn't blocked.
+    In debug mode (local dev) an insecure secret only logs a warning, so
+    local dev isn't blocked. Outside debug mode it aborts startup.
 
     Raises:
-        RuntimeError: if JWT_SECRET is the default or too short.
+        RuntimeError: if not in debug mode and JWT_SECRET is the default or too short.
     """
+    insecure_default = settings.jwt_secret == "change-me-in-production"  # nosec B105
+    too_short = len(settings.jwt_secret) < 32
+
     if settings.debug:
+        if insecure_default or too_short:
+            logger.warning(
+                "insecure_jwt_secret_in_debug_mode",
+                insecure_default=insecure_default,
+                too_short=too_short,
+            )
         return
-    if settings.jwt_secret == "change-me-in-production":  # nosec B105
+
+    if insecure_default:
         raise RuntimeError("JWT_SECRET must be set in production (DEBUG=false)")
-    if len(settings.jwt_secret) < 32:
+    if too_short:
         raise RuntimeError("JWT_SECRET must be at least 32 characters in production")
 
 

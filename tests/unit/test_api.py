@@ -219,8 +219,28 @@ class TestValidateProductionSettings:
         with pytest.raises(RuntimeError, match="32"):
             _validate_production_settings(self._settings(jwt_secret="x" * 31))
 
-    def test_debug_mode_skips_all_checks(self):
+    def test_debug_mode_does_not_raise(self):
         from src.api.app import _validate_production_settings
 
-        # In debug, even a short/default secret is allowed (local dev).
+        # In debug, even a short/default secret doesn't block startup (local dev).
         _validate_production_settings(self._settings(debug=True, jwt_secret="short"))
+
+    def test_debug_mode_warns_on_insecure_secret(self):
+        import structlog
+
+        from src.api.app import _validate_production_settings
+
+        with structlog.testing.capture_logs() as logs:
+            _validate_production_settings(self._settings(debug=True, jwt_secret="short"))
+
+        assert any(log["event"] == "insecure_jwt_secret_in_debug_mode" for log in logs)
+
+    def test_debug_mode_does_not_warn_on_valid_secret(self):
+        import structlog
+
+        from src.api.app import _validate_production_settings
+
+        with structlog.testing.capture_logs() as logs:
+            _validate_production_settings(self._settings(debug=True, jwt_secret="x" * 64))
+
+        assert not any(log["event"] == "insecure_jwt_secret_in_debug_mode" for log in logs)
