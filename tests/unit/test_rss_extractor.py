@@ -13,18 +13,25 @@ from src.core.text_utils import strip_html
 from src.extractors.base import ExtractedItem
 from src.extractors.rss import RSSExtractor
 
+# safe_get pins the connection to the IP assert_safe_url validates (see
+# src/core/ssrf.py); respx matches on that IP + path, not on the original
+# hostname, so every route below targets this fixed, public (TEST-NET-3,
+# RFC 5737) address instead of the feed's real host.
+_PINNED_IP = "203.0.113.5"
+
 
 @pytest.fixture(autouse=True)
 def _skip_ssrf_dns():
     """Neutralize assert_safe_url's real DNS lookups so tests stay hermetic.
 
-    safe_get re-validates every hop; respx mocks the HTTP but not getaddrinfo.
+    safe_get re-validates every hop and connects to whatever IP this
+    returns; respx mocks the HTTP but not getaddrinfo.
     """
 
-    async def _noop(_url: str) -> None:
-        return None
+    async def _pin(_url: str) -> str:
+        return _PINNED_IP
 
-    with patch("src.core.ssrf.assert_safe_url", _noop):
+    with patch("src.core.ssrf.assert_safe_url", _pin):
         yield
 
 
@@ -33,6 +40,9 @@ def _skip_ssrf_dns():
 # ---------------------------------------------------------------------------
 FEED_URL_OPENAI = "https://openai.com/blog/rss.xml"
 FEED_URL_GOOGLE = "https://blog.google/technology/ai/rss/"
+# respx routes match the pinned IP (what safe_get actually connects to), path only.
+FEED_URL_OPENAI_PINNED = f"https://{_PINNED_IP}/blog/rss.xml"
+FEED_URL_GOOGLE_PINNED = f"https://{_PINNED_IP}/technology/ai/rss/"
 
 
 def _recent_rfc2822() -> str:
@@ -122,7 +132,7 @@ class TestExtract:
             _make_entry("Post B", "https://openai.com/blog/b"),
         ]
         feed_xml = _make_feed(entries)
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -141,7 +151,7 @@ class TestExtract:
         """Every returned item must have source='rss'."""
         entries = [_make_entry("AI Post", "https://openai.com/blog/ai")]
         feed_xml = _make_feed(entries)
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -162,7 +172,7 @@ class TestExtract:
             _make_entry("Old Post", "https://openai.com/blog/old", pub_date=_old_rfc2822()),
         ]
         feed_xml = _make_feed(entries)
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -180,10 +190,10 @@ class TestExtract:
         entry = _make_entry("Same Post", "https://openai.com/blog/same")
         feed_xml = _make_feed([entry])
 
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
-        respx.get(FEED_URL_GOOGLE).mock(
+        respx.get(FEED_URL_GOOGLE_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -205,7 +215,7 @@ class TestExtract:
             ),
         ]
         feed_xml = _make_feed(entries)
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -223,7 +233,7 @@ class TestExtract:
     async def test_empty_feed_returns_empty_list(self):
         """An RSS feed with no entries should return an empty list."""
         feed_xml = _make_feed([])
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -237,7 +247,7 @@ class TestExtract:
     @respx.mock
     async def test_http_error_returns_empty_list(self):
         """An HTTP 500 error should be handled gracefully, returning []."""
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(500, text="Internal Server Error"),
         )
 
@@ -251,7 +261,7 @@ class TestExtract:
     @respx.mock
     async def test_network_error_returns_empty_list(self):
         """A network-level exception should be caught, returning []."""
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             side_effect=httpx.ConnectError("Connection refused"),
         )
 
@@ -273,7 +283,7 @@ class TestExtract:
             ),
         ]
         feed_xml = _make_feed(entries, feed_title="OpenAI Blog")
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -296,7 +306,7 @@ class TestExtract:
         """Result should be truncated to max_items_per_source."""
         entries = [_make_entry(f"Post {i}", f"https://openai.com/blog/post-{i}") for i in range(10)]
         feed_xml = _make_feed(entries)
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -313,10 +323,10 @@ class TestExtract:
         entry_openai = _make_entry("OpenAI Post", "https://openai.com/blog/new")
         entry_google = _make_entry("Google AI Post", "https://blog.google/ai/new")
 
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=_make_feed([entry_openai], "OpenAI Blog")),
         )
-        respx.get(FEED_URL_GOOGLE).mock(
+        respx.get(FEED_URL_GOOGLE_PINNED).mock(
             return_value=httpx.Response(
                 200,
                 text=_make_feed([entry_google], "Google AI Blog"),
@@ -355,7 +365,7 @@ class TestExtract:
     </item>
   </channel>
 </rss>"""
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -383,7 +393,7 @@ class TestExtract:
     </item>
   </channel>
 </rss>"""
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml),
         )
 
@@ -430,7 +440,7 @@ class TestEdgeCases:
     @respx.mock
     async def test_feed_http_404(self):
         """Feed returning 404 is skipped, returns []."""
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(404, text="Not Found"),
         )
 
@@ -444,7 +454,7 @@ class TestEdgeCases:
     @respx.mock
     async def test_timeout_returns_empty(self):
         """Feed timeout is handled gracefully, returning []."""
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             side_effect=httpx.TimeoutException("read timed out"),
         )
 
@@ -466,7 +476,7 @@ class TestRSSETags:
         feed_xml = _make_feed(entries)
 
         # First request: response includes ETag header
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(200, text=feed_xml, headers={"ETag": '"abc123"'}),
         )
 
@@ -478,7 +488,7 @@ class TestRSSETags:
         assert len(result1) == 1
 
         # Second request: server returns 304 (no changes)
-        route = respx.get(FEED_URL_OPENAI).mock(
+        route = respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(304),
         )
 
@@ -496,7 +506,7 @@ class TestRSSETags:
         extractor = RSSExtractor()
         extractor._etag_cache[FEED_URL_OPENAI] = {"etag": '"cached"'}
 
-        respx.get(FEED_URL_OPENAI).mock(
+        respx.get(FEED_URL_OPENAI_PINNED).mock(
             return_value=httpx.Response(304),
         )
 

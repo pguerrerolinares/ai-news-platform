@@ -22,11 +22,21 @@ MAX_FETCH_BYTES = 5 * 1024 * 1024
 MAX_FETCH_REDIRECTS = 5
 
 
-async def assert_safe_url(url: str) -> None:
+async def assert_safe_url(url: str) -> str:
     """Validate that a URL is safe to fetch (no SSRF to private networks).
 
-    Raises ValueError if the URL targets a private, loopback, link-local,
-    or reserved IP address, or uses a non-HTTP(S) scheme.
+    Resolves the hostname once and validates *every* returned address, then
+    returns one validated IP literal that the caller MUST connect to directly.
+
+    This closes a DNS-rebinding TOCTOU gap: if the caller only checked here
+    and let httpx re-resolve the hostname when actually connecting, a hostile
+    DNS server could answer with a public IP for this check and a private IP
+    (e.g. cloud metadata) a moment later for the real connection -- two
+    separate lookups, two different answers. Pinning the connection to the
+    IP validated here removes the second lookup entirely.
+
+    Raises ValueError if any resolved address is private, loopback,
+    link-local, or reserved, or if the URL uses a non-HTTP(S) scheme.
     """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -45,11 +55,21 @@ async def assert_safe_url(url: str) -> None:
     except (socket.gaierror, OSError) as exc:
         raise ValueError(f"DNS resolution failed for {hostname!r}: {exc}") from exc
 
+    if not addr_infos:
+        raise ValueError(f"DNS resolution returned no addresses for {hostname!r}")
+
+    resolved_ips: list[str] = []
     for addr_info in addr_infos:
         ip_str = addr_info[4][0]
         ip = ipaddress.ip_address(ip_str)
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
             raise ValueError(f"Blocked private/reserved IP {ip} for {hostname!r}")
+        resolved_ips.append(str(ip))
+
+    # Pin to the first validated address: this exact IP is what the caller
+    # connects to, so no later (possibly attacker-controlled) DNS answer can
+    # be substituted between validation and connection.
+    return resolved_ips[0]
 
 
 async def safe_get(
@@ -68,14 +88,34 @@ async def safe_get(
     The body is streamed and aborted past ``max_bytes`` so a hostile feed
     cannot OOM the process.
 
+    The connection itself is pinned to the IP that :func:`assert_safe_url`
+    validated: the request is sent to that IP literal (never the hostname),
+    while ``Host`` and the TLS SNI are overridden back to the original
+    hostname via the ``sni_hostname`` extension so the connection still
+    reaches the right virtual host. This is what closes the DNS-rebinding
+    TOCTOU gap -- without pinning, httpx would re-resolve the hostname on its
+    own right after validation, and a hostile DNS server could answer
+    differently the second time.
+
     The supplied ``client`` MUST be created with ``follow_redirects=False`` so
     redirects reach this function instead of httpx's auto-follow. Returns a
     fully-read response whose body is at most ``max_bytes``.
     """
     current = url
     for _ in range(max_redirects + 1):
-        await assert_safe_url(current)
-        async with client.stream("GET", current, headers=headers) as resp:
+        original = httpx.URL(current)
+        pinned_ip = await assert_safe_url(current)
+        pinned_url = original.copy_with(host=pinned_ip)
+
+        request_headers = dict(headers or {})
+        request_headers.setdefault("Host", original.netloc.decode("ascii"))
+
+        async with client.stream(
+            "GET",
+            pinned_url,
+            headers=request_headers,
+            extensions={"sni_hostname": original.host},
+        ) as resp:
             # has_redirect_location is True only for 301/302/303/307/308 WITH a
             # Location header -- unlike is_redirect, it excludes 304 Not Modified.
             if resp.has_redirect_location:
