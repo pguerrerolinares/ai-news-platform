@@ -13,6 +13,7 @@ from src.classifiers.base import ClassifiedItem
 from src.classifiers.llm import (
     BATCH_SIZE,
     LLMClassifier,
+    LLMParseError,
     _build_prompt,
     _parse_llm_json,
     llm_call,
@@ -109,15 +110,18 @@ class TestParseLlmJson:
         result = _parse_llm_json(raw)
         assert len(result) == 1
 
-    def test_invalid_json_returns_empty(self):
-        result = _parse_llm_json("not valid json at all")
-        assert result == []
+    def test_invalid_json_raises_parse_error(self):
+        """Garbage text with no array must not be silently swallowed as []."""
+        with pytest.raises(LLMParseError):
+            _parse_llm_json("not valid json at all")
 
-    def test_json_object_not_array_returns_empty(self):
-        result = _parse_llm_json('{"idx": 0}')
-        assert result == []
+    def test_json_object_not_array_raises_parse_error(self):
+        """A valid JSON value that isn't an array is still a parse failure."""
+        with pytest.raises(LLMParseError):
+            _parse_llm_json('{"idx": 0}')
 
     def test_empty_array(self):
+        """Only a literal, valid JSON array -- including "[]" -- is success."""
         result = _parse_llm_json("[]")
         assert result == []
 
@@ -623,7 +627,11 @@ class TestLLMClassifier:
         assert results[0].summary == "Resumen valido"
 
     async def test_classify_handles_malformed_llm_response(self):
-        """Malformed JSON in response triggers fallback."""
+        """Malformed (non-parseable) JSON must NOT be silently dropped as 0 results.
+
+        It must raise LLMParseError internally, which activates the existing
+        KeywordClassifier fallback for that batch (#5) -- not silently lose it.
+        """
         client = _make_mock_client("This is not valid JSON at all!!!")
         classifier = LLMClassifier(client=client)
         items = [
@@ -633,12 +641,42 @@ class TestLLMClassifier:
                 score=100,
             ),
         ]
-        # Malformed response -> empty parse -> no results from LLM
-        # But this does NOT trigger fallback since the call itself succeeded
-        # The LLM batch just returns 0 classified items
-        results = await classifier.classify(items)
-        # The parse returns empty list but no exception, so no fallback
-        assert len(results) == 0
+        with patch("src.classifiers.llm.logger") as mock_logger:
+            results = await classifier.classify(items)
+
+        # Keyword fallback picks up the strong AI-keyword title -> not lost in silence.
+        assert len(results) >= 1
+        assert results[0].topic == "models"
+        # A parse-failure-specific error log was emitted (distinct from the generic
+        # "llm_batch_failed_using_fallback" warning already logged for other errors).
+        error_events = [call.args[0] for call in mock_logger.error.call_args_list]
+        assert "llm_response_not_parseable" in error_events
+
+    async def test_classify_malformed_response_increments_parse_failure_metric(self):
+        """A non-parseable LLM response increments the parse-failure metric (#5)."""
+        from src.core.metrics import llm_parse_failures_total
+
+        before = llm_parse_failures_total._value.get()
+        client = _make_mock_client("This is not valid JSON at all!!!")
+        classifier = LLMClassifier(client=client)
+        items = [make_extracted_item(title="GPT-5 model release", score=100)]
+
+        await classifier.classify(items)
+
+        assert llm_parse_failures_total._value.get() == before + 1
+
+    async def test_classify_legitimate_empty_array_does_not_fall_back(self):
+        """A literal "[]" response is success (no news in the batch), not a failure."""
+        client = _make_mock_client("[]")
+        classifier = LLMClassifier(client=client)
+        items = [make_extracted_item(title="GPT-5 model release", score=100)]
+
+        with patch("src.classifiers.llm.logger") as mock_logger:
+            results = await classifier.classify(items)
+
+        assert results == []
+        error_events = [call.args[0] for call in mock_logger.error.call_args_list]
+        assert "llm_response_not_parseable" not in error_events
 
     async def test_classify_priority_calculation(self):
         response = _make_llm_response(
@@ -683,15 +721,29 @@ class TestLLMClassifier:
 # Edge-case tests: _parse_llm_json
 # ---------------------------------------------------------------------------
 class TestParseLlmJsonEdgeCases:
-    def test_truncated_json(self):
-        """Truncated JSON string returns empty list."""
-        result = _parse_llm_json('[{"topic": "models"')
-        assert result == []
+    def test_truncated_json_raises_parse_error(self):
+        """Truncated JSON (e.g. response cut off mid-array) is a parse failure."""
+        with pytest.raises(LLMParseError):
+            _parse_llm_json('[{"topic": "models"')
 
-    def test_empty_string_parse(self):
-        """Empty string returns empty list."""
-        result = _parse_llm_json("")
-        assert result == []
+    def test_empty_string_raises_parse_error(self):
+        """Empty response -- the LLM returned nothing -- is a parse failure."""
+        with pytest.raises(LLMParseError):
+            _parse_llm_json("")
+
+    def test_whitespace_only_raises_parse_error(self):
+        """Whitespace-only response is a parse failure, not a legitimate []."""
+        with pytest.raises(LLMParseError):
+            _parse_llm_json("\n\n")
+
+    def test_text_without_array_raises_parse_error(self):
+        """Prose with no JSON array anywhere in it is a parse failure."""
+        with pytest.raises(LLMParseError):
+            _parse_llm_json("I cannot classify these items right now.")
+
+    def test_legitimate_empty_array_is_not_a_parse_error(self):
+        """A literal "[]" is a valid, successful response (no items to classify)."""
+        assert _parse_llm_json("[]") == []
 
 
 # ---------------------------------------------------------------------------

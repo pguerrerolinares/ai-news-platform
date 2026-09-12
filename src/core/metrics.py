@@ -64,6 +64,10 @@ items_classified_total = Counter(
     "ainews_items_classified_total",
     "Total items classified",
 )
+llm_parse_failures_total = Counter(
+    "ainews_llm_parse_failures_total",
+    "Total LLM classifier responses that failed to parse as a JSON array",
+)
 
 # Validation metrics
 validation_duration_seconds = Histogram(

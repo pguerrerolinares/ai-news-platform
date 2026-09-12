@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+
 from src.classifiers.base import ClassifiedItem
 from src.classifiers.event_dedup import deduplicate_events
 from src.classifiers.keyword import (
@@ -20,6 +22,16 @@ logger = get_logger(__name__)
 
 # Items with >= this many keyword matches skip LLM (high confidence)
 _HIGH_CONFIDENCE_THRESHOLD = 3
+
+
+@functools.cache
+def _warn_no_openai_api_key() -> None:
+    """Log once per process that ambiguous items are classified keyword-only (#32).
+
+    Without an API key, classification silently degrades to KeywordClassifier
+    for every ambiguous item; without this the operator has no signal at all.
+    """
+    logger.warning("classifier_no_openai_api_key_using_keyword_fallback")
 
 
 async def run_classification(items: list[ExtractedItem]) -> list[ClassifiedItem]:
@@ -68,7 +80,11 @@ async def run_classification(items: list[ExtractedItem]) -> list[ClassifiedItem]
         # Classify ambiguous items via LLM (or keyword fallback if no API key)
         llm_classified: list[ClassifiedItem] = []
         if ambiguous:
-            classifier = LLMClassifier() if settings.openai_api_key else KeywordClassifier()
+            if settings.openai_api_key:
+                classifier = LLMClassifier()
+            else:
+                _warn_no_openai_api_key()
+                classifier = KeywordClassifier()
             llm_classified = await classifier.classify(ambiguous)
 
         classified = auto_accepted + llm_classified
