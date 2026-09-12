@@ -137,7 +137,7 @@ ai-news-platform/
 │   │       ├── seen_filter.py        # Persistent dedup: URL hash + title similarity vs DB
 │   │       └── store.py              # DB upsert (url_hash GREATEST) + embedding generation (512-dim)
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
-│   └── mcp/                          # MCP server + client
+│   └── mcp/                          # MCP server (streamable-http; GET /health for the container healthcheck, ADR-004) + client
 ├── frontend/                         # React 19 (Vite + Shadcn UI + Tailwind CSS 4)
 │   └── src/
 │       ├── lib/                      # api.ts, auth.ts (guest tokens), constants.ts, types.ts

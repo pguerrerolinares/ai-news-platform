@@ -48,6 +48,47 @@
 3. Reduce PostgreSQL shared_buffers
 4. Check for memory leaks in pipeline (large item batches)
 
+### MCP Container Restarting Silently (RestartCount climbing, ExitCode=0)
+**Symptom**: `mcp` service `RestartCount` climbs over days/weeks with `docker inspect` showing
+`ExitCode=0` / `OOMKilled=false` for the *current* container state — misleading, because
+`docker events`'s in-memory ring buffer only retains recent activity and the per-container
+counters reset on every redeploy, so by the time anyone looks, the evidence of the actual kill
+is gone from `docker inspect`/`docker events`.
+
+**Root cause (found 2026-09-13, see ADR and commit on `fix/mcp-healthcheck`)**: the `mcp` service
+had `deploy.resources.limits.memory: 256M` in `docker-compose.coolify.yml`, but the FastMCP/
+Starlette/httpx stack's steady-state RSS sits at ~248-250MiB — leaving only ~3MiB of headroom.
+The kernel's memcg OOM killer fired at least 3 times in two weeks (`journalctl -k`):
+```
+Sep 03 20:45:07 kernel: python invoked oom-killer ... Killed process ... (python) ... anon-rss:248668kB
+Sep 08 00:55:15 kernel: python invoked oom-killer ... Killed process ... (python) ... anon-rss:247364kB
+Sep 12 05:11:22 kernel: curl invoked oom-killer   ... Killed process ... (python) ... anon-rss:248204kB
+```
+Each kill is `constraint=CONSTRAINT_MEMCG` scoped to the `mcp` container's own cgroup (only `mcp`
+declares a `memory:` limit in the compose file — every other service is uncapped), `uid=1000`
+(the `appuser` from `Dockerfile.mcp`), and the victim is the main `python -m src.mcp.server`
+process. On 2026-09-12 the allocating process that tipped the cgroup over the edge was `curl` —
+i.e. the (now-fixed) unfalsifiable healthcheck's own `docker exec curl ...`, which shares the
+container's cgroup, was occasionally enough by itself to trigger the kill. `unless-stopped`
+then restarts the container immediately, so nothing outside the kernel ring buffer records it.
+
+**Fix applied**: raised `memory: 256M` → `512M` for `mcp` in `docker-compose.coolify.yml` (real
+headroom; host has 3.7GiB total / ~1.7GiB free at time of writing).
+
+**Not fully explained**: why steady-state RSS is ~250MiB in the first place (vs. ~50MiB right
+after a fresh start) — could be normal working-set growth (session cache, httpx connection
+pool, import overhead) or a genuine slow leak; the three data points are too close together in
+magnitude to tell apart from kernel logs alone. If restarts recur even at 512M, profile the
+process (`docker exec <mcp> python -c "import resource; print(resource.getrusage(...))"` over
+time, or `tracemalloc`) rather than raising the limit again.
+
+**Diagnose**:
+1. `journalctl -k --since '<window>' | grep -iE 'oom-killer|Killed process'` — kernel ring buffer
+   evidence survives container recreation (unlike `docker events`/`docker inspect`).
+2. `docker inspect <container> --format '{{.HostConfig.Memory}}'` to confirm which service has a
+   cap.
+3. `docker stats --no-stream <container>` for current usage vs. limit.
+
 ### SSL Certificate Renewal Failed
 **Symptom**: Browser shows certificate expired
 

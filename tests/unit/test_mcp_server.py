@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from starlette.testclient import TestClient
 
 import src.mcp.server
 from src.mcp.server import (
@@ -14,6 +15,7 @@ from src.mcp.server import (
     get_briefing,
     get_latest,
     get_trending,
+    mcp,
     search_news,
     semantic_search,
 )
@@ -94,6 +96,33 @@ class TestTransportSelection:
             assert src.mcp.server.mcp.settings.host == "0.0.0.0"
         finally:
             src.mcp.server.mcp.settings.host, src.mcp.server.mcp.settings.port = original
+
+
+class TestHealthEndpoint:
+    """Tests for the dedicated /health route used by the container healthcheck.
+
+    Root cause of the old healthcheck: it accepted ANY curl output matching
+    digits, including "000" (curl's output when it can't connect at all), and
+    GET /mcp legitimately returns 406 by MCP protocol design — so the check
+    passed unconditionally. /health is a plain route outside the MCP protocol
+    that only responds when the ASGI app is actually routing requests.
+    """
+
+    def test_health_returns_200_ok(self):
+        # FastMCP caches one StreamableHTTPSessionManager per app instance and
+        # its lifespan can only run once, so both assertions share one client.
+        with TestClient(mcp.streamable_http_app()) as client:
+            response = client.get("/health")
+            assert response.status_code == 200
+            assert response.json() == {"status": "ok"}
+
+            # Documents why the old check (bare GET /mcp) was unfalsifiable: a
+            # plain GET never reaches a healthy 2xx — it fails MCP's
+            # Accept-header negotiation (406 in production) or, as here, its
+            # Host-header check (421 with TestClient's default Host) — so
+            # "any HTTP response" is not a useful healthy/unhealthy signal.
+            mcp_response = client.get("/mcp")
+            assert mcp_response.status_code in (406, 421)
 
 
 class TestGetClient:

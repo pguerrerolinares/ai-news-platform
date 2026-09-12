@@ -102,10 +102,18 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 256M
+          # 256M repeatedly starved the process: kernel memcg OOM-killed the
+          # streamable-http server at steady-state RSS ~248-250MiB (only ~3MiB
+          # of headroom under the old 256M cap) at least 3 times in two weeks
+          # (2026-09-03, 2026-09-08, 2026-09-12 — see docs/runbooks/troubleshooting.md).
+          # 512M gives real headroom; host has 3.7GiB total / ~1.7GiB free.
+          memory: 512M
     healthcheck:
-      # /mcp returns 405/406 on GET (correct MCP behaviour) — exit 0 on any response
-      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/mcp | grep -qE '^[0-9]+$' && exit 0 || exit 1"]
+      # Dedicated /health route (see src/mcp/server.py) — bypasses MCP JSON-RPC
+      # entirely, so this is falsifiable: `curl -f` fails on connection refused,
+      # timeout, or any non-2xx, unlike the old check which accepted ANY curl
+      # output (including "000" on connection failure) via `grep -E '^[0-9]+$'`.
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 5s
       start_period: 20s

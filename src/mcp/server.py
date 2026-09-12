@@ -8,6 +8,9 @@ from __future__ import annotations
 import os
 import threading
 
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from src.mcp.client import APIClient
@@ -16,6 +19,19 @@ mcp = FastMCP("AI News Platform")
 
 _client: APIClient | None = None
 _lock = threading.Lock()
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    """Liveness probe for the streamable-http transport.
+
+    Bypasses the MCP JSON-RPC protocol entirely (no session, no Accept-header
+    negotiation, no DNS-rebinding host check), so the container healthcheck can
+    tell "process is up and serving HTTP" apart from "process is gone/hung"
+    without depending on MCP protocol semantics like the 406 that a bare
+    ``GET /mcp`` returns.
+    """
+    return JSONResponse({"status": "ok"})
 
 
 def _get_client() -> APIClient:
