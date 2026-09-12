@@ -21,15 +21,7 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://ainews:ainews@localhost:5432/ainews",
         description="Async database URL (postgresql+asyncpg://...)",
     )
-    database_url_sync: str = Field(
-        default="postgresql://ainews:ainews@localhost:5432/ainews",
-        description="Sync database URL for Alembic (postgresql://...)",
-    )
-
     # --- API ---
-    api_host: str = "0.0.0.0"  # nosec B104
-    api_port: int = 8000
-    api_workers: int = 2
     debug: bool = False
     cors_origins: str = "http://localhost:5173"
 
@@ -98,7 +90,6 @@ class Settings(BaseSettings):
     github_min_stars: int = 200
     github_max_repo_age_days: int = 180
     seen_window_days: int = 7
-    retention_days: int = 90
 
     # HuggingFace
     hf_min_downloads: int = 100
@@ -147,19 +138,12 @@ class Settings(BaseSettings):
         "theverge.com,wired.com,arstechnica.com,reuters.com"
     )
 
-    # --- Pipeline ---
-    pipeline_schedule_hour: int = 8
-    pipeline_schedule_minute: int = 0
-
     # --- Scheduler ---
     scheduler_enabled: bool = True
     hn_poll_interval_minutes: int = 30
     hn_leading_poll_interval_minutes: int = 15
-    reddit_poll_interval_minutes: int = 15
     rss_poll_interval_minutes: int = 60
     github_poll_interval_minutes: int = 240
-    hf_poll_interval_minutes: int = 60
-    webscraper_poll_interval_minutes: int = 60
     arxiv_cron_hour: int = 1
     arxiv_cron_minute: int = 30
 

@@ -197,7 +197,6 @@ class TestValidateProductionSettings:
             "debug": False,
             "jwt_secret": "x" * 64,
             "database_url": "postgresql+asyncpg://x:x@localhost/x",
-            "database_url_sync": "postgresql://x:x@localhost/x",
         }
         defaults.update(overrides)
         return Settings(**defaults)

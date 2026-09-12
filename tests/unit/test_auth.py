@@ -27,7 +27,6 @@ def _make_test_settings(**overrides) -> Settings:
         "jwt_algorithm": TEST_ALGORITHM,
         "jwt_access_expire_minutes": 30,
         "database_url": "postgresql+asyncpg://x:x@localhost/x",
-        "database_url_sync": "postgresql://x:x@localhost/x",
     }
     defaults.update(overrides)
     return Settings(**defaults)

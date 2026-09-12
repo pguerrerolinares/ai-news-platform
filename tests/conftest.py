@@ -37,7 +37,6 @@ def settings():
 
     return Settings(
         database_url="postgresql+asyncpg://ainews:ainews@localhost:5432/ainews_test",
-        database_url_sync="postgresql://ainews:ainews@localhost:5432/ainews_test",
         debug=True,
         log_format="console",
     )
