@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -39,20 +40,29 @@ class BackfillCheckpoint:
             entry["offset"] = offset
 
     def save(self) -> None:
+        """Persist the checkpoint atomically.
+
+        Writes to a temporary file in the same directory and then renames it
+        into place with ``os.replace``. A crash or error mid-write only ever
+        leaves the ``.tmp`` file corrupted — the previous checkpoint at
+        ``self.path`` stays intact, so a resumed backfill never sees partial
+        or truncated state.
+        """
         self.updated_at = datetime.now(tz=UTC).isoformat()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps(
-                {
-                    "sources": self.sources,
-                    "classify_cursor": self.classify_cursor,
-                    "items_classified": self.items_classified,
-                    "cost_usd": self.cost_usd,
-                    "updated_at": self.updated_at,
-                },
-                indent=2,
-            )
+        payload = json.dumps(
+            {
+                "sources": self.sources,
+                "classify_cursor": self.classify_cursor,
+                "items_classified": self.items_classified,
+                "cost_usd": self.cost_usd,
+                "updated_at": self.updated_at,
+            },
+            indent=2,
         )
+        tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp_path.write_text(payload)
+        os.replace(tmp_path, self.path)
 
     @classmethod
     def load(cls, path: Path) -> BackfillCheckpoint:
