@@ -7,6 +7,7 @@ import { DatePicker } from '@/components/date-picker'
 import { apiGet } from '@/lib/api'
 import { IconChevronLeft, IconChevronRight, IconRefresh } from '@tabler/icons-react'
 import type { Briefing } from '@/lib/types'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 function formatDate(date: Date): string {
   const y = date.getFullYear()
@@ -43,6 +44,7 @@ function formatGeneratedAt(iso: string): string {
 }
 
 export default function BriefingPage() {
+  useDocumentTitle('Daily Briefing')
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date())
   const [briefing, setBriefing] = useState<Briefing | null>(null)
   const [loading, setLoading] = useState(false)

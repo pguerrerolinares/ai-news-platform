@@ -6,6 +6,7 @@ import { NewsCard } from '@/components/news-card'
 import { apiGet } from '@/lib/api'
 import type { NewsItem } from '@/lib/types'
 import { IconSearch, IconRefresh, IconNetwork } from '@tabler/icons-react'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 // ── Related items sub-component ─────────────────────────────────────────────
 
@@ -114,6 +115,7 @@ function ResultCard({ item }: ResultCardProps) {
 // ── Main Discover page ───────────────────────────────────────────────────────
 
 export default function Discover() {
+  useDocumentTitle('Discover')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(false)

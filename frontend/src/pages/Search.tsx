@@ -12,6 +12,7 @@ import { DatePicker } from '@/components/date-picker'
 import { apiGet } from '@/lib/api'
 import type { NewsItem } from '@/lib/types'
 import { IconSearch, IconRefresh } from '@tabler/icons-react'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 const TOPICS = Object.keys(TOPIC_LABELS)
 const SORT_MAP: Record<string, string> = {
@@ -21,6 +22,7 @@ const SORT_MAP: Record<string, string> = {
 }
 
 export default function Search() {
+  useDocumentTitle('Search')
   const [query, setQuery] = useState('')
   const [topic, setTopic] = useState('all')
   const [sortBy, setSortBy] = useState('relevance')
