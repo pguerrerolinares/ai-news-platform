@@ -1,7 +1,7 @@
 """LLM-based classifier using OpenAI-compatible API (Kimi/Moonshot).
 
 Batches items into groups of BATCH_SIZE, sends English prompts for
-classification, and falls back to KeywordClassifier on failure.
+classification, and falls back to KeywordClassifier on transient failures.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import asyncio
 import json
 import random
 import re
+from typing import Any
 
 import openai
 
@@ -40,18 +41,35 @@ _RETRYABLE_ERRORS = (
     openai.APIConnectionError,
 )
 
+# Moonshot's 429 type when the account is suspended for insufficient balance
+QUOTA_ERROR_TYPE = "exceeded_current_quota_error"
+
+
+def _is_config_or_account_error(exc: BaseException) -> bool:
+    """True for errors that neither retries nor the keyword fallback can fix.
+
+    Retired model, invalid params, bad key or no balance: degrading to keywords hid
+    these for weeks (2026-08-22 to 2026-09-12), so they must fail the run instead.
+    """
+    if isinstance(exc, openai.RateLimitError):
+        return exc.type == QUOTA_ERROR_TYPE
+    return isinstance(exc, openai.APIStatusError) and 400 <= exc.status_code < 500
+
 
 async def llm_call(
     client: openai.AsyncOpenAI,
     model: str,
     system: str,
     prompt: str,
+    *,
+    temperature: float,
+    extra_body: dict[str, Any] | None,
 ) -> str:
     """Call the LLM with retry logic for transient errors.
 
     Retries up to MAX_RETRIES times on RateLimitError, APITimeoutError,
     and APIConnectionError with backoff [2, 5, 15, 30] seconds + 30% jitter.
-    Other APIError subclasses are NOT retried.
+    Other APIError subclasses and insufficient-balance 429s are NOT retried.
     """
     last_error: Exception | None = None
 
@@ -63,10 +81,13 @@ async def llm_call(
                     {"role": "system", "content": system},
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.1,
+                temperature=temperature,
+                extra_body=extra_body,
             )
             return response.choices[0].message.content or ""
         except _RETRYABLE_ERRORS as exc:
+            if _is_config_or_account_error(exc):
+                raise
             last_error = exc
             if attempt < MAX_RETRIES - 1:
                 wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
@@ -193,7 +214,7 @@ class LLMClassifier(BaseClassifier):
 
     Batches items for classification, uses English prompts with exact
     topic definitions and relevance scale. Falls back to KeywordClassifier
-    on failure.
+    on transient failures; config or account errors propagate.
     """
 
     def __init__(self, client: openai.AsyncOpenAI | None = None) -> None:
@@ -241,7 +262,14 @@ class LLMClassifier(BaseClassifier):
                     return await self._classify_batch(
                         client, model, batch, topics_info, enabled_topics, min_relevance
                     )
-                except Exception:
+                except Exception as exc:
+                    if _is_config_or_account_error(exc):
+                        logger.error(
+                            "llm_config_or_account_error",
+                            model=model,
+                            error=str(exc),
+                        )
+                        raise
                     logger.warning(
                         "llm_batch_failed_using_fallback",
                         batch_start=batch_start,
@@ -265,7 +293,15 @@ class LLMClassifier(BaseClassifier):
     ) -> list[ClassifiedItem]:
         """Classify a single batch via LLM."""
         prompt = _build_prompt(batch, topics_info)
-        raw_response = await llm_call(client, model, SYSTEM_MESSAGE, prompt)
+        settings = get_settings()
+        raw_response = await llm_call(
+            client,
+            model,
+            SYSTEM_MESSAGE,
+            prompt,
+            temperature=settings.openai_temperature,
+            extra_body=settings.openai_extra_body,
+        )
         parsed = _parse_llm_json(raw_response)
 
         results: list[ClassifiedItem] = []

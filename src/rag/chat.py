@@ -44,6 +44,8 @@ class ChatService:
                 base_url=settings.openai_base_url,
             )
         self._model = settings.openai_model
+        self._temperature = settings.openai_temperature
+        self._extra_body = settings.openai_extra_body
 
     @staticmethod
     def _generate_msg_id() -> str:
@@ -134,7 +136,8 @@ class ChatService:
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_message},
                     ],
-                    temperature=0.3,
+                    temperature=self._temperature,
+                    extra_body=self._extra_body,
                     stream=True,
                 )
 

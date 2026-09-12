@@ -214,6 +214,26 @@ class TestChatStream:
         assert done_data is not None
         assert done_data["id"] == msg_id
 
+    async def test_sends_model_options_from_settings(self) -> None:
+        mock_retriever = AsyncMock()
+        mock_retriever.retrieve.return_value = []
+        mock_llm_client = AsyncMock()
+        mock_llm_client.chat.completions.create.side_effect = Exception("stop after call")
+        settings = _mock_settings(
+            openai_model="kimi-k2.6",
+            openai_temperature=0.6,
+            openai_extra_body={"thinking": {"type": "disabled"}},
+        )
+
+        with patch("src.rag.chat.get_settings", return_value=settings):
+            service = ChatService(retriever=mock_retriever, llm_client=mock_llm_client)
+            _ = [e async for e in service.chat_stream(AsyncMock(), "What happened?")]
+
+        kwargs = mock_llm_client.chat.completions.create.call_args.kwargs
+        assert kwargs["model"] == "kimi-k2.6"
+        assert kwargs["temperature"] == 0.6
+        assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
+
     async def test_empty_question_yields_error(self) -> None:
         mock_session = AsyncMock()
         with patch("src.rag.chat.get_settings", return_value=_mock_settings()):

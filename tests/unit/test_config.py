@@ -43,6 +43,26 @@ class TestSettingsDefaults:
         s = Settings(min_relevance_score=0.75)
         assert s.min_relevance_score == pytest.approx(0.75)
 
+    def test_default_llm_is_kimi_k26_without_thinking(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)  # no .env
+        for var in ("OPENAI_MODEL", "OPENAI_TEMPERATURE", "OPENAI_EXTRA_BODY"):
+            monkeypatch.delenv(var, raising=False)
+        s = Settings()
+        assert s.openai_model == "kimi-k2.6"
+        # Moonshot only accepts temperature 0.6 for kimi-k2.6 with thinking disabled
+        assert s.openai_temperature == pytest.approx(0.6)
+        assert s.openai_extra_body == {"thinking": {"type": "disabled"}}
+
+    def test_min_relevance_score_default_calibrated_for_kimi_k26(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)  # no .env
+        monkeypatch.delenv("MIN_RELEVANCE_SCORE", raising=False)
+        assert Settings().min_relevance_score == pytest.approx(0.8)
+
+    def test_openai_extra_body_parsed_from_json_env(self, monkeypatch, tmp_path):
+        monkeypatch.chdir(tmp_path)  # no .env
+        monkeypatch.setenv("OPENAI_EXTRA_BODY", '{"reasoning_effort": "low"}')
+        assert Settings().openai_extra_body == {"reasoning_effort": "low"}
+
     def test_default_pipeline_schedule(self):
         s = Settings()
         assert s.pipeline_schedule_hour == 8

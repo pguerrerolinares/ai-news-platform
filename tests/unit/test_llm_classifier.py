@@ -52,6 +52,38 @@ def _make_llm_response(items: list[dict]) -> str:
     return json.dumps(items)
 
 
+_CALL_OPTS: dict = {"temperature": 0.6, "extra_body": None}
+
+
+def _quota_error() -> openai.RateLimitError:
+    """Moonshot's 429 when the account is suspended for insufficient balance."""
+    return openai.RateLimitError(
+        message="Your account is suspended due to insufficient balance",
+        response=MagicMock(status_code=429),
+        body={"message": "insufficient balance", "type": "exceeded_current_quota_error"},
+    )
+
+
+def _config_errors() -> list[openai.APIStatusError]:
+    """Errors that neither retries nor the keyword fallback can fix."""
+    return [
+        openai.NotFoundError(
+            message="Not found the model kimi-latest or Permission denied",
+            response=MagicMock(status_code=404),
+            body=None,
+        ),
+        openai.BadRequestError(
+            message="invalid temperature: only 1 is allowed for this model",
+            response=MagicMock(status_code=400),
+            body=None,
+        ),
+        openai.AuthenticationError(
+            message="invalid api key", response=MagicMock(status_code=401), body=None
+        ),
+        _quota_error(),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # _parse_llm_json
 # ---------------------------------------------------------------------------
@@ -148,7 +180,7 @@ class TestBuildPrompt:
 class TestLlmCall:
     async def test_successful_call(self):
         client = _make_mock_client("test response")
-        result = await llm_call(client, "model", "system", "prompt")
+        result = await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
         assert result == "test response"
         client.chat.completions.create.assert_called_once()
 
@@ -167,7 +199,7 @@ class TestLlmCall:
             ]
         )
         with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock):
-            result = await llm_call(client, "model", "system", "prompt")
+            result = await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
         assert result == "success"
         assert client.chat.completions.create.call_count == 2
 
@@ -180,7 +212,7 @@ class TestLlmCall:
             ]
         )
         with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock):
-            result = await llm_call(client, "model", "system", "prompt")
+            result = await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
         assert result == "ok"
 
     async def test_retries_on_connection_error(self):
@@ -192,7 +224,7 @@ class TestLlmCall:
             ]
         )
         with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock):
-            result = await llm_call(client, "model", "system", "prompt")
+            result = await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
         assert result == "ok"
 
     async def test_exhausts_retries_and_raises(self):
@@ -207,7 +239,7 @@ class TestLlmCall:
             patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock),
             pytest.raises(openai.RateLimitError),
         ):
-            await llm_call(client, "model", "system", "prompt")
+            await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
         assert client.chat.completions.create.call_count == 5
 
     async def test_no_retry_on_other_api_error(self):
@@ -220,7 +252,33 @@ class TestLlmCall:
             )
         )
         with pytest.raises(openai.BadRequestError):
-            await llm_call(client, "model", "system", "prompt")
+            await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
+        assert client.chat.completions.create.call_count == 1
+
+    async def test_passes_temperature_and_extra_body(self):
+        client = _make_mock_client("ok")
+        await llm_call(
+            client,
+            "kimi-k2.6",
+            "system",
+            "prompt",
+            temperature=0.6,
+            extra_body={"thinking": {"type": "disabled"}},
+        )
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["model"] == "kimi-k2.6"
+        assert kwargs["temperature"] == pytest.approx(0.6)
+        assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
+
+    async def test_no_retry_on_insufficient_balance(self):
+        """A suspended account is not a transient rate limit: retrying only burns time."""
+        client = _make_mock_client("")
+        client.chat.completions.create = AsyncMock(side_effect=_quota_error())
+        with (
+            patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock),
+            pytest.raises(openai.RateLimitError),
+        ):
+            await llm_call(client, "model", "system", "prompt", **_CALL_OPTS)
         assert client.chat.completions.create.call_count == 1
 
 
@@ -270,7 +328,7 @@ class TestRetryBackoff:
             ]
         )
         with patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-            result = await llm_call(mock_client, "model", "system", "prompt")
+            result = await llm_call(mock_client, "model", "system", "prompt", **_CALL_OPTS)
         assert result == "ok"
         assert mock_sleep.await_count == 4
         for i, call in enumerate(mock_sleep.await_args_list):
@@ -291,7 +349,7 @@ class TestRetryBackoff:
             patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock),
             pytest.raises(openai.RateLimitError),
         ):
-            await llm_call(mock_client, "model", "system", "prompt")
+            await llm_call(mock_client, "model", "system", "prompt", **_CALL_OPTS)
         assert mock_client.chat.completions.create.await_count == 5
 
 
@@ -464,12 +522,37 @@ class TestLLMClassifier:
         assert client.chat.completions.create.call_count == 2
         assert len(results) == BATCH_SIZE + 3
 
-    async def test_fallback_to_keyword_on_api_error(self):
+    @pytest.mark.parametrize("error", _config_errors(), ids=lambda e: type(e).__name__)
+    async def test_config_or_account_error_raises_instead_of_fallback(self, error):
+        """Retired model, bad params, bad key or no balance must fail the run, not degrade it."""
+        client = _make_mock_client("")
+        client.chat.completions.create = AsyncMock(side_effect=error)
+        classifier = LLMClassifier(client=client)
+        items = [make_extracted_item(title="GPT-5 LLM achieves SOTA on MMLU benchmark")]
+        with (
+            patch("src.classifiers.llm.asyncio.sleep", new_callable=AsyncMock),
+            pytest.raises(type(error)),
+        ):
+            await classifier.classify(items)
+
+    async def test_classify_sends_model_options_from_settings(self):
+        settings = _make_settings(
+            openai_temperature=0.6, openai_extra_body={"thinking": {"type": "disabled"}}
+        )
+        classifier, client = self._make_classifier(_make_llm_response([]))
+        with patch("src.classifiers.llm.get_settings", return_value=settings):
+            await classifier.classify([make_extracted_item()])
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["model"] == "test-model"
+        assert kwargs["temperature"] == pytest.approx(0.6)
+        assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
+
+    async def test_fallback_to_keyword_on_server_error(self):
         client = _make_mock_client("")
         client.chat.completions.create = AsyncMock(
-            side_effect=openai.BadRequestError(
-                message="bad request",
-                response=MagicMock(status_code=400),
+            side_effect=openai.InternalServerError(
+                message="internal error",
+                response=MagicMock(status_code=500),
                 body=None,
             )
         )
@@ -667,9 +750,9 @@ class TestLLMClassifierEdgeCases:
                         )
                     ]
                 ),
-                openai.BadRequestError(
-                    message="bad request",
-                    response=MagicMock(status_code=400),
+                openai.InternalServerError(
+                    message="internal error",
+                    response=MagicMock(status_code=500),
                     body=None,
                 ),
             ]
@@ -685,7 +768,7 @@ class TestLLMClassifierEdgeCases:
         assert len(results) >= BATCH_SIZE
 
     async def test_non_retryable_auth_error(self):
-        """AuthenticationError is NOT retryable -> falls back immediately, only 1 call."""
+        """AuthenticationError is NOT retryable and NOT hidden by the fallback: 1 call, raises."""
         client = _make_mock_client("")
         client.chat.completions.create = AsyncMock(
             side_effect=openai.AuthenticationError(
@@ -702,9 +785,6 @@ class TestLLMClassifierEdgeCases:
                 score=100,
             ),
         ]
-        results = await classifier.classify(items)
-        # AuthenticationError is not retryable, so only 1 call
+        with pytest.raises(openai.AuthenticationError):
+            await classifier.classify(items)
         assert client.chat.completions.create.call_count == 1
-        # Falls back to keyword classifier, which should classify this item
-        assert len(results) >= 1
-        assert results[0].topic == "models"

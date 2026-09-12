@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -39,7 +40,14 @@ class Settings(BaseSettings):
     # --- LLM (Kimi/Moonshot, OpenAI-compatible) ---
     openai_api_key: str = ""
     openai_base_url: str = "https://api.moonshot.cn/v1"
-    openai_model: str = "kimi-latest"
+    openai_model: str = "kimi-k2.6"
+    # Moonshot fixes temperature per mode: kimi-k2.6 thinking disabled -> 0.6, enabled -> 1.0
+    openai_temperature: float = 0.6
+    # Provider-specific request fields (JSON in env). kimi-k2.6 thinks by default, which
+    # costs ~4.5k reasoning tokens and ~100s per classification batch.
+    openai_extra_body: dict[str, Any] = Field(
+        default_factory=lambda: {"thinking": {"type": "disabled"}}
+    )
 
     # --- Embeddings (OpenAI text-embedding-3-small) ---
     embedding_api_key: str = ""
@@ -104,7 +112,8 @@ class Settings(BaseSettings):
 
     # --- Topics ---
     topics: str = "models,tools,papers,products,open_source,agents,regulation"
-    min_relevance_score: float = 0.75
+    # Calibrated for kimi-k2.6 (2026-09 benchmark): 0.8 keeps acceptance near kimi-latest's ~31%
+    min_relevance_score: float = 0.8
 
     # --- Composite Scoring Weights (must sum to 1.0 for each mode) ---
     composite_w_velocity: float = 0.35
