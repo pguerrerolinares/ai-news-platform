@@ -191,6 +191,8 @@ Auth: Guest token only (24h TTL, read-only). `Authorization: Bearer`.
 Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests, and nothing currently issues non-guest tokens).
 Rate limiting: JWT-aware — guest by `jti`, user by `sub`, fallback to IP. Guests: 30 req/min, users: 120 req/min.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
+Caching: `items`, `briefings`, `stats`, `sources` and `topics` set `Cache-Control: public, max-age=60` on 2xx responses via `src/api/caching.set_cache_header()`. Never on `search`, `admin`, `auth`, `chat`, or any error response. `items`/`briefings` listing queries also defer `full_text`/`search_vector` (never `metadata_`, read by `composite_scorer.score_newsitem`) since `NewsItemResponse` never serializes them.
+Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`) filters by `settings.embedding_model` so results never mix distances from different embedding models.
 
 ## Configuration
 
