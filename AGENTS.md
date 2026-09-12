@@ -145,7 +145,8 @@ ai-news-platform/
 │       ├── components/               # layout, app-nav, news-card, featured-card, ui/
 │       └── pages/                    # Admin, Briefing, Dashboard, Discover, Search, Timeline, Trending
 ├── tests/                            # 1,050 unit + 19 E2E (Playwright, currently skipped — see Testing)
-├── scripts/                          # backup, health check, rescore_composite, rescore_all
+├── scripts/                          # backup, health check, rescore_composite, rescore_all,
+│                                      # backfill (historical), recover_outage (2026-09 outage)
 └── docs/                             # architecture, ADRs, plans, runbooks, milestone-history
 ```
 

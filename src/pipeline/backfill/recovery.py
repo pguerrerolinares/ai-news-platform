@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.classifiers.keyword import classify_by_keywords
 from src.core.config import Settings
+from src.core.dates import parse_iso_z
 from src.core.models import NewsItem
 from src.extractors.base import ExtractedItem
 from src.pipeline.backfill.extractors import (
@@ -126,6 +127,19 @@ async def fetch_hackernews(settings: Settings) -> list[ExtractedItem]:
     return [raw_hn_to_extracted(r) for r in raw_items if in_window(r.published_at)]
 
 
+def is_recent_repo(raw: RawItem, max_age_days: int) -> bool:
+    """Mirror prod github_search's repo-age filter (src/extractors/github.py).
+
+    Prod skips repos created more than ``max_age_days`` before the poll. During the
+    outage a poll saw each repo around its push, so age is measured against the push
+    date. Without this, long-lived repos that merely got a push in the window leak in.
+    """
+    created_at = parse_iso_z(raw.raw_json.get("created_at", ""))
+    if created_at is None or raw.published_at is None or max_age_days <= 0:
+        return True
+    return (raw.published_at - created_at).days <= max_age_days
+
+
 async def fetch_github_search(settings: Settings) -> list[ExtractedItem]:
     """Fetch repos pushed during the outage window via the GitHub search API."""
     extractor = HistoricalGitHubExtractor(
@@ -144,7 +158,12 @@ async def fetch_github_search(settings: Settings) -> list[ExtractedItem]:
     async with httpx.AsyncClient(timeout=30, headers=headers) as client:
         for start, end in months:
             raw_items.extend(await extractor.fetch_month(client, start, end))
-    return [raw_github_to_extracted(r) for r in raw_items if in_window(r.published_at)]
+    max_age_days = settings.github_max_repo_age_days
+    return [
+        raw_github_to_extracted(r)
+        for r in raw_items
+        if in_window(r.published_at) and is_recent_repo(r, max_age_days)
+    ]
 
 
 async def load_existing_hashes(session: AsyncSession) -> tuple[set[str], set[str]]:

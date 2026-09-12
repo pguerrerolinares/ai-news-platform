@@ -77,6 +77,33 @@ class TestRawToExtracted:
         assert item.title == "repo: an AI repo"
 
 
+class TestIsRecentRepo:
+    """Mirrors prod github_search: skip repos older than github_max_repo_age_days."""
+
+    def _raw(self, created_at: str | None) -> RawItem:
+        raw_json = {"created_at": created_at} if created_at is not None else {}
+        return RawItem(
+            source="github",
+            source_id="acme/repo",
+            raw_json=raw_json,
+            title="acme/repo",
+            score=500,
+            published_at=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+
+    def test_repo_created_within_max_age_of_push_is_recent(self) -> None:
+        assert recovery.is_recent_repo(self._raw("2026-06-01T00:00:00Z"), 180) is True
+
+    def test_old_repo_pushed_in_window_is_excluded(self) -> None:
+        assert recovery.is_recent_repo(self._raw("2019-01-01T00:00:00Z"), 180) is False
+
+    def test_missing_created_at_is_kept_like_prod(self) -> None:
+        assert recovery.is_recent_repo(self._raw(None), 180) is True
+
+    def test_zero_max_age_disables_filter_like_prod(self) -> None:
+        assert recovery.is_recent_repo(self._raw("2019-01-01T00:00:00Z"), 0) is True
+
+
 class TestFilterNew:
     def test_splits_existing_by_content_hash(self) -> None:
         existing = ExtractedItem(title="dup", source="hackernews", url="http://x.com")
