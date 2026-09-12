@@ -177,6 +177,27 @@ class TestDeferredHeavyColumns:
         assert resp.json(), f"{path}: expected at least one seeded item in the response"
         _assert_full_text_not_selected(statements, path)
 
+    async def test_latest_default_sort_defers_full_text(
+        self, client, db_session, integration_engine, auth_headers
+    ):
+        """`/api/items/latest` with the default sort (relevance) goes through
+        FeedBuilder._fetch_candidates, a separate query from the ones above.
+        """
+        await seed_news_item(
+            db_session,
+            full_text="x" * 5000,
+            composite_score=1.0,
+            published_at=datetime.now(tz=UTC),
+        )
+
+        resp, statements = await _capture_sql(
+            integration_engine, client.get("/api/items/latest", headers=auth_headers)
+        )
+
+        assert resp.status_code == 200
+        assert resp.json(), "expected at least one seeded item in the response"
+        _assert_full_text_not_selected(statements, "/api/items/latest (default sort)")
+
     async def test_by_date_defers_full_text(
         self, client, db_session, integration_engine, auth_headers
     ):
