@@ -19,7 +19,13 @@
 
 ## Architecture Principles
 - **Async by default**: httpx for HTTP, asyncpg for DB, SQLAlchemy async sessions
-- **Interface-based**: Every new component implements an ABC and is registered in its module's `__init__.py`
+- **Interface-based**: Every new component implements an ABC and is registered in its module's `__init__.py`.
+  In practice this applies to **extractors** (`src/extractors/__init__.py` has an
+  `EXTRACTOR_REGISTRY` mapping source name → class, resolved lazily by `load_extractor()`),
+  because there are several selectable implementations chosen at runtime via
+  `ENABLED_SOURCES`. Classifiers and validators have a single production implementation
+  each and are imported directly where used; their `__init__.py` stays empty until a
+  second implementation actually needs runtime selection (YAGNI).
 - **Open/Closed**: Extend via new implementations, NOT by modifying existing ones
 - **Fail Fast**: Raise exceptions early. Never silently catch and continue.
 
