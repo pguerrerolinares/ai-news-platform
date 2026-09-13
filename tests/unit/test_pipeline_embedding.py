@@ -6,7 +6,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.core.config import Settings
-from src.pipeline.stages.store import embed_new_items
+from src.pipeline.stages.store import embed_new_items, embed_new_items_with_status
 
 
 def _mock_settings(**overrides):
@@ -110,3 +110,80 @@ class TestEmbedNewItems:
         with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
             await embed_new_items(session, mock_embed_service)
         session.rollback.assert_called_once()
+
+
+class TestEmbedNewItemsWithStatus:
+    """#9: embed_new_items alone can't tell "nothing to embed" apart from
+    "the batch failed" -- both returned 0. embed_new_items_with_status adds
+    the (count, failed) signal that run_pipeline uses to mark a run
+    `degraded` instead of `success` when embeddings failed.
+    """
+
+    async def test_no_items_returns_zero_not_failed(self):
+        """Nothing to embed is a healthy outcome, not a failure."""
+        session = _make_session()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        session.execute.return_value = mock_result
+
+        mock_embed_service = AsyncMock()
+
+        with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
+            count, failed = await embed_new_items_with_status(session, mock_embed_service)
+
+        assert (count, failed) == (0, False)
+
+    async def test_success_returns_count_not_failed(self):
+        session = _make_session()
+        items = [_make_item("Title 1"), _make_item("Title 2")]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = items
+        session.execute.return_value = mock_result
+
+        mock_embed_service = AsyncMock()
+        mock_embed_service.embed_batch.return_value = [[0.1] * 512, [0.2] * 512]
+        mock_embed_service.prepare_text.side_effect = lambda t, s: f"{t}\n{s}" if s else t
+
+        with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
+            count, failed = await embed_new_items_with_status(session, mock_embed_service)
+
+        assert (count, failed) == (2, False)
+
+    async def test_batch_error_returns_zero_and_failed_true(self):
+        """This is the case embed_new_items alone can't signal: a failed
+        batch (rolled back) must be distinguishable from "nothing to embed",
+        since only the former should degrade the pipeline run."""
+        session = _make_session()
+        items = [_make_item()]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = items
+        session.execute.return_value = mock_result
+
+        mock_embed_service = AsyncMock()
+        mock_embed_service.prepare_text.return_value = "Title\nSummary"
+        mock_embed_service.embed_batch.side_effect = Exception("API error")
+
+        with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
+            count, failed = await embed_new_items_with_status(session, mock_embed_service)
+
+        assert (count, failed) == (0, True)
+        session.rollback.assert_called_once()
+
+    async def test_embed_new_items_wrapper_keeps_int_return_type(self):
+        """embed_new_items must keep returning a bare int -- scripts/recover_outage.py
+        (parallel branch feat/backfill-outage) and scripts/backfill.py depend on it."""
+        session = _make_session()
+        items = [_make_item()]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = items
+        session.execute.return_value = mock_result
+
+        mock_embed_service = AsyncMock()
+        mock_embed_service.prepare_text.return_value = "Title\nSummary"
+        mock_embed_service.embed_batch.side_effect = Exception("API error")
+
+        with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
+            result = await embed_new_items(session, mock_embed_service)
+
+        assert result == 0
+        assert isinstance(result, int)

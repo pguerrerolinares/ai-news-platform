@@ -1190,7 +1190,7 @@ class TestPipelineEdgeCases:
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
             patch(
-                "src.pipeline.pipeline.embed_new_items",
+                "src.pipeline.pipeline.embed_new_items_with_status",
                 new_callable=AsyncMock,
             ) as mock_embed,
         ):
@@ -1201,8 +1201,63 @@ class TestPipelineEdgeCases:
             result = await run_pipeline(session)
 
         assert result is True
-        # embed_new_items should NOT have been called
+        # embed_new_items_with_status should NOT have been called
         mock_embed.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_embedding_failure_marks_run_degraded(self):
+        """#9: a failed embedding batch degrades the run but doesn't lose
+        the already-stored items or fail the run outright."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+            embedding_api_key="sk-embed-test",
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch(
+                "src.pipeline.pipeline.run_classification",
+                new_callable=AsyncMock,
+                return_value=classified,
+            ),
+            patch(
+                "src.pipeline.pipeline.run_scoring",
+                return_value=classified,
+            ),
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+            patch(
+                "src.pipeline.pipeline.store_classified_items",
+                new_callable=AsyncMock,
+                return_value=1,
+            ),
+            patch("src.pipeline.pipeline.save_briefing", new_callable=AsyncMock),
+            patch(
+                "src.pipeline.pipeline.embed_new_items_with_status",
+                new_callable=AsyncMock,
+                return_value=(0, True),  # nothing embedded, batch failed
+            ),
+        ):
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = classified
+            mock_validator_cls.return_value = mock_validator
+
+            result = await run_pipeline(session)
+
+        assert result is True
+        run = session.add.call_args[0][0]
+        assert run.status == "degraded"
+        assert run.items_stored == 1  # items are NOT lost when embeddings fail
 
 
 # ---------------------------------------------------------------------------

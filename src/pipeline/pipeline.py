@@ -27,7 +27,11 @@ from src.pipeline.stages.classify import run_classification
 from src.pipeline.stages.extract import get_extractors, run_extraction
 from src.pipeline.stages.score import run_scoring
 from src.pipeline.stages.seen_filter import filter_already_seen
-from src.pipeline.stages.store import embed_new_items, save_briefing, store_classified_items
+from src.pipeline.stages.store import (
+    embed_new_items_with_status,
+    save_briefing,
+    store_classified_items,
+)
 from src.pipeline.validation import validate_extracted_item
 from src.validators.credibility import CredibilityValidator
 
@@ -191,11 +195,17 @@ async def run_pipeline(
         )
 
         # 9. Embeddings
+        embed_failed = False
         if settings.embedding_api_key:
-            embedded_count = await embed_new_items(session)
-            logger.info("pipeline_embeddings", count=embedded_count)
+            embedded_count, embed_failed = await embed_new_items_with_status(session)
+            logger.info("pipeline_embeddings", count=embedded_count, failed=embed_failed)
 
-        pipeline_runs_total.labels(status="success").inc()
+        # A failed embedding batch doesn't lose items (they're already
+        # stored) or fail the run outright -- it degrades it, so the
+        # `pipeline_runs` audit trail can tell "healthy" apart from
+        # "items saved, embeddings need attention" (#9).
+        final_status = "degraded" if embed_failed else "success"
+        pipeline_runs_total.labels(status=final_status).inc()
         pipeline_duration_seconds.observe(duration)
 
         logger.info(
@@ -214,7 +224,7 @@ async def run_pipeline(
             PipelineRun(
                 started_at=start,
                 duration_seconds=duration,
-                status="success",
+                status=final_status,
                 sources=sources_used,
                 items_extracted=items_extracted,
                 items_after_dedup=items_after_dedup,

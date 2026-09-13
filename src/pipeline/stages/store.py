@@ -189,7 +189,33 @@ async def embed_new_items(
     session: AsyncSession,
     embed_service: EmbeddingService | None = None,
 ) -> int:
-    """Generate embeddings for items that don't have one yet."""
+    """Generate embeddings for items that don't have one yet.
+
+    Thin wrapper over :func:`embed_new_items_with_status` that keeps the
+    original ``int`` return type. Signature is public API used by
+    ``scripts/recover_outage.py`` (parallel branch) and ``scripts/backfill.py``
+    -- kept unchanged on purpose. Callers that need to tell "nothing to
+    embed" apart from "the batch failed" (e.g. to mark a pipeline run
+    ``degraded``, see #9) should call ``embed_new_items_with_status`` instead.
+    """
+    count, _failed = await embed_new_items_with_status(session, embed_service)
+    return count
+
+
+async def embed_new_items_with_status(
+    session: AsyncSession,
+    embed_service: EmbeddingService | None = None,
+) -> tuple[int, bool]:
+    """Generate embeddings for items that don't have one yet.
+
+    Returns ``(count, failed)``. Before this, ``embed_new_items`` returned
+    a bare ``0`` for both "nothing to embed" and "the batch raised and was
+    rolled back" (#9) -- indistinguishable from the caller's side, so a
+    real embedding outage looked identical to a quiet, healthy run.
+    ``failed`` is True only in the second case. The stale-item requery
+    below (outer join + limit 500) already retries a failed batch on the
+    next pipeline run; this function only adds the missing signal.
+    """
     settings = get_settings()
 
     if embed_service is None:
@@ -211,7 +237,7 @@ async def embed_new_items(
 
     if not items:
         logger.info("embed_no_new_items")
-        return 0
+        return 0, False
 
     try:
         texts = [embed_service.prepare_text(item.title, item.summary) for item in items]
@@ -229,7 +255,7 @@ async def embed_new_items(
         await session.execute(stmt)
         await session.commit()
         logger.info("embed_items_stored", count=len(items))
-        return len(items)
+        return len(items), False
 
     except Exception as exc:
         from src.core.metrics import embedding_failures_total
@@ -237,4 +263,4 @@ async def embed_new_items(
         embedding_failures_total.inc()
         logger.error("embed_items_failed", error=str(exc), item_count=len(items))
         await session.rollback()
-        return 0
+        return 0, True
