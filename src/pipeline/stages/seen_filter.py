@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
+from src.core.metrics import items_filtered_total
 from src.core.models import NewsItem
 from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 from src.extractors.base import ExtractedItem
@@ -106,6 +107,9 @@ async def filter_already_seen(
     candidates = never_seen + items_without_url
     content_updated = len(content_updates)
 
+    if url_filtered > 0:
+        items_filtered_total.labels(reason="url_dedup").inc(url_filtered)
+
     if not candidates:
         if url_filtered > 0 or content_updated > 0:
             logger.info(
@@ -132,6 +136,8 @@ async def filter_already_seen(
     after_title, title_filtered = await asyncio.to_thread(
         _title_filter_sync, candidates, recent_titles, TITLE_SIMILARITY_THRESHOLD
     )
+    if title_filtered > 0:
+        items_filtered_total.labels(reason="title_similarity").inc(title_filtered)
 
     total_filtered = url_filtered + title_filtered
     if total_filtered > 0 or content_updated > 0:

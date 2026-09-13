@@ -93,3 +93,10 @@ embedding_failures_total = Counter(
     "ainews_embedding_failures_total",
     "Total embedding generation failures",
 )
+
+# Scoring stage metrics (#31)
+scoring_duration_seconds = Histogram(
+    "ainews_scoring_duration_seconds",
+    "Composite scoring stage execution duration",
+    buckets=[5, 10, 30, 60, 120],
+)

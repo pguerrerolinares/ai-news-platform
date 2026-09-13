@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from src.classifiers.base import ClassifiedItem
 from src.core.logging import get_logger
+from src.core.metrics import scoring_duration_seconds
 from src.pipeline.composite_scorer import CompositeScorer
 
 logger = get_logger(__name__)
@@ -14,7 +15,8 @@ def run_scoring(items: list[ClassifiedItem]) -> list[ClassifiedItem]:
     if not items:
         return []
 
-    scorer = CompositeScorer()
-    scored = scorer.score_batch(items)
+    with scoring_duration_seconds.time():
+        scorer = CompositeScorer()
+        scored = scorer.score_batch(items)
     logger.info("scoring_complete", count=len(scored))
     return scored
