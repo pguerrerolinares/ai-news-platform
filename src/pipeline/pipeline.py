@@ -200,6 +200,12 @@ async def run_pipeline(
         pipeline_runs_total.labels(status="error").inc()
         logger.error("pipeline_failed", error=str(exc), duration_seconds=round(duration, 1))
         try:
+            # The exception may have come from a DB constraint violation,
+            # which leaves the session's transaction aborted -- Postgres
+            # refuses any further statement (including this commit) until
+            # it's rolled back. Without this, the error PipelineRun below
+            # silently fails to save too, and the run vanishes entirely (#4).
+            await session.rollback()
             session.add(
                 PipelineRun(
                     started_at=start,

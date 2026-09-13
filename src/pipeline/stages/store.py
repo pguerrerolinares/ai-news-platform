@@ -131,38 +131,57 @@ async def save_briefing(
     duration_seconds: float,
     trending_count: int = 0,
 ) -> None:
-    """Upsert the daily briefing record."""
+    """Upsert the daily briefing record.
+
+    Uses a single ``INSERT ... ON CONFLICT (date) DO UPDATE`` instead of a
+    SELECT-then-branch: two pipeline runs finishing close together on the
+    same day (e.g. two source tiers) used to race the SELECT and one would
+    hit an IntegrityError on the INSERT (#4). The whole read-modify-write
+    now happens atomically under Postgres's row lock, which also makes the
+    total_items accumulation and sources_used merge below correct under
+    real concurrency, not just sequential calls.
+
+    Semantics (same as the previous branch-based code): total_items
+    accumulates across runs; per-run stats (items_extracted,
+    items_after_dedup, items_filtered, trending_count, duration_seconds)
+    reflect the latest run; sources_used is the union of sources seen so
+    far today.
+    """
     today = datetime.now(tz=UTC).date()
 
-    existing = await session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
-    briefing = existing.scalar_one_or_none()
-
-    if briefing:
-        briefing.total_items = (briefing.total_items or 0) + items_stored
-        briefing.items_extracted = items_extracted
-        briefing.items_after_dedup = items_after_dedup
-        briefing.items_filtered = items_stored
-        briefing.trending_count = trending_count
-        briefing.duration_seconds = duration_seconds
-        existing_sources = set(
-            briefing.sources_used.get("sources", []) if briefing.sources_used else []
-        )
-        existing_sources.update(sources_used)
-        briefing.sources_used = {"sources": sorted(existing_sources)}
-    else:
-        session.add(
-            DailyBriefing(
-                date=today,
-                total_items=items_stored,
-                items_extracted=items_extracted,
-                items_after_dedup=items_after_dedup,
-                items_filtered=items_stored,
-                trending_count=trending_count,
-                duration_seconds=duration_seconds,
-                sources_used={"sources": sources_used},
-            )
-        )
-
+    stmt = insert(DailyBriefing).values(
+        date=today,
+        total_items=items_stored,
+        items_extracted=items_extracted,
+        items_after_dedup=items_after_dedup,
+        items_filtered=items_stored,
+        trending_count=trending_count,
+        duration_seconds=duration_seconds,
+        sources_used={"sources": sources_used},
+    )
+    # Correlated subquery merging {"sources": [...]} arrays: dedup via
+    # jsonb_agg(DISTINCT ...), sorted for a deterministic column value.
+    merged_sources_used = text(
+        "(SELECT jsonb_build_object("
+        "'sources', COALESCE(jsonb_agg(DISTINCT src ORDER BY src), '[]'::jsonb)"
+        ") FROM jsonb_array_elements_text("
+        "COALESCE(daily_briefings.sources_used -> 'sources', '[]'::jsonb) || "
+        "COALESCE(excluded.sources_used -> 'sources', '[]'::jsonb)"
+        ") AS src)"
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["date"],
+        set_={
+            "total_items": func.coalesce(DailyBriefing.total_items, 0) + stmt.excluded.total_items,
+            "items_extracted": stmt.excluded.items_extracted,
+            "items_after_dedup": stmt.excluded.items_after_dedup,
+            "items_filtered": stmt.excluded.items_filtered,
+            "trending_count": stmt.excluded.trending_count,
+            "duration_seconds": stmt.excluded.duration_seconds,
+            "sources_used": merged_sources_used,
+        },
+    )
+    await session.execute(stmt)
     await session.commit()
 
 

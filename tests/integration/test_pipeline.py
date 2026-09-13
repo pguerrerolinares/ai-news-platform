@@ -161,6 +161,57 @@ class TestSaveBriefing:
         briefing = result.scalar_one()
         assert briefing.total_items == 0
 
+    async def test_two_same_day_calls_leave_a_single_row(self, db_session):
+        """#4 acceptance criterion 1: two save_briefing calls for the same
+        day must not raise and must leave exactly one row -- the bug this
+        replaces was a SELECT-then-INSERT race that threw IntegrityError on
+        the second call's INSERT."""
+        await save_briefing(
+            db_session,
+            items_extracted=5,
+            items_after_dedup=4,
+            items_stored=2,
+            sources_used=["hackernews"],
+            duration_seconds=1.0,
+        )
+        await save_briefing(
+            db_session,
+            items_extracted=3,
+            items_after_dedup=2,
+            items_stored=1,
+            sources_used=["arxiv"],
+            duration_seconds=0.5,
+        )
+
+        result = await db_session.execute(select(func.count()).select_from(DailyBriefing))
+        assert result.scalar_one() == 1
+
+    async def test_sources_used_merges_across_runs(self, db_session):
+        """sources_used is the union (deduped, sorted) of every run's
+        sources for the day, not just the latest run's -- unlike
+        items_extracted/duration_seconds/trending_count, which replace."""
+        await save_briefing(
+            db_session,
+            items_extracted=5,
+            items_after_dedup=4,
+            items_stored=2,
+            sources_used=["hackernews"],
+            duration_seconds=1.0,
+        )
+        await save_briefing(
+            db_session,
+            items_extracted=3,
+            items_after_dedup=2,
+            items_stored=1,
+            sources_used=["arxiv", "hackernews"],
+            duration_seconds=0.5,
+        )
+
+        db_session.expire_all()  # avoid reading a stale identity-mapped row
+        result = await db_session.execute(select(DailyBriefing))
+        briefing = result.scalar_one()
+        assert briefing.sources_used == {"sources": ["arxiv", "hackernews"]}
+
 
 class TestEmbedNewItems:
     """Test embed_new_items writes embeddings to item_embeddings table."""
