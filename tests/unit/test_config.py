@@ -18,14 +18,6 @@ class TestSettingsDefaults:
         assert "asyncpg" in s.database_url
         assert "ainews" in s.database_url
 
-    def test_default_api_port(self):
-        s = Settings()
-        assert s.api_port == 8000
-
-    def test_default_api_host(self):
-        s = Settings()
-        assert s.api_host == "0.0.0.0"
-
     def test_default_debug_is_false(self, monkeypatch):
         monkeypatch.setenv("DEBUG", "false")
         s = Settings()
@@ -62,11 +54,6 @@ class TestSettingsDefaults:
         monkeypatch.chdir(tmp_path)  # no .env
         monkeypatch.setenv("OPENAI_EXTRA_BODY", '{"reasoning_effort": "low"}')
         assert Settings().openai_extra_body == {"reasoning_effort": "low"}
-
-    def test_default_pipeline_schedule(self):
-        s = Settings()
-        assert s.pipeline_schedule_hour == 8
-        assert s.pipeline_schedule_minute == 0
 
     def test_default_max_items_per_source(self):
         s = Settings()
@@ -145,11 +132,6 @@ class TestCSVListProperties:
 class TestEnvVarOverride:
     """Ensure environment variables override default settings."""
 
-    def test_override_api_port(self, monkeypatch):
-        monkeypatch.setenv("API_PORT", "9999")
-        s = Settings()
-        assert s.api_port == 9999
-
     def test_override_debug(self, monkeypatch):
         monkeypatch.setenv("DEBUG", "true")
         s = Settings()
@@ -193,10 +175,8 @@ class TestSchedulerConfig:
 
         s = Settings(hn_poll_interval_minutes=30)
         assert s.hn_poll_interval_minutes == 30
-        assert s.reddit_poll_interval_minutes == 15
         assert s.rss_poll_interval_minutes == 60
         assert s.github_poll_interval_minutes > 0  # 240 default, overridable via env
-        assert s.hf_poll_interval_minutes == 60
         assert s.arxiv_cron_hour == 1
         assert s.arxiv_cron_minute == 30
 

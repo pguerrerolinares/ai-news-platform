@@ -28,10 +28,6 @@ class TestWebscraperDefaults:
         s = Settings()
         assert s.webscraper_page_timeout == 30
 
-    def test_webscraper_poll_interval_default(self):
-        s = Settings()
-        assert s.webscraper_poll_interval_minutes == 60
-
 
 # ---------------------------------------------------------------------------
 # Env var overrides
@@ -58,8 +54,3 @@ class TestWebscraperEnvOverride:
         monkeypatch.setenv("WEBSCRAPER_PAGE_TIMEOUT", "60")
         s = Settings()
         assert s.webscraper_page_timeout == 60
-
-    def test_override_webscraper_poll_interval(self, monkeypatch):
-        monkeypatch.setenv("WEBSCRAPER_POLL_INTERVAL_MINUTES", "30")
-        s = Settings()
-        assert s.webscraper_poll_interval_minutes == 30

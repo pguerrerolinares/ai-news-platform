@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src.pipeline.backfill.checkpoint import BackfillCheckpoint
 from src.pipeline.backfill.cost_tracker import CostTracker
 
@@ -31,6 +33,32 @@ class TestCheckpoint:
         cp.update_source("hackernews", last_month="2024-02", items_stored=200)
         assert cp.sources["hackernews"]["items_stored"] == 200
         assert cp.sources["hackernews"]["last_month"] == "2024-02"
+
+    def test_save_failure_leaves_previous_checkpoint_intact(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A crash between writing the new content and the atomic rename must not
+        corrupt or truncate the previously saved checkpoint (resumability depends on it).
+        """
+        cp_file = tmp_path / "checkpoint.json"
+        cp = BackfillCheckpoint(cp_file)
+        cp.update_source("hackernews", last_month="2024-01", items_stored=100)
+        cp.save()
+        original_content = cp_file.read_text()
+
+        cp.update_source("hackernews", last_month="2024-02", items_stored=200)
+
+        def boom(*args: object, **kwargs: object) -> None:
+            raise OSError("simulated crash before atomic rename")
+
+        monkeypatch.setattr("src.pipeline.backfill.checkpoint.os.replace", boom)
+
+        with pytest.raises(OSError):
+            cp.save()
+
+        assert cp_file.read_text() == original_content
+        loaded = BackfillCheckpoint.load(cp_file)
+        assert loaded.sources["hackernews"]["last_month"] == "2024-01"
 
 
 class TestCostTracker:

@@ -36,6 +36,20 @@ def _make_session():
     return session
 
 
+def _make_embed_service() -> MagicMock:
+    """Mock an EmbeddingService: prepare_text is a sync staticmethod in the real
+    class (see src/rag/embeddings.py), only embed_batch is async. A plain
+    ``AsyncMock()`` makes every attribute — including prepare_text — async by
+    default, so calling it synchronously (as embed_new_items does) creates a
+    coroutine that is never awaited (RuntimeWarning: coroutine ... was never
+    awaited). Using MagicMock as the base and only marking embed_batch async
+    matches the real interface and exercises the actual sync call path.
+    """
+    service = MagicMock()
+    service.embed_batch = AsyncMock()
+    return service
+
+
 class TestEmbedNewItems:
     async def test_embeds_items_without_embeddings(self):
         session = _make_session()
@@ -44,7 +58,7 @@ class TestEmbedNewItems:
         mock_result.scalars.return_value.all.return_value = items
         session.execute.return_value = mock_result
 
-        mock_embed_service = AsyncMock()
+        mock_embed_service = _make_embed_service()
         mock_embed_service.embed_batch.return_value = [[0.1] * 512, [0.2] * 512]
         mock_embed_service.prepare_text.side_effect = lambda t, s: f"{t}\n{s}" if s else t
 
@@ -59,7 +73,7 @@ class TestEmbedNewItems:
         mock_result.scalars.return_value.all.return_value = []
         session.execute.return_value = mock_result
 
-        mock_embed_service = AsyncMock()
+        mock_embed_service = _make_embed_service()
 
         with patch("src.pipeline.stages.store.get_settings", return_value=_mock_settings()):
             count = await embed_new_items(session, mock_embed_service)
@@ -73,7 +87,7 @@ class TestEmbedNewItems:
         mock_result.scalars.return_value.all.return_value = items
         session.execute.return_value = mock_result
 
-        mock_embed_service = AsyncMock()
+        mock_embed_service = _make_embed_service()
         mock_embed_service.prepare_text.return_value = "Title\nSummary"
         mock_embed_service.embed_batch.side_effect = Exception("API error")
 
@@ -88,7 +102,7 @@ class TestEmbedNewItems:
         mock_result.scalars.return_value.all.return_value = items
         session.execute.return_value = mock_result
 
-        mock_embed_service = AsyncMock()
+        mock_embed_service = _make_embed_service()
         mock_embed_service.embed_batch.return_value = [[0.1] * 512]
         mock_embed_service.prepare_text.return_value = "Title\nSummary"
 
@@ -103,7 +117,7 @@ class TestEmbedNewItems:
         mock_result.scalars.return_value.all.return_value = items
         session.execute.return_value = mock_result
 
-        mock_embed_service = AsyncMock()
+        mock_embed_service = _make_embed_service()
         mock_embed_service.prepare_text.return_value = "Title"
         mock_embed_service.embed_batch.side_effect = Exception("fail")
 
