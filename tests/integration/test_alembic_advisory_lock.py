@@ -8,7 +8,7 @@ head and exits cleanly -- both processes exit 0, neither errors out from a
 DDL race.
 
 Uses its own scratch database (created and dropped by this test), not
-ainews/ainews_test/fabrica_ops, since it needs to start from zero (no
+the shared test databases, since it needs to start from zero (no
 alembic_version table) to exercise the race.
 """
 
@@ -21,13 +21,19 @@ from pathlib import Path
 
 import asyncpg
 import pytest
+from sqlalchemy.engine import make_url
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
-_MAINTENANCE_DSN = "postgresql://ainews:ainews@localhost:5432/postgres"
-_SCRATCH_DB = "fabrica_ops_alembic_lock_test"
-_SCRATCH_URL_SYNC = f"postgresql://ainews:ainews@localhost:5432/{_SCRATCH_DB}"
-_SCRATCH_URL_ASYNC = f"postgresql+asyncpg://ainews:ainews@localhost:5432/{_SCRATCH_DB}"
+_SCRATCH_DB = "ainews_alembic_lock_test"
+# Credentials/host come from the integration env (tests/integration/conftest.py
+# sets DATABASE_URL_SYNC by default; CI overrides it), only the DB name changes.
+_BASE_URL = make_url(os.environ["DATABASE_URL_SYNC"])
+_MAINTENANCE_DSN = _BASE_URL.set(database="postgres").render_as_string(hide_password=False)
+_SCRATCH_URL_SYNC = _BASE_URL.set(database=_SCRATCH_DB).render_as_string(hide_password=False)
+_SCRATCH_URL_ASYNC = (
+    _BASE_URL.set(drivername="postgresql+asyncpg", database=_SCRATCH_DB)
+).render_as_string(hide_password=False)
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -50,7 +56,7 @@ async def _recreate_scratch_db() -> None:
     finally:
         await conn.close()
 
-    conn = await asyncpg.connect(f"postgresql://ainews:ainews@localhost:5432/{_SCRATCH_DB}")
+    conn = await asyncpg.connect(_SCRATCH_URL_SYNC)
     try:
         await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
     finally:

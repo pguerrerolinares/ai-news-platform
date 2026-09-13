@@ -3,7 +3,8 @@ HEALTHCHECK entrypoint for pipeline-cron.
 
 Runs the script as a real subprocess (as Docker would) against a scratch
 database, so exit codes are verified end-to-end rather than just the
-underlying query helper. Uses its own DB (not ainews_test, which the
+underlying query helper. Uses its own scratch DB, created and dropped here
+(not ainews_test, which the
 `db_session` fixture in this package's conftest creates/drops tables on)
 because a subprocess needs *committed* rows -- the savepoint-rollback
 isolation the shared fixture relies on is invisible across connections.
@@ -19,28 +20,59 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import asyncpg
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+from src.core.models import Base
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
-_SCRATCH_DATABASE_URL = "postgresql+asyncpg://ainews:ainews@localhost:5432/fabrica_ops"
-_SCRATCH_DATABASE_URL_SYNC = "postgresql://ainews:ainews@localhost:5432/fabrica_ops"
+_SCRATCH_DB = "ainews_healthcheck_test"
+# Credentials/host come from the integration env (tests/integration/conftest.py
+# sets DATABASE_URL_SYNC by default; CI overrides it), only the DB name changes.
+_BASE_URL = make_url(os.environ["DATABASE_URL_SYNC"])
+_MAINTENANCE_DSN = _BASE_URL.set(database="postgres").render_as_string(hide_password=False)
+_SCRATCH_DATABASE_URL_SYNC = _BASE_URL.set(database=_SCRATCH_DB).render_as_string(
+    hide_password=False
+)
+_SCRATCH_DATABASE_URL = _BASE_URL.set(
+    drivername="postgresql+asyncpg", database=_SCRATCH_DB
+).render_as_string(hide_password=False)
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+async def _admin_execute(*statements: str) -> None:
+    conn = await asyncpg.connect(_MAINTENANCE_DSN)
+    try:
+        await conn.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = $1 AND pid <> pg_backend_pid()",
+            _SCRATCH_DB,
+        )
+        for statement in statements:
+            await conn.execute(statement)
+    finally:
+        await conn.close()
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def scratch_engine() -> AsyncGenerator[AsyncEngine, None]:
-    """Engine on the scratch `fabrica_ops` DB, table wiped before and after."""
+    """Engine on a scratch DB created (with the ORM schema) and dropped per test."""
+    # _SCRATCH_DB is a module-level constant; DDL identifiers can't be bound anyway.
+    await _admin_execute(
+        f'DROP DATABASE IF EXISTS "{_SCRATCH_DB}"', f'CREATE DATABASE "{_SCRATCH_DB}"'
+    )
     engine = create_async_engine(_SCRATCH_DATABASE_URL, pool_size=2, max_overflow=0)
     async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM pipeline_runs"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.run_sync(Base.metadata.create_all)
     yield engine
-    async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM pipeline_runs"))
     await engine.dispose()
+    await _admin_execute(f'DROP DATABASE IF EXISTS "{_SCRATCH_DB}"')
 
 
 async def _insert_run(engine: AsyncEngine, started_at: datetime) -> None:
