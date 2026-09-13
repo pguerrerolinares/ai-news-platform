@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { apiGet } from '@/lib/api'
 import { IconRefresh } from '@tabler/icons-react'
 import type { StatsDateItem, StatsGroupDateItem, NewsItem } from '@/lib/types'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 /** Get first and last day of the month containing `date`. */
 function monthRange(date: Date): { from: string; to: string } {
@@ -20,6 +21,7 @@ function monthRange(date: Date): { from: string; to: string } {
 }
 
 export default function Timeline() {
+  useDocumentTitle('Timeline')
   const [viewDate, setViewDate] = useState(() => new Date())
   const [heatmapData, setHeatmapData] = useState<StatsDateItem[]>([])
   const [heatmapLoading, setHeatmapLoading] = useState(true)

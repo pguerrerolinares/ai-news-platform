@@ -20,4 +20,14 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // shadcn-generated components + the theme hook intentionally export a
+    // small constant/hook alongside their component (cva variants, useTheme).
+    // That's the project's pattern here, not a mistake — silence the fast-refresh
+    // nudge for just these files rather than restructuring generated code.
+    files: ['src/components/ui/**/*.{ts,tsx}', 'src/hooks/use-theme.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

@@ -5,6 +5,8 @@ export const SOURCE_COLORS: Record<string, string> = {
   reddit: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   rss: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
   huggingface: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  github_search: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  webscraper: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
 }
 
 export const TOPIC_LABELS: Record<string, string> = {

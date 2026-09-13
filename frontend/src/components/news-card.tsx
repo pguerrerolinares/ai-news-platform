@@ -10,15 +10,18 @@ import {
   SiRss,
   SiHuggingface,
 } from '@icons-pack/react-simple-icons'
+import { IconWorldWww } from '@tabler/icons-react'
 import type { ComponentType, SVGProps } from 'react'
 
 const SOURCE_ICONS: Record<string, { icon: ComponentType<SVGProps<SVGSVGElement>>; color: string }> = {
   hackernews: { icon: SiYcombinator, color: '#F0652F' },
   github: { icon: SiGithub, color: 'currentColor' },
+  github_search: { icon: SiGithub, color: 'currentColor' },
   arxiv: { icon: SiArxiv, color: '#B31B1B' },
   reddit: { icon: SiReddit, color: '#FF4500' },
   rss: { icon: SiRss, color: '#FFA500' },
   huggingface: { icon: SiHuggingface, color: '#FFD21E' },
+  webscraper: { icon: IconWorldWww, color: '#06B6D4' },
 }
 
 function timeAgo(dateStr: string | null): string {

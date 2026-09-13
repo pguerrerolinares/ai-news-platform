@@ -15,4 +15,10 @@ pyright .
 echo "=== Pre-push: pytest (fast subset) ==="
 pytest tests/ -x --timeout=30 -q
 
+echo "=== Pre-push: frontend lint ==="
+bun --cwd frontend run lint
+
+echo "=== Pre-push: frontend tests ==="
+bun --cwd frontend run test
+
 echo "=== All pre-push checks passed ==="

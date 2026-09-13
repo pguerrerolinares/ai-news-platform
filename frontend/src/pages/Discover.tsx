@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NewsCard } from '@/components/news-card'
 import { apiGet } from '@/lib/api'
+import { createAbortSwitch } from '@/lib/abortable'
 import type { NewsItem } from '@/lib/types'
 import { IconSearch, IconRefresh, IconNetwork } from '@tabler/icons-react'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 // ── Related items sub-component ─────────────────────────────────────────────
 
@@ -35,9 +37,11 @@ function RelatedPanel({ parentId }: RelatedPanelProps) {
     }
   }, [parentId, fetched])
 
-  // Lazy-load on first mount (called when the panel is opened by the parent)
-  // The parent controls visibility; this component fetches once on first render.
-  useState(() => { load() })
+  // Lazy-load on first mount (the parent controls visibility; this component
+  // fetches once when it's rendered, i.e. when the panel is opened).
+  useEffect(() => {
+    load()
+  }, [load])
 
   if (loading) {
     return (
@@ -112,14 +116,20 @@ function ResultCard({ item }: ResultCardProps) {
 // ── Main Discover page ───────────────────────────────────────────────────────
 
 export default function Discover() {
+  useDocumentTitle('Discover')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+  const abortSwitch = useRef(createAbortSwitch()).current
+
+  // Cancel any in-flight search on unmount
+  useEffect(() => () => abortSwitch.abort(), [abortSwitch])
 
   const search = useCallback(async () => {
     if (!query.trim()) return
+    const signal = abortSwitch.next()
     setLoading(true)
     setError('')
     setSearched(true)
@@ -128,14 +138,15 @@ export default function Discover() {
       const { data } = await apiGet<NewsItem[]>('/api/search/semantic', {
         q: query.trim(),
         limit: '20',
-      })
+      }, signal)
       setResults(data)
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'Semantic search failed')
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
-  }, [query])
+  }, [query, abortSwitch])
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') search()
