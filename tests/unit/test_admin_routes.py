@@ -27,6 +27,16 @@ from src.pipeline.health_rules import HealthAlert
 _FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
 
+def _health_run(started_at: datetime, status: str, *, extracted: int = 1, stored: int = 1):
+    """A minimal mock standing in for a `PipelineRun` row, for TestAdminHealth."""
+    run = MagicMock()
+    run.started_at = started_at
+    run.status = status
+    run.items_extracted = extracted
+    run.items_stored = stored
+    return run
+
+
 def _make_base_session() -> AsyncMock:
     """Return a minimal mock session for admin endpoints."""
     mock_result = MagicMock()
@@ -355,7 +365,12 @@ class TestAdminHealth:
         assert alert["severity"] == "critical"
 
     async def test_no_setting_value_leaks_in_response(self, api_client: AsyncClient):
-        """Falsable: interpolating any setting into a message would break this."""
+        """Falsable: interpolating any setting into a message would break this.
+
+        Drives 5 of the 6 rules (b and d are mutually exclusive by construction,
+        see spec Enmienda 1) so a future interpolation on any of them is caught,
+        not just on (e) — M2 of the admin-salud review verdict.
+        """
         sentinel_settings = Settings(
             openai_api_key="",
             openai_model="SENTINEL-MODEL-9f3",
@@ -365,13 +380,47 @@ class TestAdminHealth:
             enabled_sources="hackernews,rss",
         )
         now = datetime.now(tz=UTC)
-        mock_session = self._session(last_run_at=now, runs=[], freshness_rows=[])
+        old_storing = [
+            _health_run(now - timedelta(hours=i), "success", extracted=1, stored=0)
+            for i in range(1, 11)
+        ]
+        recent_errors = [_health_run(now - timedelta(minutes=m), "error") for m in (5, 10, 15)]
+        freshness_rows = [MagicMock(source="rss", last_item_at=now - timedelta(hours=30))]
+        mock_session = self._session(
+            last_run_at=None, runs=old_storing + recent_errors, freshness_rows=freshness_rows
+        )
         resp = await self._get(api_client, mock_session, sentinel_settings)
 
         assert resp.status_code == 200
         assert "9f3" not in resp.text
-        codes = [a["code"] for a in resp.json()]
-        assert "classifier_keyword_only" in codes
+        codes = {a["code"] for a in resp.json()}
+        assert {
+            "scheduler_silent",
+            "runs_failing",
+            "runs_storing_nothing",
+            "classifier_keyword_only",
+            "sources_dead",
+        } <= codes
+
+    async def test_sources_dead_only_counts_enabled_sources(self, api_client: AsyncClient):
+        """I1: the `enabled` filter in the handler glue (admin.py) is exercised."""
+        now = datetime.now(tz=UTC)
+        old = now - timedelta(hours=30)
+        rows = [
+            MagicMock(source="reddit", last_item_at=old),
+            MagicMock(source="rss", last_item_at=old),
+        ]
+        mock_session = self._session(last_run_at=now, runs=[], freshness_rows=rows)
+        resp = await self._get(
+            api_client,
+            mock_session,
+            Settings(openai_api_key="sk-test", enabled_sources="hackernews,rss"),
+        )
+
+        assert resp.status_code == 200
+        alert = next(a for a in resp.json() if a["code"] == "sources_dead")
+        assert "rss" in alert["message"]
+        assert "reddit" not in alert["message"]
 
     async def test_no_cache_control_header(self, api_client: AsyncClient):
         now = datetime.now(tz=UTC)
