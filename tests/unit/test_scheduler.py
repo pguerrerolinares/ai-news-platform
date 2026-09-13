@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -88,6 +89,38 @@ class TestRunScheduledPipeline:
         ):
             # Should NOT raise
             await run_scheduled_pipeline(sources=["hackernews"])
+
+
+class TestRunScheduledPipelineCancellation:
+    """#7 addendum: a SIGTERM-driven CancelledError out of run_pipeline is
+    infrastructure-level noise, not evidence that "hackernews" (or whatever
+    sources were in this tier) is broken. It must not trip their circuit
+    breaker, and -- unlike a plain Exception -- must keep propagating so the
+    process actually shuts down instead of silently swallowing the signal.
+    """
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_not_recorded_as_source_failure(self):
+        from src.pipeline.scheduler import _circuit_breaker, run_scheduled_pipeline
+
+        mock_session = AsyncMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("src.pipeline.scheduler.get_async_session", return_value=mock_session_cm),
+            patch(
+                "src.pipeline.scheduler.run_pipeline",
+                new_callable=AsyncMock,
+                side_effect=asyncio.CancelledError(),
+            ),
+            patch.object(_circuit_breaker, "record_failure") as mock_record_failure,
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await run_scheduled_pipeline(sources=["hackernews"])
+
+        mock_record_failure.assert_not_called()
 
 
 class TestSchedulerSinceHours:

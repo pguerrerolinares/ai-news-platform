@@ -5,11 +5,13 @@ extract -> dedup -> seen_filter -> validate -> classify -> score -> validate -> 
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
+from src.core.database import get_session_factory
 from src.core.logging import get_correlation_id, get_logger, set_correlation_id
 from src.core.metrics import (
     items_validated_total,
@@ -30,6 +32,38 @@ from src.pipeline.validation import validate_extracted_item
 from src.validators.credibility import CredibilityValidator
 
 logger = get_logger(__name__)
+
+# Cap on how long the CancelledError handler waits to persist the
+# `interrupted` PipelineRun on its own short-lived session (see
+# _persist_interrupted_run) before giving up and re-raising anyway.
+_INTERRUPTED_RUN_SAVE_TIMEOUT_SECONDS = 5.0
+
+
+async def _persist_interrupted_run(
+    *,
+    started_at: datetime,
+    duration_seconds: float,
+    sources_used: list[str],
+    correlation_id: str | None,
+) -> None:
+    """Persist an ``interrupted`` PipelineRun on a new, independent session.
+
+    Called from run_pipeline's ``CancelledError`` handler, where the
+    session passed into run_pipeline may be mid-query when cancelled and is
+    unsafe to reuse (#7) -- a fresh session from the factory is used instead.
+    """
+    factory = get_session_factory()
+    async with factory() as new_session:
+        new_session.add(
+            PipelineRun(
+                started_at=started_at,
+                duration_seconds=duration_seconds,
+                status="interrupted",
+                sources=sources_used,
+                correlation_id=correlation_id,
+            )
+        )
+        await new_session.commit()
 
 
 async def run_pipeline(
@@ -194,6 +228,29 @@ async def run_pipeline(
         await session.commit()
 
         return True
+
+    except asyncio.CancelledError:
+        # BaseException, not Exception -- deliberately not merged with the
+        # handler below. A SIGTERM during deploy lands here mid-await; the
+        # session passed into run_pipeline may be mid-query, so persistence
+        # uses its own short-lived session (#7) and this always re-raises:
+        # cancellation must never look like a successful run.
+        duration = (datetime.now(tz=UTC) - start).total_seconds()
+        pipeline_runs_total.labels(status="interrupted").inc()
+        logger.warning("pipeline_interrupted", duration_seconds=round(duration, 1))
+        try:
+            await asyncio.wait_for(
+                _persist_interrupted_run(
+                    started_at=start,
+                    duration_seconds=duration,
+                    sources_used=sources_used,
+                    correlation_id=get_correlation_id(),
+                ),
+                timeout=_INTERRUPTED_RUN_SAVE_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            logger.warning("pipeline_interrupted_run_save_failed", exc_info=True)
+        raise
 
     except Exception as exc:
         duration = (datetime.now(tz=UTC) - start).total_seconds()

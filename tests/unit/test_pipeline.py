@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -964,6 +965,45 @@ class TestRunPipelineExceptionPath:
         assert session.rollback_calls == 1
         assert session.durably_committed is True
         assert any(getattr(r, "status", None) == "error" for r in session.added)
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_persists_interrupted_run_and_propagates(self):
+        """#7: SIGTERM during a deploy raises CancelledError mid-pipeline.
+        It must be persisted as `interrupted` (on a NEW session -- the one
+        passed into run_pipeline may be mid-query) and always re-raised,
+        never swallowed into a fake success."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+        )
+        session = _mock_session()
+
+        new_session = AsyncMock()
+        new_session.add = MagicMock()  # session.add() is sync in the real API
+        new_session_cm = AsyncMock()
+        new_session_cm.__aenter__ = AsyncMock(return_value=new_session)
+        new_session_cm.__aexit__ = AsyncMock(return_value=False)
+        factory = MagicMock(return_value=new_session_cm)
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch("src.pipeline.pipeline.get_session_factory", return_value=factory),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                side_effect=asyncio.CancelledError(),
+            ),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await run_pipeline(session)
+
+        # The original (possibly mid-query) session must not be reused.
+        session.add.assert_not_called()
+        new_session.add.assert_called_once()
+        run = new_session.add.call_args[0][0]
+        assert run.status == "interrupted"
+        new_session.commit.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

@@ -38,7 +38,7 @@ export interface PipelineRun {
   id: string;
   started_at: string;
   duration_seconds: number | null;
-  status: 'success' | 'empty' | 'error';
+  status: 'success' | 'empty' | 'error' | 'interrupted' | 'degraded';
   sources: string[];
   items_extracted: number;
   items_after_dedup: number;
