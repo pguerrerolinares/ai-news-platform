@@ -45,6 +45,17 @@ _RETRYABLE_ERRORS = (
 QUOTA_ERROR_TYPE = "exceeded_current_quota_error"
 
 
+class LLMParseError(Exception):
+    """Raised when an LLM response is not a parseable JSON array.
+
+    Only a syntactically valid JSON array (including the literal "[]") counts
+    as success. Anything else -- an empty/whitespace response, malformed or
+    truncated JSON, or valid JSON that isn't an array -- raises this instead
+    of returning [], so the caller (`_classify_batch`) treats it as a batch
+    failure and activates the KeywordClassifier fallback for that batch (#5).
+    """
+
+
 def _is_config_or_account_error(exc: BaseException) -> bool:
     """True for errors that neither retries nor the keyword fallback can fix.
 
@@ -113,9 +124,16 @@ async def llm_call(
 
 
 def _parse_llm_json(raw: str) -> list[dict]:
-    """Parse JSON from LLM response, handling code fences and extracting arrays."""
-    # Strip code fences
+    """Parse a JSON array from the LLM response, handling code fences.
+
+    Only a syntactically valid JSON array (including "[]") is success; see
+    `LLMParseError`.
+    """
     cleaned = raw.strip()
+    if not cleaned:
+        raise LLMParseError("empty LLM response")
+
+    # Strip code fences
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
     cleaned = cleaned.strip()
@@ -128,7 +146,8 @@ def _parse_llm_json(raw: str) -> list[dict]:
     except json.JSONDecodeError:
         pass
 
-    # Fallback: extract outermost array (first '[' to last ']')
+    # Fallback: extract outermost array (first '[' to last ']'), in case the
+    # LLM wrapped it in prose despite instructions.
     start = cleaned.find("[")
     end = cleaned.rfind("]")
     if start != -1 and end > start:
@@ -139,7 +158,7 @@ def _parse_llm_json(raw: str) -> list[dict]:
         except json.JSONDecodeError:
             pass
 
-    return []
+    raise LLMParseError(f"no valid JSON array in LLM response: {cleaned[:200]!r}")
 
 
 def _build_prompt(batch: list[ExtractedItem], topics_info: str) -> str:
@@ -262,6 +281,17 @@ class LLMClassifier(BaseClassifier):
                     return await self._classify_batch(
                         client, model, batch, topics_info, enabled_topics, min_relevance
                     )
+                except LLMParseError as exc:
+                    from src.core.metrics import llm_parse_failures_total
+
+                    llm_parse_failures_total.inc()
+                    logger.error(
+                        "llm_response_not_parseable",
+                        batch_start=batch_start,
+                        batch_size=len(batch),
+                        error=str(exc),
+                    )
+                    return await self._fallback.classify(batch)
                 except Exception as exc:
                     if _is_config_or_account_error(exc):
                         logger.error(

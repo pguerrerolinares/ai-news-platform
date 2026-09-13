@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from src.classifiers.base import ClassifiedItem
 from src.extractors.base import ExtractedItem
-from src.pipeline.stages.classify import run_classification
+from src.pipeline.stages.classify import _warn_no_openai_api_key, run_classification
 
 
 def _mock_settings(**overrides):
@@ -140,3 +142,50 @@ class TestRunClassification:
         with patch("src.pipeline.stages.classify.get_settings", return_value=settings):
             result = await run_classification([])
         assert result == []
+
+
+class TestWarnNoApiKeyOnce:
+    """#32: warn once per process when falling back to KeywordClassifier for lack of key."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_cache(self):
+        _warn_no_openai_api_key.cache_clear()
+        yield
+        _warn_no_openai_api_key.cache_clear()
+
+    async def test_two_runs_without_api_key_warn_only_once(self):
+        settings = _mock_settings(openai_api_key="")
+        item = _make_item()
+
+        with (
+            patch("src.pipeline.stages.classify.get_settings", return_value=settings),
+            patch("src.pipeline.stages.classify.KeywordClassifier") as mock_cls,
+            patch("src.pipeline.stages.classify.logger") as mock_logger,
+        ):
+            mock_instance = AsyncMock()
+            mock_instance.classify = AsyncMock(return_value=[_make_classified(item)])
+            mock_cls.return_value = mock_instance
+
+            await run_classification([item])
+            await run_classification([item])
+
+        warn_events = [call.args[0] for call in mock_logger.warning.call_args_list]
+        assert warn_events.count("classifier_no_openai_api_key_using_keyword_fallback") == 1
+
+    async def test_with_api_key_never_warns(self):
+        settings = _mock_settings(openai_api_key="sk-test")
+        item = _make_item()
+
+        with (
+            patch("src.pipeline.stages.classify.get_settings", return_value=settings),
+            patch("src.pipeline.stages.classify.LLMClassifier") as mock_cls,
+            patch("src.pipeline.stages.classify.logger") as mock_logger,
+        ):
+            mock_instance = AsyncMock()
+            mock_instance.classify = AsyncMock(return_value=[_make_classified(item)])
+            mock_cls.return_value = mock_instance
+
+            await run_classification([item])
+
+        warn_events = [call.args[0] for call in mock_logger.warning.call_args_list]
+        assert "classifier_no_openai_api_key_using_keyword_fallback" not in warn_events
