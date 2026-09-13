@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
@@ -19,6 +20,11 @@ from src.pipeline.composite_scorer import CompositeScorer
 log = get_logger(__name__)
 
 _EXPANSION_WINDOWS = [48.0, 72.0, 168.0]
+
+# See src/api/routes/items.py for why metadata_ stays out of this set —
+# CompositeScorer.score_newsitem reads it via getattr() in build() below,
+# within this same session, right after candidates are fetched.
+_DEFER_HEAVY_COLUMNS = (defer(NewsItem.full_text), defer(NewsItem.search_vector))
 
 
 class FeedBuilder:
@@ -99,9 +105,13 @@ class FeedBuilder:
         candidates: list[NewsItem] = []
         for window in windows:
             cutoff = datetime.now(UTC) - timedelta(hours=window)
-            query = select(NewsItem).where(
-                NewsItem.composite_score.isnot(None),
-                effective_date >= cutoff,
+            query = (
+                select(NewsItem)
+                .options(*_DEFER_HEAVY_COLUMNS)
+                .where(
+                    NewsItem.composite_score.isnot(None),
+                    effective_date >= cutoff,
+                )
             )
             if topic:
                 query = query.where(NewsItem.topic == topic)

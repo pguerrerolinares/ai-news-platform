@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.models import ItemEmbedding, NewsItem
 from src.core.queries import effective_date
@@ -76,9 +77,11 @@ class Retriever:
         since: datetime | None,
     ) -> list[NewsItem]:
         """Execute a similarity search with optional date filter."""
+        settings = get_settings()
         stmt = (
             select(NewsItem)
             .join(ItemEmbedding, NewsItem.id == ItemEmbedding.item_id)
+            .where(ItemEmbedding.model == settings.embedding_model)
             .order_by(ItemEmbedding.embedding.cosine_distance(query_vec))
             .limit(limit)
         )

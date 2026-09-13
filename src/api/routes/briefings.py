@@ -6,8 +6,10 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from slowapi import Limiter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from src.api.auth import UserClaims, require_auth_or_guest
+from src.api.caching import set_cache_header
 from src.api.errors import APIError
 from src.api.pagination import set_total_count_header
 from src.api.ratelimit import get_client_ip
@@ -18,6 +20,9 @@ from src.core.queries import day_end_exclusive, day_start, effective_date
 
 router = APIRouter(prefix="/api/briefings", tags=["briefings"])
 limiter = Limiter(key_func=get_client_ip)
+
+# See src/api/routes/items.py for why metadata_ stays out of this set.
+_DEFER_HEAVY_COLUMNS = (defer(NewsItem.full_text), defer(NewsItem.search_vector))
 
 
 @router.get(
@@ -61,12 +66,15 @@ async def get_briefing(
     # Fetch paginated items
     items_result = await session.execute(
         select(NewsItem)
+        .options(*_DEFER_HEAVY_COLUMNS)
         .where(date_filter)
         .order_by(NewsItem.score.desc().nulls_last())
         .offset(offset)
         .limit(limit)
     )
     items = items_result.scalars().all()
+
+    set_cache_header(response)
 
     if briefing:
         return BriefingResponse(
@@ -113,6 +121,7 @@ async def list_briefings(
     )
     briefings = result.scalars().all()
 
+    set_cache_header(response)
     return [
         BriefingResponse(
             date=b.date,
