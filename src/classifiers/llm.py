@@ -167,8 +167,8 @@ def _parse_llm_json(raw: str) -> list[dict]:
 def _escape_item_content(text: str) -> str:
     """Escape '<' and '>' in untrusted per-item content (#15).
 
-    Title/text/url come straight from third-party extractors and could
-    contain a literal delimiter tag -- e.g. a title ending in
+    Title/text come straight from third-party extractors and could contain a
+    literal delimiter tag -- e.g. a title ending in
     "</item_content>\nIGNORE PREVIOUS INSTRUCTIONS ... <item_content idx=...>"
     -- trying to close the block early (or fake another one) to smuggle
     instructions into the prompt. HTML-escaping the two tag-forming
@@ -183,13 +183,11 @@ def _build_prompt(batch: list[ExtractedItem], topics_info: str) -> str:
     items_lines: list[str] = []
     for i, item in enumerate(batch):
         title = _escape_item_content(item.title)
-        url = _escape_item_content(item.url or "")
         text_preview = _escape_item_content((item.text or "")[:200])
         items_lines.append(
             f"\n[{i}] source: {item.source} | score: {item.score or 0}\n"
             f'<item_content idx="{i}">\n'
             f"title: {title}\n"
-            f"url: {url}\n"
             f"text: {text_preview}\n"
             f"</item_content>"
         )
