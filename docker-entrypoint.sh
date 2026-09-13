@@ -4,7 +4,7 @@ set -e
 echo "Running database migrations..."
 alembic upgrade head
 
-# If a custom command is passed (e.g. pipeline-scheduler.sh), run it
+# If a custom command is passed, run it instead of the default API server
 if [ $# -gt 0 ]; then
     echo "Running custom command: $*"
     exec "$@"
