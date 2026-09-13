@@ -26,7 +26,9 @@ async def assert_safe_url(url: str) -> str:
     """Validate that a URL is safe to fetch (no SSRF to private networks).
 
     Resolves the hostname once and validates *every* returned address, then
-    returns one validated IP literal that the caller MUST connect to directly.
+    returns one validated IP literal that the caller MUST connect to directly
+    (single attempt against the first validated address; no happy-eyeballs
+    fallback across A/AAAA).
 
     This closes a DNS-rebinding TOCTOU gap: if the caller only checked here
     and let httpx re-resolve the hostname when actually connecting, a hostile
@@ -62,7 +64,14 @@ async def assert_safe_url(url: str) -> str:
     for addr_info in addr_infos:
         ip_str = addr_info[4][0]
         ip = ipaddress.ip_address(ip_str)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or not ip.is_global
+        ):
             raise ValueError(f"Blocked private/reserved IP {ip} for {hostname!r}")
         resolved_ips.append(str(ip))
 
@@ -98,10 +107,13 @@ async def safe_get(
     differently the second time.
 
     The supplied ``client`` MUST be created with ``follow_redirects=False`` so
-    redirects reach this function instead of httpx's auto-follow, and MUST NOT
+    redirects reach this function instead of httpx's auto-follow, MUST NOT
     enable ``http2`` (the per-request ``Connection: close`` that prevents
-    cross-host connection reuse only exists in HTTP/1.1). Returns a
-    fully-read response whose body is at most ``max_bytes``.
+    cross-host connection reuse only exists in HTTP/1.1), and MUST use
+    ``trust_env=False`` (with a proxy configured via the environment, the
+    proxy tunnel's TLS would be done against the pinned IP and ignore
+    ``sni_hostname`` -- a silent fail-closed at best). Returns a fully-read
+    response whose body is at most ``max_bytes``.
     """
     current = url
     for _ in range(max_redirects + 1):
@@ -154,7 +166,7 @@ async def safe_get(
                 status_code=resp.status_code,
                 headers=headers_out,
                 content=b"".join(chunks),
-                request=resp.request,
+                request=httpx.Request("GET", current, headers=resp.request.headers),
             )
 
     raise ValueError(f"Too many redirects (>{max_redirects}) for {url!r}")
@@ -165,6 +177,9 @@ async def is_safe_url(url: str) -> bool:
 
     Thin wrapper around assert_safe_url for call sites that prefer a
     boolean check instead of exception handling.
+
+    Check-only: does NOT protect a later fetch against DNS rebinding -- use
+    :func:`safe_get`.
     """
     try:
         await assert_safe_url(url)
