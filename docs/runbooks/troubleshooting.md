@@ -1,5 +1,13 @@
 # Troubleshooting
 
+> **Compose vigente**: producción corre con `docker-compose.coolify.yml` (Coolify +
+> Traefik), no con el `docker-compose.yml` standalone (nginx/certbot propios) que
+> asumen los comandos `docker compose` de abajo — ver `docs/runbooks/deployment.md`.
+> Contra Coolify no hay servicios `nginx` ni `certbot`: TLS y routing los maneja
+> Traefik (ver "Troubleshooting: Coolify + Traefik" en `docs/runbooks/deployment.md`),
+> y el frontend sirve su propio nginx interno
+> (`docker compose -f docker-compose.coolify.yml logs frontend`).
+
 ## Common Issues
 
 ### Database Connection Failed

@@ -88,16 +88,18 @@ ai-news-platform/
 ## Servidor MCP
 
 La plataforma expone un servidor [MCP](https://modelcontextprotocol.io) publico en
-`https://pguerrero.me/mcp` con 5 tools de solo lectura: `search_news`, `semantic_search`,
+`https://pguerrero.me/ai-news/mcp` con 5 tools de solo lectura: `search_news`, `semantic_search`,
 `get_latest`, `get_trending` y `get_briefing`. No requiere autenticacion ni instalacion.
+
+> URL migrada de `/mcp` a `/ai-news/mcp` (ver `docs/MIGRATION-ai-news-path.md`); reapunta la config de tu cliente si usabas la anterior.
 
 **Claude Code:**
 
 ```bash
-claude mcp add --transport http ainews https://pguerrero.me/mcp
+claude mcp add --transport http ainews https://pguerrero.me/ai-news/mcp
 ```
 
-**claude.ai** (web/desktop): Settings → Connectors → Add custom connector → URL `https://pguerrero.me/mcp`.
+**claude.ai** (web/desktop): Settings → Connectors → Add custom connector → URL `https://pguerrero.me/ai-news/mcp`.
 
 **Otros clientes MCP** (config JSON generica para clientes con soporte streamable HTTP):
 
@@ -106,7 +108,7 @@ claude mcp add --transport http ainews https://pguerrero.me/mcp
   "mcpServers": {
     "ainews": {
       "type": "http",
-      "url": "https://pguerrero.me/mcp"
+      "url": "https://pguerrero.me/ai-news/mcp"
     }
   }
 }
@@ -115,7 +117,7 @@ claude mcp add --transport http ainews https://pguerrero.me/mcp
 Tambien puede ejecutarse en local via stdio contra la API publica:
 
 ```bash
-MCP_API_BASE_URL=https://pguerrero.me python -m src.mcp.server
+MCP_API_BASE_URL=https://pguerrero.me/ai-news python -m src.mcp.server
 ```
 
 El endpoint tiene rate limiting por IP (3 req/s, burst 10). Detalles de despliegue en

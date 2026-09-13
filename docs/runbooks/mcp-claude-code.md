@@ -47,11 +47,16 @@ Run once from any directory inside the project:
 # Local development (default base URL — no env override needed)
 claude mcp add ai-news -- python -m src.mcp.server
 
-# Production endpoint
+# Production endpoint (API is mounted under /ai-news — see docs/MIGRATION-ai-news-path.md)
 claude mcp add ai-news \
-  --env MCP_API_BASE_URL=https://pguerrero.me \
+  --env MCP_API_BASE_URL=https://pguerrero.me/ai-news \
   -- python -m src.mcp.server
 ```
+
+> This registers a **local** stdio server that calls the production REST API. To
+> talk to the already-running **remote** MCP server instead (no local process),
+> point your client at `https://pguerrero.me/ai-news/mcp` directly — see
+> `docs/adr/001-remote-mcp-server.md`.
 
 Claude Code saves this to `~/.claude/mcp_servers.json` and launches the process
 automatically whenever an MCP-enabled session starts.
@@ -67,7 +72,7 @@ Create or extend `.mcp.json`:
       "command": "python",
       "args": ["-m", "src.mcp.server"],
       "env": {
-        "MCP_API_BASE_URL": "https://pguerrero.me"
+        "MCP_API_BASE_URL": "https://pguerrero.me/ai-news"
       }
     }
   }
@@ -136,8 +141,8 @@ to the project root.
 
 The API server is not reachable at the configured `MCP_API_BASE_URL`.
 - Local: ensure `uvicorn src.api.app:app` is running on port 8000.
-- Prod: verify `https://pguerrero.me` is reachable and the backend container
-  is healthy (`docker ps` in Coolify).
+- Prod: verify `https://pguerrero.me/ai-news` is reachable and the backend
+  container is healthy (`docker ps` in Coolify).
 
 ### `ImportError: No module named 'mcp'`
 
