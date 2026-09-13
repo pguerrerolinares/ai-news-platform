@@ -1005,6 +1005,38 @@ class TestRunPipelineExceptionPath:
         assert run.status == "interrupted"
         new_session.commit.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_cancelled_error_still_propagates_when_interrupted_save_fails(self):
+        """M1 (review pipeline-runs-robustez): if persisting the `interrupted`
+        PipelineRun itself fails (DB down, timeout...), the CancelledError
+        must still propagate -- cancellation must never look like a
+        successful run, not even when its own bookkeeping fails."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+        )
+        session = _mock_session()
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                side_effect=asyncio.CancelledError(),
+            ),
+            patch(
+                "src.pipeline.pipeline._persist_interrupted_run",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("db down"),
+            ),
+            patch("src.pipeline.pipeline.logger") as mock_logger,
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await run_pipeline(session)
+
+        mock_logger.warning.assert_any_call("pipeline_interrupted_run_save_failed", exc_info=True)
+
 
 # ---------------------------------------------------------------------------
 # Edge-case tests (M9 Task 6)
