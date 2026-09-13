@@ -1,5 +1,15 @@
 # Public Access + Guest Tokens Implementation Plan
 
+> **Superseded (2026-09-13)**: the differentiated rate limiting designed below
+> (`get_rate_limit_key` in `src/api/ratelimit.py`, keying by JWT `jti`/`sub` with an
+> IP fallback) was implemented but never wired into any of the 10 `Limiter(...)`
+> call sites — all of them use `get_client_ip` (plain per-IP limiting) instead, and
+> always did. The security-hardening pass (2026-09-13) confirmed it had zero
+> callers outside its own tests and removed `get_rate_limit_key` and its tests as
+> dead code. Current behaviour is documented in `AGENTS.md`'s Rate limiting line;
+> treat "Task 5: Backend — Differentiated rate limiting by token type" below as
+> historical design intent, not as a description of what runs today.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Open the platform to public visitors with guest tokens, remove legacy shared-password auth, and add differentiated rate limiting.
