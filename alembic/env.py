@@ -18,15 +18,16 @@ target_metadata = Base.metadata
 # Override URL from environment if available
 db_url = os.environ.get("DATABASE_URL_SYNC", config.get_main_option("sqlalchemy.url"))
 
-# Indexes created via raw SQL that can't be represented in ORM models
-_EXCLUDED_INDEXES = {"idx_news_items_fts", "ix_item_embeddings_hnsw"}
+# Indexes created via raw SQL that can't be represented in ORM models.
+# idx_news_items_fts (001) was dropped in migration 019 (dead since F-16).
+_EXCLUDED_INDEXES = {"ix_item_embeddings_hnsw"}
 
 
 def include_object(obj, name, type_, reflected, compare_to):
     """Exclude PostgreSQL-specific indexes from autogenerate comparison.
 
-    GIN (FTS) and HNSW (pgvector) indexes are created via raw SQL in
-    migrations and have no SQLAlchemy ORM representation.
+    HNSW (pgvector) indexes are created via raw SQL in migrations and have
+    no SQLAlchemy ORM representation.
     """
     return not (type_ == "index" and name in _EXCLUDED_INDEXES)
 

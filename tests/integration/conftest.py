@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from pathlib import Path
+from types import ModuleType
 from typing import Any
 from uuid import uuid4
 
@@ -38,6 +41,32 @@ from src.core.config import get_settings  # must be after env setup
 # Clear cached settings so they pick up test DB URL
 get_settings.cache_clear()
 
+_MIGRATIONS = Path(__file__).resolve().parents[2] / "alembic" / "versions"
+
+
+def _load_migration(filename: str) -> ModuleType:
+    """Load an alembic revision file by path (``alembic/`` collides with the pip package)."""
+    path = _MIGRATIONS / filename
+    spec = importlib.util.spec_from_file_location(f"migration_{filename[:3]}", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# Trigger attachment unchanged since migration 008; only the function body
+# evolves (017, 019).
+_SEARCH_VECTOR_TRIGGER_SQL = """
+    CREATE OR REPLACE TRIGGER trg_news_items_search
+      BEFORE INSERT OR UPDATE OF title, summary ON news_items
+      FOR EACH ROW EXECUTE FUNCTION news_items_search_trigger()
+"""
+
+# Pin to the head revision that defines the search_vector function; bump
+# when a later migration redefines it. test_fts_pin_matches_latest_trigger_migration
+# (test_api_search.py) fails loudly if this drifts from the actual head.
+_FTS_PIN = "019_add_summary_to_search_vector.py"
+
 
 # ---------------------------------------------------------------------------
 # Session-scoped: engine + table creation (once per test session)
@@ -51,6 +80,13 @@ async def integration_engine() -> AsyncGenerator[AsyncEngine, None]:
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        # Base.metadata.create_all only creates tables/indexes — the
+        # search_vector trigger is raw SQL with no ORM representation, so
+        # install it explicitly from the migration that currently defines
+        # the function (see _FTS_PIN above).
+        fts = _load_migration(_FTS_PIN)
+        await conn.execute(text(fts.SEARCH_VECTOR_FUNCTION_SQL))
+        await conn.execute(text(_SEARCH_VECTOR_TRIGGER_SQL))
 
     yield engine
 
