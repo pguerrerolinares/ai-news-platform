@@ -81,17 +81,19 @@ class TestRunsFailing:
         alert = next(a for a in _evaluate(runs) if a.code == "runs_failing")
         assert alert.severity == "critical"
 
-    def test_empty_ignored_since_is_oldest_of_streak(self):
-        # Sequence (most recent first): error, empty, interrupted, empty, error
+    def test_neutral_ignored_since_is_oldest_of_streak(self):
+        # Sequence (most recent first): error, empty, interrupted, empty, error, error
+        # empty and interrupted are neutral (Enmienda 1): ignored, don't break the streak.
         runs = [
             _run(5, "error"),
             _run(10, "empty"),
             _run(15, "interrupted"),
             _run(20, "empty"),
             _run(25, "error"),
+            _run(30, "error"),
         ]
         alert = next(a for a in _evaluate(runs) if a.code == "runs_failing")
-        assert alert.since == NOW - timedelta(minutes=25)
+        assert alert.since == NOW - timedelta(minutes=30)
 
     def test_recent_success_blocks_streak(self):
         runs = [
@@ -101,6 +103,25 @@ class TestRunsFailing:
             _run(20, "error"),
         ]
         assert "runs_failing" not in _codes(_evaluate(runs))
+
+    def test_three_interrupted_does_not_fire(self):
+        # interrupted is neutral (Enmienda 1): a deploy cancelling in-flight
+        # tiers must not look like a failure streak.
+        runs = [_run(5, "interrupted"), _run(10, "interrupted"), _run(15, "interrupted")]
+        assert "runs_failing" not in _codes(_evaluate(runs))
+
+    def test_interrupted_does_not_break_error_streak(self):
+        # interrupted is neutral, not a streak-breaker: a deploy landing in the
+        # middle of a persistent config/account error must not mask it.
+        runs = [
+            _run(5, "interrupted"),
+            _run(10, "error"),
+            _run(15, "interrupted"),
+            _run(20, "error"),
+            _run(25, "error"),
+        ]
+        alert = next(a for a in _evaluate(runs) if a.code == "runs_failing")
+        assert alert.since == NOW - timedelta(minutes=25)
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +174,17 @@ class TestRunsDegraded:
             _run(20, "degraded"),
         ]
         assert "runs_degraded" not in _codes(_evaluate(runs))
+
+    def test_interrupted_does_not_break_degraded_streak(self):
+        # interrupted is neutral (Enmienda 1), unlike error which does break it.
+        runs = [
+            _run(5, "degraded"),
+            _run(10, "interrupted"),
+            _run(15, "degraded"),
+            _run(20, "degraded"),
+        ]
+        alert = next(a for a in _evaluate(runs) if a.code == "runs_degraded")
+        assert alert.severity == "warning"
 
 
 # ---------------------------------------------------------------------------

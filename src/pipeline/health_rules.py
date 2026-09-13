@@ -23,12 +23,13 @@ RUN_WINDOW = timedelta(hours=24)
 RUNS_FAILING_STREAK = 3
 RUNS_DEGRADED_STREAK = 3
 RUNS_STORING_NOTHING_MIN = 10
-FAILING_STATUSES = frozenset({"error", "interrupted"})
+FAILING_STATUSES = frozenset({"error"})
+NEUTRAL_STATUSES = frozenset({"empty", "interrupted"})  # excluded from the informative sequence
 STORING_STATUSES = frozenset({"success", "degraded"})
 
 _SCHEDULER_STALE_MINUTES = int(SCHEDULER_STALE_AFTER.total_seconds() // 60)
 
-_MSG_RUNS_FAILING = "The last 3 pipeline runs failed or were interrupted."
+_MSG_RUNS_FAILING = "The last 3 pipeline runs failed."
 _MSG_RUNS_STORING_NOTHING = (
     "Pipeline runs have completed for 24 h without storing any item; "
     "the classifier or the filters may be rejecting everything."
@@ -171,13 +172,17 @@ def evaluate_health(
 
     `runs` is expected to already be scoped to `RUN_WINDOW` by the caller
     (see the route's query); this function sorts it but does not re-filter
-    by time. `empty` runs are excluded from the failing/degraded streaks
-    (they return before classify/store, so they say nothing about either)
-    but are not filtered out of `runs` itself since `runs_storing_nothing`
-    already excludes them via `STORING_STATUSES`.
+    by time. `empty` and `interrupted` runs are excluded from the
+    failing/degraded streaks (`NEUTRAL_STATUSES`): `empty` returns before
+    classify/store and says nothing about either; `interrupted` is a
+    cancellation (deploy restarts pipeline-cron and cancels every in-flight
+    tier at once, per verdict `2026-09-13-pipeline-runs-interrupted`), so it
+    neither counts as a failure nor breaks a real failure streak. Neither is
+    filtered out of `runs` itself since `runs_storing_nothing` already
+    excludes them via `STORING_STATUSES`.
     """
     ordered_runs = sorted(runs, key=lambda r: r.started_at, reverse=True)
-    informative_runs = [r for r in ordered_runs if r.status != "empty"]
+    informative_runs = [r for r in ordered_runs if r.status not in NEUTRAL_STATUSES]
 
     rules = (
         _rule_scheduler_silent(now=now, last_run_at=last_run_at),
