@@ -98,7 +98,9 @@ async def safe_get(
     differently the second time.
 
     The supplied ``client`` MUST be created with ``follow_redirects=False`` so
-    redirects reach this function instead of httpx's auto-follow. Returns a
+    redirects reach this function instead of httpx's auto-follow, and MUST NOT
+    enable ``http2`` (the per-request ``Connection: close`` that prevents
+    cross-host connection reuse only exists in HTTP/1.1). Returns a
     fully-read response whose body is at most ``max_bytes``.
     """
     current = url
@@ -109,6 +111,11 @@ async def safe_get(
 
         request_headers = dict(headers or {})
         request_headers.setdefault("Host", original.netloc.decode("ascii"))
+        # httpcore keys pooled connections by (scheme, host, port) and ignores sni_hostname.
+        # With host pinned to an IP, a kept-alive connection verified for hostname A would be
+        # reused for hostname B on the same IP, skipping B's certificate check. Force a fresh
+        # connection per request (HTTP/1.1 semantics: the client MUST NOT enable http2).
+        request_headers["Connection"] = "close"
 
         async with client.stream(
             "GET",

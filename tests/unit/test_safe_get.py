@@ -3,8 +3,9 @@ IP pinning, and a response-size cap."""
 
 from __future__ import annotations
 
+import asyncio
 import gzip
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -128,6 +129,44 @@ async def test_compressed_body_is_decoded_once():
         async with httpx.AsyncClient(follow_redirects=False) as client:
             resp = await safe_get(client, "https://example.com/gz")
     assert resp.text == payload.decode()
+
+
+async def test_hosts_sharing_an_ip_never_share_a_connection():
+    """Regression: the pool keys by IP, so two hostnames pinned to the same IP would reuse
+    one connection (and one TLS verification). Each safe_get must open its own."""
+    connections = 0
+    hosts: list[str] = []
+
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        nonlocal connections
+        connections += 1
+        try:
+            while True:
+                head = await reader.readuntil(b"\r\n\r\n")
+                for line in head.split(b"\r\n"):
+                    if line.lower().startswith(b"host:"):
+                        hosts.append(line.split(b":", 1)[1].strip().decode())
+                writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+                await writer.drain()
+        except (asyncio.IncompleteReadError, ConnectionResetError):
+            pass
+        finally:
+            writer.close()
+
+    server = await asyncio.start_server(handle, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    try:
+        with patch("src.core.ssrf.assert_safe_url", AsyncMock(return_value="127.0.0.1")):
+            async with httpx.AsyncClient(follow_redirects=False) as client:
+                for host in ("a.test", "b.test"):
+                    resp = await safe_get(client, f"http://{host}:{port}/")
+                    assert resp.status_code == 200
+    finally:
+        server.close()
+        await server.wait_closed()
+
+    assert hosts == [f"a.test:{port}", f"b.test:{port}"]
+    assert connections == 2, "pinned connection was reused across hostnames"
 
 
 @respx.mock
