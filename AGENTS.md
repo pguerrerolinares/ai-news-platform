@@ -128,7 +128,8 @@ ai-news-platform/
 │   │   ├── pipeline.py               # Thin orchestrator: runs stages in sequence
 │   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
 │   │   ├── scheduler.py              # APScheduler tiers (30m/HN, 15m/HN-leading, 60m/RSS+GH+HF+WS, 4h/GitHub-search, daily/arXiv)
-│   │   ├── health.py                 # Scheduler liveness: SCHEDULER_STALE_AFTER (45m) + last_run_started_at(), shared by scripts/pipeline_healthcheck.py and (future) admin-salud
+│   │   ├── health.py                 # Scheduler liveness: SCHEDULER_STALE_AFTER (45m) + last_run_started_at(), shared by scripts/pipeline_healthcheck.py and src/pipeline/health_rules.py
+│   │   ├── health_rules.py           # Pure rules a-f for GET /api/admin/health (no session/settings) — see src/api/routes/admin.py::admin_health
 │   │   ├── circuit_breaker.py        # Per-source failure tracking
 │   │   └── stages/                   # Composable pipeline stages
 │   │       ├── extract.py            # Source extraction + dedup + circuit breaker
@@ -185,6 +186,7 @@ ai-news-platform/
 | GET | /api/sources | Guest/JWT | Sources with item counts |
 | GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution |
 | POST | /api/chat | JWT (`require_auth`) | RAG Q&A (SSE streaming, 10/min) — inaccessible from the web: there is no current issuer of full (non-guest) user tokens. Kept for a possible future token issuer (e.g. MCP) so the LLM spend stays gated, not open to any guest. |
+| GET | /api/admin/health | Guest/JWT | Health alerts derived from `pipeline_runs`, source freshness and config (rules in `src/pipeline/health_rules.py`); generic messages, no setting values leak |
 
 Pagination: all paginated endpoints return `X-Total-Count` header.
 Errors: `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}`.

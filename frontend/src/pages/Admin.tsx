@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { apiGet } from '@/lib/api'
-import type { SourceFreshness, PipelineRun, AuditReport, AuditDailyRow } from '@/lib/types'
+import type { SourceFreshness, PipelineRun, AuditReport, AuditDailyRow, HealthAlert } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -117,14 +117,18 @@ function FreshnessStrip({ data }: { data: SourceFreshness[] }) {
   )
 }
 
-type RunStatus = 'all' | 'success' | 'empty' | 'error'
+type RunStatus = 'all' | 'success' | 'empty' | 'error' | 'interrupted' | 'degraded'
 
-function statusVariant(
+const AMBER_BADGE_CLASS = 'border-amber-400 text-amber-600 dark:text-amber-400'
+
+function statusBadge(
   status: PipelineRun['status'],
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (status === 'success') return 'default'
-  if (status === 'error') return 'destructive'
-  return 'secondary'
+): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string } {
+  if (status === 'success') return { variant: 'default' }
+  if (status === 'error') return { variant: 'destructive' }
+  if (status === 'empty') return { variant: 'secondary' }
+  // interrupted, degraded
+  return { variant: 'outline', className: AMBER_BADGE_CLASS }
 }
 
 function funnelText(run: PipelineRun): string {
@@ -309,6 +313,8 @@ function PipelineTable({
             <SelectItem value="success">Success</SelectItem>
             <SelectItem value="empty">Empty</SelectItem>
             <SelectItem value="error">Error</SelectItem>
+            <SelectItem value="interrupted">Interrupted</SelectItem>
+            <SelectItem value="degraded">Degraded</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -361,9 +367,17 @@ function PipelineTable({
                         </span>
                       </TableCell>
                       <TableCell className="px-3 py-2">
-                        <Badge variant={statusVariant(run.status)} className="text-xs">
-                          {run.status}
-                        </Badge>
+                        {(() => {
+                          const badge = statusBadge(run.status)
+                          return (
+                            <Badge
+                              variant={badge.variant}
+                              className={`text-xs ${badge.className ?? ''}`}
+                            >
+                              {run.status}
+                            </Badge>
+                          )
+                        })()}
                       </TableCell>
                       <TableCell className="px-3 py-2 tabular-nums whitespace-nowrap hidden sm:table-cell">
                         {fmtDuration(run.duration_seconds)}
@@ -595,9 +609,90 @@ function AuditFooter({ audit }: { audit: AuditReport }) {
   )
 }
 
+// ── Health alerts panel ────────────────────────────────────────────────────────
+
+function HealthAlertsCard({
+  alerts,
+  loading,
+  error,
+  checkedAt,
+}: {
+  alerts: HealthAlert[]
+  loading: boolean
+  error: string
+  checkedAt: string | null
+}) {
+  const hasCritical = alerts.some((a) => a.severity === 'critical')
+  const hasWarning = alerts.some((a) => a.severity === 'warning')
+  const borderClass = hasCritical
+    ? 'border-destructive/50'
+    : hasWarning
+      ? 'border-amber-400/50'
+      : ''
+
+  return (
+    <Card className={borderClass}>
+      <CardHeader className="pb-0">
+        <CardTitle className="text-base">Health Alerts</CardTitle>
+        <CardDescription>
+          Derived from pipeline runs, source freshness and configuration · refreshes every 60 s
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading && checkedAt === null ? (
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+          </div>
+        ) : error ? (
+          <p className="text-sm text-destructive">Could not load health status.</p>
+        ) : alerts.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm">
+            <HealthDot status="ok" />
+            <span>All checks passing</span>
+            {checkedAt && (
+              <span className="text-muted-foreground">checked {fmtTime(checkedAt)}</span>
+            )}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {alerts.map((a) => (
+              <li
+                key={a.code}
+                data-testid="health-alert"
+                data-code={a.code}
+                className="flex flex-wrap items-center gap-2 text-sm"
+              >
+                {a.severity === 'critical' ? (
+                  <Badge variant="destructive">CRITICAL</Badge>
+                ) : (
+                  <Badge variant="outline" className={AMBER_BADGE_CLASS}>
+                    WARNING
+                  </Badge>
+                )}
+                <span>{a.message}</span>
+                {a.since && (
+                  <span className="text-muted-foreground">since {relativeTime(a.since)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function Admin() {
+  // -- health alerts --
+  const [health, setHealth] = useState<HealthAlert[]>([])
+  const [healthLoading, setHealthLoading] = useState(true)
+  const [healthError, setHealthError] = useState('')
+  const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
+  const healthInflight = useRef(false)
+
   // -- freshness --
   const [freshness, setFreshness] = useState<SourceFreshness[]>([])
   const [freshnessLoading, setFreshnessLoading] = useState(true)
@@ -617,6 +712,23 @@ export default function Admin() {
   const [auditLoading, setAuditLoading] = useState(true)
   const [auditError, setAuditError] = useState('')
   const [auditDays, setAuditDays] = useState('14')
+
+  const fetchHealth = useCallback(async () => {
+    if (healthInflight.current) return // don't stack requests (60s interval + manual refresh)
+    healthInflight.current = true
+    setHealthLoading(true)
+    setHealthError('')
+    try {
+      const { data } = await apiGet<HealthAlert[]>('/api/admin/health')
+      setHealth(data)
+      setHealthCheckedAt(new Date().toISOString())
+    } catch (err) {
+      setHealthError(err instanceof Error ? err.message : 'Error loading health')
+    } finally {
+      setHealthLoading(false)
+      healthInflight.current = false
+    }
+  }, [])
 
   const fetchFreshness = useCallback(async () => {
     setFreshnessLoading(true)
@@ -666,6 +778,11 @@ export default function Admin() {
     }
   }, [])
 
+  useEffect(() => {
+    fetchHealth()
+    const id = setInterval(fetchHealth, 60_000)
+    return () => clearInterval(id)
+  }, [fetchHealth])
   useEffect(() => { fetchFreshness() }, [fetchFreshness])
   useEffect(() => { fetchRuns(runFilter, runsPage) }, [fetchRuns, runFilter, runsPage])
   useEffect(() => { fetchAudit(auditDays) }, [fetchAudit, auditDays])
@@ -684,6 +801,7 @@ export default function Admin() {
   }
 
   const handleRefreshAll = () => {
+    fetchHealth()
     fetchFreshness()
     fetchRuns(runFilter, runsPage)
     fetchAudit(auditDays)
@@ -701,6 +819,14 @@ export default function Admin() {
           <IconRefresh className="size-4" />
         </Button>
       </div>
+
+      {/* 0 — Health alerts */}
+      <HealthAlertsCard
+        alerts={health}
+        loading={healthLoading}
+        error={healthError}
+        checkedAt={healthCheckedAt}
+      />
 
       {/* 1 — Source health strip */}
       <Card>

@@ -1,0 +1,14 @@
+[
+  {
+    "severity": "critical",
+    "code": "runs_storing_nothing",
+    "message": "Pipeline runs have completed for 24 h without storing any item; the classifier or the filters may be rejecting everything.",
+    "since": "2026-09-12T10:00:00Z"
+  },
+  {
+    "severity": "warning",
+    "code": "classifier_keyword_only",
+    "message": "LLM classifier is not configured; the keyword fallback is active and almost nothing will pass the relevance threshold.",
+    "since": null
+  }
+]

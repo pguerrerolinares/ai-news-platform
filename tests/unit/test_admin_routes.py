@@ -8,16 +8,33 @@ first line (see `_sanitize_error_message` in src/api/routes/admin.py).
 
 from __future__ import annotations
 
+import json
 import uuid
-from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from pydantic import TypeAdapter
 
 from src.api.app import app
 from src.api.auth import require_auth_or_guest
+from src.core.config import Settings
 from src.core.database import get_session
+from src.pipeline.health_rules import HealthAlert
+
+_FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+
+
+def _health_run(started_at: datetime, status: str, *, extracted: int = 1, stored: int = 1):
+    """A minimal mock standing in for a `PipelineRun` row, for TestAdminHealth."""
+    run = MagicMock()
+    run.started_at = started_at
+    run.status = status
+    run.items_extracted = extracted
+    run.items_stored = stored
+    return run
 
 
 def _make_base_session() -> AsyncMock:
@@ -285,3 +302,138 @@ class TestAdminFreshness:
         assert "last_item_at" in entry
         assert "hours_ago" in entry
         assert entry["status"] in ("ok", "stale", "dead")
+
+
+# ---------------------------------------------------------------------------
+# /api/admin/health
+# ---------------------------------------------------------------------------
+class TestAdminHealth:
+    """GET /api/admin/health: derived, no new tables, public (guest token)."""
+
+    @staticmethod
+    def _session(*, last_run_at, runs, freshness_rows) -> AsyncMock:
+        """3 queries in order: last_run_started_at, pipeline_runs window, freshness."""
+        result_last_run = MagicMock()
+        result_last_run.scalar_one_or_none.return_value = last_run_at
+
+        result_runs = MagicMock()
+        result_runs.scalars.return_value = MagicMock(all=MagicMock(return_value=runs))
+
+        result_freshness = MagicMock()
+        result_freshness.all.return_value = freshness_rows
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            side_effect=[result_last_run, result_runs, result_freshness]
+        )
+        return mock_session
+
+    async def _get(self, api_client: AsyncClient, mock_session: AsyncMock, settings: Settings):
+        async def _override():
+            yield mock_session
+
+        app.dependency_overrides[get_session] = _override
+        try:
+            with patch("src.api.routes.admin.get_settings", return_value=settings):
+                return await api_client.get("/api/admin/health")
+        finally:
+            app.dependency_overrides[get_session] = _mock_get_session
+
+    async def test_returns_200_empty_list_for_healthy_db(self, api_client: AsyncClient):
+        now = datetime.now(tz=UTC)
+        run = MagicMock()
+        run.started_at = now - timedelta(minutes=5)
+        run.status = "success"
+        run.items_extracted = 10
+        run.items_stored = 10
+
+        mock_session = self._session(last_run_at=now, runs=[run], freshness_rows=[])
+        resp = await self._get(api_client, mock_session, Settings(openai_api_key="sk-test"))
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_empty_table_reports_scheduler_silent_with_since_null(
+        self, api_client: AsyncClient
+    ):
+        mock_session = self._session(last_run_at=None, runs=[], freshness_rows=[])
+        resp = await self._get(api_client, mock_session, Settings(openai_api_key="sk-test"))
+
+        assert resp.status_code == 200
+        alert = next(a for a in resp.json() if a["code"] == "scheduler_silent")
+        assert alert["since"] is None
+        assert alert["severity"] == "critical"
+
+    async def test_no_setting_value_leaks_in_response(self, api_client: AsyncClient):
+        """Falsable: interpolating any setting into a message would break this.
+
+        Drives 5 of the 6 rules (b and d are mutually exclusive by construction,
+        see spec Enmienda 1) so a future interpolation on any of them is caught,
+        not just on (e) — M2 of the admin-salud review verdict.
+        """
+        sentinel_settings = Settings(
+            openai_api_key="",
+            openai_model="SENTINEL-MODEL-9f3",
+            openai_base_url="https://sentinel-9f3.invalid",
+            database_url="postgresql+asyncpg://u:SENTINEL-PW-9f3@h/d",
+            jwt_secret="SENTINEL-JWT-9f3",
+            enabled_sources="hackernews,rss",
+        )
+        now = datetime.now(tz=UTC)
+        old_storing = [
+            _health_run(now - timedelta(hours=i), "success", extracted=1, stored=0)
+            for i in range(1, 11)
+        ]
+        recent_errors = [_health_run(now - timedelta(minutes=m), "error") for m in (5, 10, 15)]
+        freshness_rows = [MagicMock(source="rss", last_item_at=now - timedelta(hours=30))]
+        mock_session = self._session(
+            last_run_at=None, runs=old_storing + recent_errors, freshness_rows=freshness_rows
+        )
+        resp = await self._get(api_client, mock_session, sentinel_settings)
+
+        assert resp.status_code == 200
+        assert "9f3" not in resp.text
+        codes = {a["code"] for a in resp.json()}
+        assert {
+            "scheduler_silent",
+            "runs_failing",
+            "runs_storing_nothing",
+            "classifier_keyword_only",
+            "sources_dead",
+        } <= codes
+
+    async def test_sources_dead_only_counts_enabled_sources(self, api_client: AsyncClient):
+        """I1: the `enabled` filter in the handler glue (admin.py) is exercised."""
+        now = datetime.now(tz=UTC)
+        old = now - timedelta(hours=30)
+        rows = [
+            MagicMock(source="reddit", last_item_at=old),
+            MagicMock(source="rss", last_item_at=old),
+        ]
+        mock_session = self._session(last_run_at=now, runs=[], freshness_rows=rows)
+        resp = await self._get(
+            api_client,
+            mock_session,
+            Settings(openai_api_key="sk-test", enabled_sources="hackernews,rss"),
+        )
+
+        assert resp.status_code == 200
+        alert = next(a for a in resp.json() if a["code"] == "sources_dead")
+        assert "rss" in alert["message"]
+        assert "reddit" not in alert["message"]
+
+    async def test_no_cache_control_header(self, api_client: AsyncClient):
+        now = datetime.now(tz=UTC)
+        mock_session = self._session(last_run_at=now, runs=[], freshness_rows=[])
+        resp = await self._get(api_client, mock_session, Settings(openai_api_key="sk-test"))
+
+        assert "cache-control" not in resp.headers
+
+    def test_fixture_matches_schema(self):
+        """tests/fixtures/admin_health_sample.json is the same file the capture script uses."""
+        raw = json.loads((_FIXTURES_DIR / "admin_health_sample.json").read_text())
+        alerts = TypeAdapter(list[HealthAlert]).validate_python(raw)
+        assert [a.code for a in alerts] == ["runs_storing_nothing", "classifier_keyword_only"]
+        assert alerts[0].severity == "critical"
+        assert alerts[1].severity == "warning"
+        assert alerts[1].since is None
