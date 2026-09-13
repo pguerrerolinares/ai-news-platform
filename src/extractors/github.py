@@ -20,6 +20,12 @@ from src.extractors.base import BaseExtractor, ExtractedItem
 logger = get_logger(__name__)
 SEARCH_URL = "https://api.github.com/search/repositories"
 
+# Cap on how long _check_rate_limit will actually sleep. GitHub's rate-limit
+# reset window can be up to ~1h away; blocking the whole extractor (and the
+# scheduler tier running it, see src.pipeline.scheduler) for that long is
+# worse than returning early with whatever was already extracted.
+_RATE_LIMIT_SLEEP_CAP_SECONDS = 60
+
 
 class GitHubExtractor(BaseExtractor):
     """Extracts trending AI repositories from GitHub Search API."""
@@ -54,7 +60,8 @@ class GitHubExtractor(BaseExtractor):
                             client, query, since_date, min_stars, seen_urls
                         )
                         items.extend(new_items)
-                        await self._check_rate_limit(resp)
+                        if await self._check_rate_limit(resp):
+                            break
                     except Exception as exc:
                         logger.warning(
                             "github_search_failed",
@@ -138,21 +145,39 @@ class GitHubExtractor(BaseExtractor):
 
         return items, resp
 
-    async def _check_rate_limit(self, resp: httpx.Response) -> None:
-        """Sleep if GitHub rate limit is nearly exhausted."""
+    async def _check_rate_limit(self, resp: httpx.Response) -> bool:
+        """Sleep if GitHub rate limit is nearly exhausted.
+
+        Returns True if the caller should stop issuing further requests this
+        batch: when the reset is farther away than
+        ``_RATE_LIMIT_SLEEP_CAP_SECONDS``, sleeping would block the whole
+        extractor (and its scheduler tier) for up to ~1h, so instead this
+        logs a warning and signals the caller to stop early and keep
+        whatever was already extracted.
+        """
         remaining = resp.headers.get("X-RateLimit-Remaining")
         if remaining is None:
-            return
+            return False
         try:
             if int(remaining) <= 1:
                 reset_ts = int(resp.headers.get("X-RateLimit-Reset", "0"))
                 now_ts = int(datetime.now(tz=UTC).timestamp())
                 sleep_for = max(0, reset_ts - now_ts) + 1
-                logger.info(
-                    "github_rate_limit_near",
+                if sleep_for <= _RATE_LIMIT_SLEEP_CAP_SECONDS:
+                    logger.info(
+                        "github_rate_limit_near",
+                        remaining=remaining,
+                        sleep_seconds=sleep_for,
+                    )
+                    await asyncio.sleep(sleep_for)
+                    return False
+                logger.warning(
+                    "github_rate_limit_exceeded_cap",
                     remaining=remaining,
+                    reset_ts=reset_ts,
                     sleep_seconds=sleep_for,
                 )
-                await asyncio.sleep(sleep_for)
+                return True
         except (ValueError, TypeError):
             pass
+        return False

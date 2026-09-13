@@ -250,6 +250,40 @@ class TestExtract:
         mock_sleep.assert_awaited_once()
 
     @respx.mock
+    async def test_rate_limit_far_reset_skips_remaining_queries_no_long_sleep(self):
+        """Reset far in the future: no hour-long sleep, remaining queries skipped."""
+        repo_a = _make_repo("repo-a", html_url="https://github.com/o/a")
+        reset_far = str(int(time.time()) + 3600)  # 1h away, over the cap
+        call_count = 0
+
+        def side_effect(request):
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(
+                200,
+                json=_search_response([repo_a] if call_count == 1 else []),
+                headers={
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": reset_far,
+                },
+            )
+
+        respx.get(SEARCH_URL).mock(side_effect=side_effect)
+        with (
+            patch(
+                "src.extractors.github.get_settings",
+                return_value=_mock_settings(github_search_queries="AI,LLM,RL"),
+            ),
+            patch("src.extractors.github.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            result = await GitHubExtractor().extract()
+
+        assert call_count == 1, "remaining queries should be skipped once past the cap"
+        mock_sleep.assert_not_awaited()
+        assert len(result) == 1
+        assert result[0].title.startswith("repo-a")
+
+    @respx.mock
     async def test_rate_limit_header_not_present_no_sleep(self):
         repo = _make_repo("no-rate-limit-repo")
         respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=_search_response([repo])))

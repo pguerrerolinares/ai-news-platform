@@ -97,7 +97,7 @@ python -m src.main
 ai-news-platform/
 ├── AGENTS.md / CLAUDE.md            # Agent guide / coding conventions
 ├── pyproject.toml                    # Dependencies + tool config
-├── Dockerfile.api / Dockerfile.pipeline / docker-compose.coolify.yml
+├── Dockerfile.api / Dockerfile.pipeline / docker-compose.coolify.yml  # pipeline-cron HEALTHCHECK -> scripts/pipeline_healthcheck.py (see src/pipeline/health.py)
 ├── alembic/                          # DB migrations (18 versions)
 ├── src/
 │   ├── main.py                       # CLI entry point
@@ -128,6 +128,7 @@ ai-news-platform/
 │   │   ├── pipeline.py               # Thin orchestrator: runs stages in sequence
 │   │   ├── composite_scorer.py       # Composite scoring: velocity + relevance + recency + topic
 │   │   ├── scheduler.py              # APScheduler tiers (30m/HN, 15m/HN-leading, 60m/RSS+GH+HF+WS, 4h/GitHub-search, daily/arXiv)
+│   │   ├── health.py                 # Scheduler liveness: SCHEDULER_STALE_AFTER (45m) + last_run_started_at(), shared by scripts/pipeline_healthcheck.py and (future) admin-salud
 │   │   ├── circuit_breaker.py        # Per-source failure tracking
 │   │   └── stages/                   # Composable pipeline stages
 │   │       ├── extract.py            # Source extraction + dedup + circuit breaker
