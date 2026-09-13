@@ -79,7 +79,8 @@ def search_news(
     date_to: str | None = None,
     limit: int = 10,
 ) -> str:
-    """Search AI news articles by keyword.
+    """Search AI news articles by keyword (full-text; terms of 3+ characters
+    match as prefixes, e.g. `agent` finds `agents`; no substring match).
 
     Returns matching items with title, source, topic, summary, and URL.
     """
