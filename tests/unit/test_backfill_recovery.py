@@ -160,3 +160,37 @@ class TestEstimateLlmCost:
         # 100 items * (170 input + 45 output tokens) at k2.6 pricing
         expected = (100 * 170 * 0.95 + 100 * 45 * 4.00) / 1_000_000
         assert cost_100 == pytest.approx(expected)
+
+
+class TestFilterSimilarTitles:
+    """Mirrors seen_filter Pass 2: cross-source dedup by title similarity."""
+
+    def _item(self, title: str) -> ExtractedItem:
+        return ExtractedItem(title=title, source="hackernews", url=f"https://x.com/{title}")
+
+    def test_identical_title_is_dropped(self) -> None:
+        kept, dropped = recovery.filter_similar_titles(
+            [self._item("DeepSeek v4.1 Flash released")], ["deepseek v4.1 flash released"]
+        )
+        assert kept == []
+        assert dropped == 1
+
+    def test_different_title_is_kept(self) -> None:
+        item = self._item("Cognition launches SWE-2 model")
+        kept, dropped = recovery.filter_similar_titles([item], ["deepseek v4.1 flash released"])
+        assert kept == [item]
+        assert dropped == 0
+
+    def test_empty_stored_titles_keeps_everything(self) -> None:
+        items = [self._item("A new model"), self._item("Another tool")]
+        kept, dropped = recovery.filter_similar_titles(items, [])
+        assert kept == items
+        assert dropped == 0
+
+    def test_comparison_is_case_insensitive(self) -> None:
+        kept, dropped = recovery.filter_similar_titles(
+            [self._item("OPENAI RELEASES GPT-LIVE-1 IN THE API")],
+            ["openai releases gpt-live-1 in the api"],
+        )
+        assert kept == []
+        assert dropped == 1

@@ -39,6 +39,7 @@ from src.classifiers.keyword import classify_by_keywords
 from src.core.config import Settings
 from src.core.dates import parse_iso_z
 from src.core.models import NewsItem
+from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 from src.extractors.base import ExtractedItem
 from src.pipeline.backfill.extractors import (
     HistoricalGitHubExtractor,
@@ -181,6 +182,33 @@ async def load_existing_hashes(session: AsyncSession) -> tuple[set[str], set[str
         if url_hash:
             url_hashes.add(url_hash)
     return content_hashes, url_hashes
+
+
+async def load_recent_titles(session: AsyncSession, since: datetime) -> list[str]:
+    """Load lowercased titles stored since ``since`` (seen_filter Pass 2 input).
+
+    Callers anchor ``since`` at ``WINDOW_START - seen_window_days`` with no upper
+    bound: prod compares each item against the window before it was seen, and items
+    stored after the fix can cover events from the tail of the outage.
+    """
+    result = await session.execute(select(NewsItem.title).where(NewsItem.created_at >= since))
+    return [title.lower() for (title,) in result.all()]
+
+
+def filter_similar_titles(
+    items: list[ExtractedItem],
+    stored_titles: list[str],
+) -> tuple[list[ExtractedItem], int]:
+    """Drop items whose title is similar to a stored one (mirrors seen_filter Pass 2)."""
+    kept: list[ExtractedItem] = []
+    dropped = 0
+    for item in items:
+        title = item.title.lower()
+        if any(title_similarity(title, t) >= TITLE_SIMILARITY_THRESHOLD for t in stored_titles):
+            dropped += 1
+        else:
+            kept.append(item)
+    return kept, dropped
 
 
 def filter_new(

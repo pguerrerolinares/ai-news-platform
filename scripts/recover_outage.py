@@ -6,7 +6,10 @@ rationale (which sources are covered and why).
 
 Usage:
     python scripts/recover_outage.py --dry-run
-    python scripts/recover_outage.py --max-cost 2.0
+    python scripts/recover_outage.py --max-cost 2.0 2>&1 | tee <log outside the repo>
+
+--max-cost gates the pre-flight cost estimate only: the run aborts before any LLM
+call if the estimate exceeds it. Real spend is not metered during the run.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -53,29 +57,32 @@ async def run(args: argparse.Namespace) -> None:
         per_source_extracted[source] = await FETCHERS[source](settings)
         print(f"  Raw items in window: {len(per_source_extracted[source])}")
 
+    titles_since = recovery.WINDOW_START - timedelta(days=settings.seen_window_days)
     async with factory() as session:
         existing_content, existing_url = await recovery.load_existing_hashes(session)
+        stored_titles = await recovery.load_recent_titles(session, titles_since)
     print(
         f"\nExisting news_items hashes loaded: {len(existing_content)} content, "
-        f"{len(existing_url)} url"
+        f"{len(existing_url)} url; {len(stored_titles)} titles since {titles_since.isoformat()}"
     )
 
     all_new: list[ExtractedItem] = []
     print(
-        f"\n{'source':<15}{'extracted':>10}{'existing':>10}{'new':>8}"
+        f"\n{'source':<15}{'extracted':>10}{'existing':>10}{'similar':>9}{'new':>8}"
         f"{'reject':>8}{'to_llm':>8}{'auto_acc':>9}"
     )
     total_to_llm = 0
     for source, items in per_source_extracted.items():
         new_items, already = recovery.filter_new(items, existing_content, existing_url)
         new_items = deduplicate_items(new_items)
+        new_items, similar = recovery.filter_similar_titles(new_items, stored_titles)
         valid_items = [
             i for i in new_items if not validate_extracted_item({"title": i.title, "url": i.url})
         ]
         auto_reject, to_llm, auto_accept = recovery.keyword_buckets(valid_items)
         total_to_llm += to_llm
         print(
-            f"{source:<15}{len(items):>10}{already:>10}{len(valid_items):>8}"
+            f"{source:<15}{len(items):>10}{already:>10}{similar:>9}{len(valid_items):>8}"
             f"{auto_reject:>8}{to_llm:>8}{auto_accept:>9}"
         )
         all_new.extend(valid_items)
@@ -84,7 +91,8 @@ async def run(args: argparse.Namespace) -> None:
     print(f"\nTotal items to send to LLM (ambiguous, 1-2 keyword matches): {total_to_llm}")
     print(
         f"Estimated LLM cost (kimi-k2.6, ${recovery.INPUT_PRICE_PER_M}/"
-        f"${recovery.OUTPUT_PRICE_PER_M} per 1M in/out tokens): ${est_cost:.4f}"
+        f"${recovery.OUTPUT_PRICE_PER_M} per 1M in/out tokens): ${est_cost:.4f} "
+        "(pre-flight estimate; spend is not metered during the run)"
     )
 
     if args.dry_run:
@@ -123,7 +131,15 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated sources to recover (default: hackernews,github_search)",
     )
     p.add_argument("--dry-run", action="store_true", help="Estimate only, no LLM calls, no writes")
-    p.add_argument("--max-cost", type=float, default=2.0, help="Hard budget cap in USD")
+    p.add_argument(
+        "--max-cost",
+        type=float,
+        default=2.0,
+        help=(
+            "Abort if the pre-flight cost estimate exceeds this (USD). "
+            "Real spend is not metered during the run."
+        ),
+    )
     args = p.parse_args()
     args.sources = [s.strip() for s in args.sources.split(",") if s.strip()]
     return args
