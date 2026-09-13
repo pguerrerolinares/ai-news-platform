@@ -32,7 +32,7 @@ def _evaluate(
     *,
     last_run_at: datetime | None = NOW,
     has_llm_key: bool = True,
-    dead_sources: Sequence[str] = (),
+    dead_sources: Sequence[tuple[str, datetime | None]] = (),
 ):
     return evaluate_health(
         now=NOW,
@@ -211,10 +211,23 @@ class TestSourcesDead:
 
     def test_dead_sources_fire_sorted_in_message(self):
         alert = next(
-            a for a in _evaluate([], dead_sources=["rss", "arxiv"]) if a.code == "sources_dead"
+            a
+            for a in _evaluate([], dead_sources=[("rss", None), ("arxiv", None)])
+            if a.code == "sources_dead"
         )
         assert alert.severity == "warning"
         assert "arxiv, rss" in alert.message
+
+    def test_since_is_oldest_last_item_at(self):
+        # Enmienda 2 (verdict admin-salud-review, I2): since = min(last_item_at).
+        dead = [("rss", NOW - timedelta(hours=30)), ("arxiv", NOW - timedelta(hours=40))]
+        alert = next(a for a in _evaluate([], dead_sources=dead) if a.code == "sources_dead")
+        assert alert.since == NOW - timedelta(hours=40)
+
+    def test_since_is_none_if_any_last_item_at_is_none(self):
+        dead = [("rss", NOW - timedelta(hours=30)), ("arxiv", None)]
+        alert = next(a for a in _evaluate([], dead_sources=dead) if a.code == "sources_dead")
+        assert alert.since is None
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +236,7 @@ class TestSourcesDead:
 class TestOrdering:
     def test_scenario_one(self):
         runs = [_run(10 * i, "success", extracted=1, stored=0) for i in range(1, 11)]
-        alerts = _evaluate(runs, last_run_at=None, has_llm_key=False, dead_sources=["rss"])
+        alerts = _evaluate(runs, last_run_at=None, has_llm_key=False, dead_sources=[("rss", None)])
         assert _codes(alerts) == [
             "scheduler_silent",
             "runs_storing_nothing",

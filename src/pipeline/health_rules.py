@@ -145,15 +145,20 @@ def _rule_classifier_keyword_only(*, has_llm_key: bool) -> HealthAlert | None:
     )
 
 
-def _rule_sources_dead(dead_sources: Sequence[str]) -> HealthAlert | None:
+def _rule_sources_dead(dead_sources: Sequence[tuple[str, datetime | None]]) -> HealthAlert | None:
     if not dead_sources:
         return None
-    names = ", ".join(sorted(dead_sources))
+    names = ", ".join(sorted(name for name, _ in dead_sources))
+    since = (
+        None
+        if any(last_item_at is None for _, last_item_at in dead_sources)
+        else min(last_item_at for _, last_item_at in dead_sources)
+    )
     return HealthAlert(
         severity="warning",
         code="sources_dead",
         message=f"No new items in over 24 h from: {names}.",
-        since=None,
+        since=since,
     )
 
 
@@ -165,7 +170,7 @@ def evaluate_health(
     now: datetime,
     last_run_at: datetime | None,
     runs: Sequence[PipelineRun],
-    dead_sources: Sequence[str],
+    dead_sources: Sequence[tuple[str, datetime | None]],
     has_llm_key: bool,
 ) -> list[HealthAlert]:
     """Evaluate rules a-f and return the resulting alerts, most severe first.

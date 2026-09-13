@@ -298,7 +298,9 @@ async def admin_health(
 
     freshness = await _source_freshness(session, now)
     enabled = set(settings.enabled_sources_list)
-    dead_sources = [f.source for f in freshness if f.status == "dead" and f.source in enabled]
+    dead_sources = [
+        (f.source, f.last_item_at) for f in freshness if f.status == "dead" and f.source in enabled
+    ]
 
     return evaluate_health(
         now=now,
