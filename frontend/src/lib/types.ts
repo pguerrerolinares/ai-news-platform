@@ -50,6 +50,13 @@ export interface PipelineRun {
   correlation_id: string | null;
 }
 
+export interface HealthAlert {
+  severity: 'critical' | 'warning';
+  code: string;
+  message: string;
+  since: string | null;
+}
+
 export interface AuditSourceRow {
   source: string;
   count: number;
