@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.core.models import DailyBriefing, ItemEmbedding, NewsItem
 from src.pipeline.stages.store import embed_new_items, save_briefing, store_classified_items
@@ -160,6 +163,104 @@ class TestSaveBriefing:
         result = await db_session.execute(select(DailyBriefing))
         briefing = result.scalar_one()
         assert briefing.total_items == 0
+
+    async def test_two_same_day_calls_leave_a_single_row(self, db_session):
+        """#4 acceptance criterion 1: two save_briefing calls for the same
+        day must not raise and must leave exactly one row -- the bug this
+        replaces was a SELECT-then-INSERT race that threw IntegrityError on
+        the second call's INSERT."""
+        await save_briefing(
+            db_session,
+            items_extracted=5,
+            items_after_dedup=4,
+            items_stored=2,
+            sources_used=["hackernews"],
+            duration_seconds=1.0,
+        )
+        await save_briefing(
+            db_session,
+            items_extracted=3,
+            items_after_dedup=2,
+            items_stored=1,
+            sources_used=["arxiv"],
+            duration_seconds=0.5,
+        )
+
+        result = await db_session.execute(select(func.count()).select_from(DailyBriefing))
+        assert result.scalar_one() == 1
+
+    async def test_sources_used_merges_across_runs(self, db_session):
+        """sources_used is the union (deduped, sorted) of every run's
+        sources for the day, not just the latest run's -- unlike
+        items_extracted/duration_seconds/trending_count, which replace."""
+        await save_briefing(
+            db_session,
+            items_extracted=5,
+            items_after_dedup=4,
+            items_stored=2,
+            sources_used=["hackernews"],
+            duration_seconds=1.0,
+        )
+        await save_briefing(
+            db_session,
+            items_extracted=3,
+            items_after_dedup=2,
+            items_stored=1,
+            sources_used=["arxiv", "hackernews"],
+            duration_seconds=0.5,
+        )
+
+        db_session.expire_all()  # avoid reading a stale identity-mapped row
+        result = await db_session.execute(select(DailyBriefing))
+        briefing = result.scalar_one()
+        assert briefing.sources_used == {"sources": ["arxiv", "hackernews"]}
+
+    async def test_concurrent_same_day_save_briefing_does_not_race(
+        self,
+        integration_engine: AsyncEngine,
+    ) -> None:
+        """#4: two runs finishing together must not IntegrityError on the INSERT.
+
+        Uses two independent sessions (not the savepoint db_session): A writes
+        today's row and holds its commit; B runs concurrently; then A commits.
+        The old SELECT-then-INSERT raised UniqueViolation here.
+        """
+        today = datetime.now(tz=UTC).date()
+        kwargs = {"items_extracted": 1, "items_after_dedup": 1, "duration_seconds": 1.0}
+        try:
+            async with (
+                AsyncSession(integration_engine, expire_on_commit=False) as a,
+                AsyncSession(integration_engine, expire_on_commit=False) as b,
+            ):
+                a_commit = a.commit
+                gate = asyncio.Event()
+
+                async def held_commit() -> None:
+                    await gate.wait()
+                    await a_commit()
+
+                a.commit = held_commit  # type: ignore[method-assign]
+                task_a = asyncio.create_task(
+                    save_briefing(a, items_stored=5, sources_used=["hackernews"], **kwargs)
+                )
+                await asyncio.sleep(0.2)  # A has written its row, not committed
+                task_b = asyncio.create_task(
+                    save_briefing(b, items_stored=3, sources_used=["arxiv"], **kwargs)
+                )
+                await asyncio.sleep(0.2)  # B is blocked on A's uncommitted row
+                gate.set()
+                await asyncio.gather(task_a, task_b)
+
+            async with AsyncSession(integration_engine) as s:
+                briefing = (
+                    await s.execute(select(DailyBriefing).where(DailyBriefing.date == today))
+                ).scalar_one()
+                assert briefing.total_items == 8
+                assert briefing.sources_used == {"sources": ["arxiv", "hackernews"]}
+        finally:
+            async with AsyncSession(integration_engine) as s:
+                await s.execute(delete(DailyBriefing).where(DailyBriefing.date == today))
+                await s.commit()
 
 
 class TestEmbedNewItems:

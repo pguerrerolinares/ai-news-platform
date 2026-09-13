@@ -5,11 +5,13 @@ extract -> dedup -> seen_filter -> validate -> classify -> score -> validate -> 
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
+from src.core.database import get_session_factory
 from src.core.logging import get_correlation_id, get_logger, set_correlation_id
 from src.core.metrics import (
     items_validated_total,
@@ -25,11 +27,47 @@ from src.pipeline.stages.classify import run_classification
 from src.pipeline.stages.extract import get_extractors, run_extraction
 from src.pipeline.stages.score import run_scoring
 from src.pipeline.stages.seen_filter import filter_already_seen
-from src.pipeline.stages.store import embed_new_items, save_briefing, store_classified_items
+from src.pipeline.stages.store import (
+    embed_new_items_with_status,
+    save_briefing,
+    store_classified_items,
+)
 from src.pipeline.validation import validate_extracted_item
 from src.validators.credibility import CredibilityValidator
 
 logger = get_logger(__name__)
+
+# Cap on how long the CancelledError handler waits to persist the
+# `interrupted` PipelineRun on its own short-lived session (see
+# _persist_interrupted_run) before giving up and re-raising anyway.
+_INTERRUPTED_RUN_SAVE_TIMEOUT_SECONDS = 5.0
+
+
+async def _persist_interrupted_run(
+    *,
+    started_at: datetime,
+    duration_seconds: float,
+    sources_used: list[str],
+    correlation_id: str | None,
+) -> None:
+    """Persist an ``interrupted`` PipelineRun on a new, independent session.
+
+    Called from run_pipeline's ``CancelledError`` handler, where the
+    session passed into run_pipeline may be mid-query when cancelled and is
+    unsafe to reuse (#7) -- a fresh session from the factory is used instead.
+    """
+    factory = get_session_factory()
+    async with factory() as new_session:
+        new_session.add(
+            PipelineRun(
+                started_at=started_at,
+                duration_seconds=duration_seconds,
+                status="interrupted",
+                sources=sources_used,
+                correlation_id=correlation_id,
+            )
+        )
+        await new_session.commit()
 
 
 async def run_pipeline(
@@ -157,11 +195,17 @@ async def run_pipeline(
         )
 
         # 9. Embeddings
+        embed_failed = False
         if settings.embedding_api_key:
-            embedded_count = await embed_new_items(session)
-            logger.info("pipeline_embeddings", count=embedded_count)
+            embedded_count, embed_failed = await embed_new_items_with_status(session)
+            logger.info("pipeline_embeddings", count=embedded_count, failed=embed_failed)
 
-        pipeline_runs_total.labels(status="success").inc()
+        # A failed embedding batch doesn't lose items (they're already
+        # stored) or fail the run outright -- it degrades it, so the
+        # `pipeline_runs` audit trail can tell "healthy" apart from
+        # "items saved, embeddings need attention" (#9).
+        final_status = "degraded" if embed_failed else "success"
+        pipeline_runs_total.labels(status=final_status).inc()
         pipeline_duration_seconds.observe(duration)
 
         logger.info(
@@ -180,7 +224,7 @@ async def run_pipeline(
             PipelineRun(
                 started_at=start,
                 duration_seconds=duration,
-                status="success",
+                status=final_status,
                 sources=sources_used,
                 items_extracted=items_extracted,
                 items_after_dedup=items_after_dedup,
@@ -195,11 +239,40 @@ async def run_pipeline(
 
         return True
 
+    except asyncio.CancelledError:
+        # BaseException, not Exception -- deliberately not merged with the
+        # handler below. A SIGTERM during deploy lands here mid-await; the
+        # session passed into run_pipeline may be mid-query, so persistence
+        # uses its own short-lived session (#7) and this always re-raises:
+        # cancellation must never look like a successful run.
+        duration = (datetime.now(tz=UTC) - start).total_seconds()
+        pipeline_runs_total.labels(status="interrupted").inc()
+        logger.warning("pipeline_interrupted", duration_seconds=round(duration, 1))
+        try:
+            await asyncio.wait_for(
+                _persist_interrupted_run(
+                    started_at=start,
+                    duration_seconds=duration,
+                    sources_used=sources_used,
+                    correlation_id=get_correlation_id(),
+                ),
+                timeout=_INTERRUPTED_RUN_SAVE_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            logger.warning("pipeline_interrupted_run_save_failed", exc_info=True)
+        raise
+
     except Exception as exc:
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         pipeline_runs_total.labels(status="error").inc()
         logger.error("pipeline_failed", error=str(exc), duration_seconds=round(duration, 1))
         try:
+            # The exception may have come from a DB constraint violation,
+            # which leaves the session's transaction aborted -- Postgres
+            # refuses any further statement (including this commit) until
+            # it's rolled back. Without this, the error PipelineRun below
+            # silently fails to save too, and the run vanishes entirely (#4).
+            await session.rollback()
             session.add(
                 PipelineRun(
                     started_at=start,

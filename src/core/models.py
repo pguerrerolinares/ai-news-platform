@@ -145,7 +145,9 @@ class PipelineRun(Base):
     )
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)  # success, empty, error
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # success, empty, error, interrupted, degraded
     sources: Mapped[list] = mapped_column(JSONB, nullable=False)
     items_extracted: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     items_after_dedup: Mapped[int] = mapped_column(Integer, server_default=text("0"))

@@ -182,7 +182,7 @@ async def admin_audit(
 async def admin_pipeline_runs(
     request: Request,
     limit: int = Query(50, ge=1, le=500),
-    status: Literal["success", "empty", "error"] | None = Query(None),
+    status: Literal["success", "empty", "error", "interrupted", "degraded"] | None = Query(None),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[PipelineRunResponse]:

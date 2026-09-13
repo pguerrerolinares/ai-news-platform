@@ -192,6 +192,10 @@ Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoi
 Rate limiting: JWT-aware — guest by `jti`, user by `sub`, fallback to IP. Guests: 30 req/min, users: 120 req/min.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 
+**Observability note**: the `pipeline-cron` process (scheduler) does not expose `/metrics` — only `app.py`
+(the API) does. The real operational source of truth for the pipeline is the `pipeline_runs` table
+(status: `success`/`empty`/`error`/`interrupted`/`degraded`), queried via `/api/admin/pipeline-runs`.
+
 ## Configuration
 
 All config via env vars. See `.env.example` for full list.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -327,16 +328,24 @@ class TestStoreClassifiedItems:
 # save_briefing tests
 # ---------------------------------------------------------------------------
 class TestSaveBriefing:
-    """Verify save_briefing stores trending_count."""
+    """Verify save_briefing issues a single atomic upsert.
+
+    #4: this used to be a SELECT-then-branch (session.execute returning
+    scalar_one_or_none, then either mutate the existing ORM object or
+    session.add a new one) -- exactly the race that let two same-day runs
+    hit an IntegrityError. It's now one INSERT ... ON CONFLICT DO UPDATE
+    (see save_briefing's docstring), so there's no existing/new branch to
+    unit-test with a mocked SELECT result anymore. The accumulate/replace/
+    merge *semantics* (total_items accumulates, per-run stats replace,
+    sources_used unions) depend on real Postgres evaluating the SET clause
+    under a row lock, and are covered by
+    tests/integration/test_pipeline.py::TestSaveBriefing instead.
+    """
 
     @pytest.mark.asyncio
-    async def test_saves_trending_count_new_briefing(self):
-        """New briefing should include trending_count."""
+    async def test_issues_single_upsert_statement_and_commits(self):
+        """No SELECT-then-insert: exactly one execute() call, then commit()."""
         session = _mock_session()
-        # select returns None (no existing briefing)
-        mock_select_result = MagicMock()
-        mock_select_result.scalar_one_or_none.return_value = None
-        session.execute = AsyncMock(return_value=mock_select_result)
 
         await save_briefing(
             session,
@@ -348,29 +357,15 @@ class TestSaveBriefing:
             trending_count=3,
         )
 
-        # Verify session.add was called with a DailyBriefing that has trending_count
-        session.add.assert_called_once()
-        briefing = session.add.call_args[0][0]
-        assert briefing.trending_count == 3
+        session.execute.assert_called_once()
+        session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_saves_trending_count_existing_briefing(self):
-        """Existing briefing replaces per-run stats; only total_items accumulates."""
-        session = _mock_session()
-        # Simulate existing briefing with proper integer fields
-        from src.core.models import DailyBriefing
+    async def test_upsert_targets_date_conflict(self):
+        """The statement is an INSERT with ON CONFLICT (date) DO UPDATE."""
+        from sqlalchemy.dialects.postgresql.dml import Insert, OnConflictDoUpdate
 
-        existing_briefing = MagicMock(spec=DailyBriefing)
-        existing_briefing.total_items = 5
-        existing_briefing.items_extracted = 10
-        existing_briefing.items_after_dedup = 8
-        existing_briefing.items_filtered = 5
-        existing_briefing.trending_count = 1
-        existing_briefing.duration_seconds = 15.0
-        existing_briefing.sources_used = {"sources": ["hackernews"]}
-        mock_select_result = MagicMock()
-        mock_select_result.scalar_one_or_none.return_value = existing_briefing
-        session.execute = AsyncMock(return_value=mock_select_result)
+        session = _mock_session()
 
         await save_briefing(
             session,
@@ -379,63 +374,17 @@ class TestSaveBriefing:
             items_stored=5,
             sources_used=["hackernews"],
             duration_seconds=30.0,
-            trending_count=2,
         )
 
-        # Only total_items accumulates; per-run stats are replaced
-        assert existing_briefing.total_items == 10  # 5 + 5
-        assert existing_briefing.items_filtered == 5  # replaced, not accumulated
-        assert existing_briefing.trending_count == 2  # replaced, not accumulated
-        assert existing_briefing.duration_seconds == 30.0  # replaced, not accumulated
-
-    @pytest.mark.asyncio
-    async def test_save_briefing_replaces_extraction_stats_on_existing(self):
-        """When a briefing already exists, extraction stats are replaced, not accumulated."""
-        from src.core.models import DailyBriefing
-
-        # Simulate existing briefing with prior stats
-        existing_briefing = MagicMock(spec=DailyBriefing)
-        existing_briefing.total_items = 50
-        existing_briefing.items_extracted = 100  # old extraction count
-        existing_briefing.items_after_dedup = 80
-        existing_briefing.items_filtered = 50
-        existing_briefing.trending_count = 5
-        existing_briefing.duration_seconds = 30.0
-        existing_briefing.sources_used = {"sources": ["hackernews"]}
-
-        mock_select_result = MagicMock()
-        mock_select_result.scalar_one_or_none.return_value = existing_briefing
-
-        session = AsyncMock()
-        session.execute = AsyncMock(return_value=mock_select_result)
-        session.commit = AsyncMock()
-
-        await save_briefing(
-            session,
-            items_extracted=20,
-            items_after_dedup=15,
-            items_stored=5,
-            sources_used=["hackernews"],
-            duration_seconds=10.0,
-            trending_count=2,
-        )
-
-        # total_items (= items_stored) should ACCUMULATE: 50 + 5 = 55
-        assert existing_briefing.total_items == 55
-        # Extraction stats should be REPLACED, not accumulated
-        assert existing_briefing.items_extracted == 20
-        assert existing_briefing.items_after_dedup == 15
-        assert existing_briefing.items_filtered == 5
-        assert existing_briefing.trending_count == 2
-        assert existing_briefing.duration_seconds == 10.0
+        stmt = session.execute.call_args[0][0]
+        assert isinstance(stmt, Insert)
+        assert isinstance(stmt._post_values_clause, OnConflictDoUpdate)
+        assert list(stmt._post_values_clause.inferred_target_elements) == ["date"]
 
     @pytest.mark.asyncio
     async def test_trending_count_defaults_to_zero(self):
-        """When trending_count is not passed, it defaults to 0."""
+        """When trending_count is not passed, it defaults to 0 in the insert values."""
         session = _mock_session()
-        mock_select_result = MagicMock()
-        mock_select_result.scalar_one_or_none.return_value = None
-        session.execute = AsyncMock(return_value=mock_select_result)
 
         await save_briefing(
             session,
@@ -446,42 +395,8 @@ class TestSaveBriefing:
             duration_seconds=30.0,
         )
 
-        briefing = session.add.call_args[0][0]
-        assert briefing.trending_count == 0
-
-    @pytest.mark.asyncio
-    async def test_save_briefing_merges_sources_used(self):
-        """When a briefing already exists, sources_used should merge, not replace."""
-        from src.core.models import DailyBriefing
-
-        existing_briefing = MagicMock(spec=DailyBriefing)
-        existing_briefing.total_items = 10
-        existing_briefing.items_extracted = 20
-        existing_briefing.items_after_dedup = 15
-        existing_briefing.items_filtered = 10
-        existing_briefing.trending_count = 2
-        existing_briefing.duration_seconds = 15.0
-        existing_briefing.sources_used = {"sources": ["arxiv", "hackernews"]}
-
-        mock_select_result = MagicMock()
-        mock_select_result.scalar_one_or_none.return_value = existing_briefing
-
-        session = AsyncMock()
-        session.execute = AsyncMock(return_value=mock_select_result)
-        session.commit = AsyncMock()
-
-        await save_briefing(
-            session,
-            items_extracted=10,
-            items_after_dedup=8,
-            items_stored=5,
-            sources_used=["hackernews", "reddit"],
-            duration_seconds=20.0,
-            trending_count=1,
-        )
-
-        # sources_used should be merged: arxiv + hackernews + reddit (sorted)
-        assert existing_briefing.sources_used == {"sources": ["arxiv", "hackernews", "reddit"]}
+        stmt = session.execute.call_args[0][0]
+        assert stmt.compile().params["trending_count"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -976,6 +891,152 @@ class TestRunPipelineExceptionPath:
             with pytest.raises(ValueError, match="Validation crashed"):
                 await run_pipeline(session)
 
+    @pytest.mark.asyncio
+    async def test_rolls_back_before_persisting_error_run(self):
+        """#4: an IntegrityError (e.g. from the old save_briefing race)
+        leaves the session's transaction aborted. Without a rollback first,
+        the error PipelineRun's own commit() would ALSO fail against the
+        aborted transaction, and the run would vanish silently instead of
+        being recorded as `error`."""
+        from sqlalchemy.exc import IntegrityError, PendingRollbackError
+
+        class _AbortedTransactionSession:
+            """Minimal stub reproducing real SQLAlchemy/asyncpg behavior:
+            commit() (and any further execute()) raises until rollback() is
+            called -- unlike a plain AsyncMock, which would let commit()
+            succeed unconditionally and hide the bug this test targets."""
+
+            def __init__(self) -> None:
+                self.added: list[object] = []
+                self._aborted = True
+                self.durably_committed = False
+                self.rollback_calls = 0
+
+            def add(self, obj: object) -> None:
+                self.added.append(obj)
+
+            async def execute(self, *args, **kwargs):
+                raise IntegrityError("boom", {}, Exception("unique constraint"))
+
+            async def commit(self) -> None:
+                if self._aborted:
+                    raise PendingRollbackError(
+                        "This Session's transaction has been rolled back due to a "
+                        "previous exception during flush."
+                    )
+                self.durably_committed = True
+
+            async def rollback(self) -> None:
+                self.rollback_calls += 1
+                self._aborted = False
+
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+        )
+        session = _AbortedTransactionSession()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch(
+                "src.pipeline.pipeline.run_classification",
+                new_callable=AsyncMock,
+                return_value=classified,
+            ),
+            patch("src.pipeline.pipeline.run_scoring", return_value=classified),
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+        ):
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = classified
+            mock_validator_cls.return_value = mock_validator
+
+            with pytest.raises(IntegrityError):
+                await run_pipeline(session)
+
+        assert session.rollback_calls == 1
+        assert session.durably_committed is True
+        assert any(getattr(r, "status", None) == "error" for r in session.added)
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_persists_interrupted_run_and_propagates(self):
+        """#7: SIGTERM during a deploy raises CancelledError mid-pipeline.
+        It must be persisted as `interrupted` (on a NEW session -- the one
+        passed into run_pipeline may be mid-query) and always re-raised,
+        never swallowed into a fake success."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+        )
+        session = _mock_session()
+
+        new_session = AsyncMock()
+        new_session.add = MagicMock()  # session.add() is sync in the real API
+        new_session_cm = AsyncMock()
+        new_session_cm.__aenter__ = AsyncMock(return_value=new_session)
+        new_session_cm.__aexit__ = AsyncMock(return_value=False)
+        factory = MagicMock(return_value=new_session_cm)
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch("src.pipeline.pipeline.get_session_factory", return_value=factory),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                side_effect=asyncio.CancelledError(),
+            ),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await run_pipeline(session)
+
+        # The original (possibly mid-query) session must not be reused.
+        session.add.assert_not_called()
+        new_session.add.assert_called_once()
+        run = new_session.add.call_args[0][0]
+        assert run.status == "interrupted"
+        new_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_still_propagates_when_interrupted_save_fails(self):
+        """M1 (review pipeline-runs-robustez): if persisting the `interrupted`
+        PipelineRun itself fails (DB down, timeout...), the CancelledError
+        must still propagate -- cancellation must never look like a
+        successful run, not even when its own bookkeeping fails."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+        )
+        session = _mock_session()
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                side_effect=asyncio.CancelledError(),
+            ),
+            patch(
+                "src.pipeline.pipeline._persist_interrupted_run",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("db down"),
+            ),
+            patch("src.pipeline.pipeline.logger") as mock_logger,
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await run_pipeline(session)
+
+        mock_logger.warning.assert_any_call("pipeline_interrupted_run_save_failed", exc_info=True)
+
 
 # ---------------------------------------------------------------------------
 # Edge-case tests (M9 Task 6)
@@ -1161,7 +1222,7 @@ class TestPipelineEdgeCases:
             ),
             patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
             patch(
-                "src.pipeline.pipeline.embed_new_items",
+                "src.pipeline.pipeline.embed_new_items_with_status",
                 new_callable=AsyncMock,
             ) as mock_embed,
         ):
@@ -1172,8 +1233,63 @@ class TestPipelineEdgeCases:
             result = await run_pipeline(session)
 
         assert result is True
-        # embed_new_items should NOT have been called
+        # embed_new_items_with_status should NOT have been called
         mock_embed.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_embedding_failure_marks_run_degraded(self):
+        """#9: a failed embedding batch degrades the run but doesn't lose
+        the already-stored items or fail the run outright."""
+        settings = _mock_settings(
+            enabled_sources="hackernews",
+            openai_api_key="",
+            enable_news_validation=False,
+            embedding_api_key="sk-embed-test",
+        )
+        session = _mock_session()
+        items = [_make_extracted_item()]
+        classified = [_make_classified_item()]
+
+        with (
+            patch("src.pipeline.pipeline.get_settings", return_value=settings),
+            patch(
+                "src.pipeline.pipeline.run_extraction",
+                new_callable=AsyncMock,
+                return_value=items,
+            ),
+            patch("src.pipeline.pipeline.deduplicate_items", return_value=items),
+            patch(
+                "src.pipeline.pipeline.run_classification",
+                new_callable=AsyncMock,
+                return_value=classified,
+            ),
+            patch(
+                "src.pipeline.pipeline.run_scoring",
+                return_value=classified,
+            ),
+            patch("src.pipeline.pipeline.CredibilityValidator") as mock_validator_cls,
+            patch(
+                "src.pipeline.pipeline.store_classified_items",
+                new_callable=AsyncMock,
+                return_value=1,
+            ),
+            patch("src.pipeline.pipeline.save_briefing", new_callable=AsyncMock),
+            patch(
+                "src.pipeline.pipeline.embed_new_items_with_status",
+                new_callable=AsyncMock,
+                return_value=(0, True),  # nothing embedded, batch failed
+            ),
+        ):
+            mock_validator = AsyncMock()
+            mock_validator.validate.return_value = classified
+            mock_validator_cls.return_value = mock_validator
+
+            result = await run_pipeline(session)
+
+        assert result is True
+        run = session.add.call_args[0][0]
+        assert run.status == "degraded"
+        assert run.items_stored == 1  # items are NOT lost when embeddings fail
 
 
 # ---------------------------------------------------------------------------

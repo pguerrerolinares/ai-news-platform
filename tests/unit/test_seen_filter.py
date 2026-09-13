@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.core.metrics import items_filtered_total
 from src.core.text_utils import TITLE_SIMILARITY_THRESHOLD, title_similarity
 from src.extractors.base import ExtractedItem
 from src.pipeline.stages.seen_filter import filter_already_seen
@@ -48,6 +49,20 @@ class TestUrlHashFilter:
             result = await filter_already_seen(session, [item])
 
         assert len(result) == 0
+
+    async def test_url_dedup_increments_items_filtered_metric(self):
+        """#31: items_filtered_total (defined but never incremented before
+        this) must go up when Pass 1 drops an unchanged duplicate."""
+        item = _make_item("https://example.com/already-seen")
+        session = _mock_session_two_queries([(item.url_hash, item.content_hash)], [])
+
+        before = items_filtered_total.labels(reason="url_dedup")._value.get()
+        with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
+            mock_settings.return_value.seen_window_days = 7
+            await filter_already_seen(session, [item])
+        after = items_filtered_total.labels(reason="url_dedup")._value.get()
+
+        assert after == before + 1
 
     async def test_keeps_items_not_in_db(self):
         """Items whose url_hash is NOT in DB pass through."""
@@ -138,6 +153,23 @@ class TestTitleSimilarityFilter:
             result = await filter_already_seen(session, [item])
 
         assert len(result) == 1
+
+    async def test_title_dedup_increments_items_filtered_metric(self):
+        """#31: items_filtered_total(reason="title_similarity") goes up
+        when Pass 2 drops a cross-source duplicate."""
+        item = _make_item(
+            "https://example.com/new-source",
+            title="GPT-5 Released by OpenAI today",
+        )
+        session = _mock_session_two_queries([], ["GPT-5 Released by OpenAI"])
+
+        before = items_filtered_total.labels(reason="title_similarity")._value.get()
+        with patch("src.pipeline.stages.seen_filter.get_settings") as mock_settings:
+            mock_settings.return_value.seen_window_days = 7
+            await filter_already_seen(session, [item])
+        after = items_filtered_total.labels(reason="title_similarity")._value.get()
+
+        assert after == before + 1
 
     async def test_no_url_item_checked_by_title(self):
         """Items without URL still go through title similarity check."""

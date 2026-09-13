@@ -131,38 +131,57 @@ async def save_briefing(
     duration_seconds: float,
     trending_count: int = 0,
 ) -> None:
-    """Upsert the daily briefing record."""
+    """Upsert the daily briefing record.
+
+    Uses a single ``INSERT ... ON CONFLICT (date) DO UPDATE`` instead of a
+    SELECT-then-branch: two pipeline runs finishing close together on the
+    same day (e.g. two source tiers) used to race the SELECT and one would
+    hit an IntegrityError on the INSERT (#4). The whole read-modify-write
+    now happens atomically under Postgres's row lock, which also makes the
+    total_items accumulation and sources_used merge below correct under
+    real concurrency, not just sequential calls.
+
+    Semantics (same as the previous branch-based code): total_items
+    accumulates across runs; per-run stats (items_extracted,
+    items_after_dedup, items_filtered, trending_count, duration_seconds)
+    reflect the latest run; sources_used is the union of sources seen so
+    far today.
+    """
     today = datetime.now(tz=UTC).date()
 
-    existing = await session.execute(select(DailyBriefing).where(DailyBriefing.date == today))
-    briefing = existing.scalar_one_or_none()
-
-    if briefing:
-        briefing.total_items = (briefing.total_items or 0) + items_stored
-        briefing.items_extracted = items_extracted
-        briefing.items_after_dedup = items_after_dedup
-        briefing.items_filtered = items_stored
-        briefing.trending_count = trending_count
-        briefing.duration_seconds = duration_seconds
-        existing_sources = set(
-            briefing.sources_used.get("sources", []) if briefing.sources_used else []
-        )
-        existing_sources.update(sources_used)
-        briefing.sources_used = {"sources": sorted(existing_sources)}
-    else:
-        session.add(
-            DailyBriefing(
-                date=today,
-                total_items=items_stored,
-                items_extracted=items_extracted,
-                items_after_dedup=items_after_dedup,
-                items_filtered=items_stored,
-                trending_count=trending_count,
-                duration_seconds=duration_seconds,
-                sources_used={"sources": sources_used},
-            )
-        )
-
+    stmt = insert(DailyBriefing).values(
+        date=today,
+        total_items=items_stored,
+        items_extracted=items_extracted,
+        items_after_dedup=items_after_dedup,
+        items_filtered=items_stored,
+        trending_count=trending_count,
+        duration_seconds=duration_seconds,
+        sources_used={"sources": sources_used},
+    )
+    # Correlated subquery merging {"sources": [...]} arrays: dedup via
+    # jsonb_agg(DISTINCT ...), sorted for a deterministic column value.
+    merged_sources_used = text(
+        "(SELECT jsonb_build_object("
+        "'sources', COALESCE(jsonb_agg(DISTINCT src ORDER BY src), '[]'::jsonb)"
+        ") FROM jsonb_array_elements_text("
+        "COALESCE(daily_briefings.sources_used -> 'sources', '[]'::jsonb) || "
+        "COALESCE(excluded.sources_used -> 'sources', '[]'::jsonb)"
+        ") AS src)"
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["date"],
+        set_={
+            "total_items": func.coalesce(DailyBriefing.total_items, 0) + stmt.excluded.total_items,
+            "items_extracted": stmt.excluded.items_extracted,
+            "items_after_dedup": stmt.excluded.items_after_dedup,
+            "items_filtered": stmt.excluded.items_filtered,
+            "trending_count": stmt.excluded.trending_count,
+            "duration_seconds": stmt.excluded.duration_seconds,
+            "sources_used": merged_sources_used,
+        },
+    )
+    await session.execute(stmt)
     await session.commit()
 
 
@@ -170,7 +189,33 @@ async def embed_new_items(
     session: AsyncSession,
     embed_service: EmbeddingService | None = None,
 ) -> int:
-    """Generate embeddings for items that don't have one yet."""
+    """Generate embeddings for items that don't have one yet.
+
+    Thin wrapper over :func:`embed_new_items_with_status` that keeps the
+    original ``int`` return type. Signature is public API used by
+    ``scripts/recover_outage.py`` (parallel branch) and ``scripts/backfill.py``
+    -- kept unchanged on purpose. Callers that need to tell "nothing to
+    embed" apart from "the batch failed" (e.g. to mark a pipeline run
+    ``degraded``, see #9) should call ``embed_new_items_with_status`` instead.
+    """
+    count, _failed = await embed_new_items_with_status(session, embed_service)
+    return count
+
+
+async def embed_new_items_with_status(
+    session: AsyncSession,
+    embed_service: EmbeddingService | None = None,
+) -> tuple[int, bool]:
+    """Generate embeddings for items that don't have one yet.
+
+    Returns ``(count, failed)``. Before this, ``embed_new_items`` returned
+    a bare ``0`` for both "nothing to embed" and "the batch raised and was
+    rolled back" (#9) -- indistinguishable from the caller's side, so a
+    real embedding outage looked identical to a quiet, healthy run.
+    ``failed`` is True only in the second case. The stale-item requery
+    below (outer join + limit 500) already retries a failed batch on the
+    next pipeline run; this function only adds the missing signal.
+    """
     settings = get_settings()
 
     if embed_service is None:
@@ -192,7 +237,7 @@ async def embed_new_items(
 
     if not items:
         logger.info("embed_no_new_items")
-        return 0
+        return 0, False
 
     try:
         texts = [embed_service.prepare_text(item.title, item.summary) for item in items]
@@ -210,7 +255,7 @@ async def embed_new_items(
         await session.execute(stmt)
         await session.commit()
         logger.info("embed_items_stored", count=len(items))
-        return len(items)
+        return len(items), False
 
     except Exception as exc:
         from src.core.metrics import embedding_failures_total
@@ -218,4 +263,4 @@ async def embed_new_items(
         embedding_failures_total.inc()
         logger.error("embed_items_failed", error=str(exc), item_count=len(items))
         await session.rollback()
-        return 0
+        return 0, True
