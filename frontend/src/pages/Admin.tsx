@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { apiGet } from '@/lib/api'
 import type { SourceFreshness, PipelineRun, AuditReport, AuditDailyRow, HealthAlert } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -639,7 +639,7 @@ function HealthAlertsCard({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {loading ? (
+        {loading && checkedAt === null ? (
           <div className="space-y-2">
             <Skeleton className="h-6 w-full" />
             <Skeleton className="h-6 w-full" />
@@ -691,6 +691,7 @@ export default function Admin() {
   const [healthLoading, setHealthLoading] = useState(true)
   const [healthError, setHealthError] = useState('')
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
+  const healthInflight = useRef(false)
 
   // -- freshness --
   const [freshness, setFreshness] = useState<SourceFreshness[]>([])
@@ -713,6 +714,8 @@ export default function Admin() {
   const [auditDays, setAuditDays] = useState('14')
 
   const fetchHealth = useCallback(async () => {
+    if (healthInflight.current) return // don't stack requests (60s interval + manual refresh)
+    healthInflight.current = true
     setHealthLoading(true)
     setHealthError('')
     try {
@@ -723,6 +726,7 @@ export default function Admin() {
       setHealthError(err instanceof Error ? err.message : 'Error loading health')
     } finally {
       setHealthLoading(false)
+      healthInflight.current = false
     }
   }, [])
 
