@@ -131,6 +131,7 @@ ai-news-platform/
 │   │   ├── health.py                 # Scheduler liveness: SCHEDULER_STALE_AFTER (45m) + last_run_started_at(), shared by scripts/pipeline_healthcheck.py and src/pipeline/health_rules.py
 │   │   ├── health_rules.py           # Pure rules a-f for GET /api/admin/health (no session/settings) — see src/api/routes/admin.py::admin_health
 │   │   ├── circuit_breaker.py        # Per-source failure tracking
+│   │   ├── backfill/                 # Historical backfill (scripts/backfill.py) + recovery.py (2026-08-22→09-12 LLM outage, scripts/recover_outage.py); checkpoint writes are atomic
 │   │   └── stages/                   # Composable pipeline stages
 │   │       ├── extract.py            # Source extraction + dedup + circuit breaker
 │   │       ├── classify.py           # Two-phase classification (keyword→LLM) + event dedup + variant collapse
@@ -160,6 +161,8 @@ ai-news-platform/
   Constraint: valid_topic CHECK (models, papers, agents, products, tools, open_source, regulation)
 - **raw_extractions**: id(SERIAL PK), title, url, source, extracted_at, data(JSONB) — staging table
 - **daily_briefings**: date(DATE PK), total_items, items_extracted, items_after_dedup, items_filtered, trending_count, duration_seconds, sources_used(JSONB), generated_at
+- **pipeline_runs**: id(UUID PK), started_at(TIMESTAMPTZ), duration_seconds, status(String(20): success/empty/error/interrupted/degraded), sources(JSONB), items_extracted, items_after_dedup, items_seen_filtered, items_classified, items_validated, items_stored, error_message(sanitized when served), correlation_id
+  Indexes: started_at, status. `interrupted` = run cancelled (e.g. redeploy SIGTERM), persisted on its own session; `degraded` = run stored items but an embedding batch failed.
 - **item_embeddings**: item_id(UUID FK→news_items PK), model(TEXT PK), embedding(vector(512)), created_at
   Indexes: HNSW(embedding vector_cosine_ops)
 
@@ -186,6 +189,9 @@ ai-news-platform/
 | GET | /api/sources | Guest/JWT | Sources with item counts |
 | GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution |
 | POST | /api/chat | JWT (`require_auth`) | RAG Q&A (SSE streaming, 10/min) — inaccessible from the web: there is no current issuer of full (non-guest) user tokens. Kept for a possible future token issuer (e.g. MCP) so the LLM spend stays gated, not open to any guest. |
+| GET | /api/admin/audit | Guest/JWT | Item audit (dedup/scoring details) |
+| GET | /api/admin/pipeline-runs | Guest/JWT | `pipeline_runs` history with per-stage counts (error messages sanitized) |
+| GET | /api/admin/freshness | Guest/JWT | Per-source freshness (last item, gap) |
 | GET | /api/admin/health | Guest/JWT | Health alerts derived from `pipeline_runs`, source freshness and config (rules in `src/pipeline/health_rules.py`); generic messages, no setting values leak |
 
 Pagination: all paginated endpoints return `X-Total-Count` header.

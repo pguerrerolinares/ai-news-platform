@@ -64,6 +64,8 @@ nav:
           - Remote MCP Server via Streamable-HTTP: adr/001-remote-mcp-server.md
           - "ADR-002: Web pública guest-only (fin de auth de usuarios)": adr/002-web-publica-guest-only.md
           - "ADR-003: LLM classifier en kimi-k2.6 sin thinking, fail-loud": adr/003-llm-kimi-k26-fail-loud.md
+          - "ADR-004: MCP healthcheck y límite de memoria": adr/004-mcp-healthcheck-and-memory-limit.md
+          - "ADR-005: Búsqueda FTS por prefijo": adr/005-search-prefix-fts.md
   - Frontend:
       - Frontend (React + Vite) Setup: frontend/setup.md
   - Runbooks:
