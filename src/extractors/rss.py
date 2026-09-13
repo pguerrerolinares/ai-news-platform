@@ -79,6 +79,7 @@ class RSSExtractor(BaseExtractor):
             async with httpx.AsyncClient(
                 timeout=30,
                 follow_redirects=False,
+                trust_env=False,
                 headers={"User-Agent": "AI-News-Platform/1.0"},
             ) as client:
                 results = await asyncio.gather(*[_fetch_one(url) for url in feeds])

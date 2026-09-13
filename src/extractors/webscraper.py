@@ -193,6 +193,7 @@ class WebScraperExtractor(BaseExtractor):
             async with httpx.AsyncClient(
                 timeout=timeout,
                 follow_redirects=False,
+                trust_env=False,
                 headers={"User-Agent": _USER_AGENT},
             ) as client:
                 for index_url in urls:

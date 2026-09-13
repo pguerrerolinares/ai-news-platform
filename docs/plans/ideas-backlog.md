@@ -282,6 +282,7 @@
 - [x] **Per-user rate limiting** — Done (2026-03-04). Rate limiting now JWT-based:
   guest tokens keyed by `jti`, authenticated users by `sub`, fallback to IP.
   See `src/api/ratelimit.py:get_rate_limit_key()`.
+  (superseded 2026-09-13: per-IP only, see AGENTS.md)
 
 - [x] **Public access with guest tokens** — Done (2026-03-04). `POST /api/auth/guest`
   issues 24h read-only JWTs. Public endpoints use `require_auth_or_guest`. Chat

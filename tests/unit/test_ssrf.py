@@ -93,6 +93,15 @@ class TestAssertSafeUrl:
         ):
             await assert_safe_url("https://[::1]/admin")
 
+    async def test_shared_address_space_raises(self):
+        """100.64.0.0/10 (CGNAT / Tailscale, also used by cloud metadata like Alibaba's
+        100.100.100.200) is not RFC 1918 private but must still be blocked."""
+        with (
+            _mock_loop_getaddrinfo(return_value=_make_private_addrinfo("100.100.100.200")),
+            pytest.raises(ValueError, match="private/reserved"),
+        ):
+            await assert_safe_url("https://metadata.example.com/latest")
+
 
 # ---------------------------------------------------------------------------
 # is_safe_url — boolean wrapper

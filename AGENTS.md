@@ -107,7 +107,7 @@ ai-news-platform/
 │   │   ├── models.py                 # ORM: NewsItem, DailyBriefing, ItemEmbedding, PipelineRun, RawExtraction
 │   │   ├── logging.py                # structlog + correlation IDs
 │   │   ├── metrics.py                # Prometheus counters + histograms
-│   │   └── ssrf.py                   # Shared SSRF protection (DNS-based IP validation)
+│   │   └── ssrf.py                   # Shared SSRF protection (validate all resolved IPs, pin connection to validated IP)
 │   ├── extractors/                   # 9 extractors (HN keyword, HN leading, arXiv, RSS, GitHub trending, GitHub search, HF, WebScraper[httpx+readability]; Reddit present but disabled)
 │   │   │                            # HN leading: HackerNewsLeadingExtractor — per-domain Algolia url query for authoritative AI domains (anthropic.com, openai.com, ...) caught at 0 points; emits source="hackernews", metadata.lane="leading"
 │   │   │                            # GitHub: id "github" = GitHubTrendingExtractor scrapes github.com/trending (HTML), filters AI repos by keyword; id "github_search" = GitHubExtractor (search API)
@@ -192,7 +192,7 @@ Pagination: all paginated endpoints return `X-Total-Count` header.
 Errors: `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}`.
 Auth: Guest token only (24h TTL, read-only). `Authorization: Bearer`.
 Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests, and nothing currently issues non-guest tokens).
-Rate limiting: JWT-aware — guest by `jti`, user by `sub`, fallback to IP. Guests: 30 req/min, users: 120 req/min.
+Rate limiting: per client IP (`get_client_ip` — rightmost non-private X-Forwarded-For, trusts only private/docker-network proxies). Per-route limits (10-30 req/min, see `@limiter.limit(...)` in each router). MemoryStorage (slowapi default): per-worker counters, not shared across processes.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 Caching: `items`, `briefings`, `stats`, `sources` and `topics` set `Cache-Control: public, max-age=60` on 2xx responses via `src/api/caching.set_cache_header()`. Never on `search`, `admin`, `auth`, `chat`, or any error response. `items`/`briefings` listing queries also defer `full_text`/`search_vector` (never `metadata_`, read by `composite_scorer.score_newsitem`) since `NewsItemResponse` never serializes them.
 Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`) filters by `settings.embedding_model` so results never mix distances from different embedding models.
