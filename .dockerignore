@@ -11,6 +11,9 @@ __pycache__
 docs/
 tests/
 scripts/
+# Run inside pipeline-cron: HEALTHCHECK (Dockerfile.pipeline) and one-off outage recovery
+!scripts/pipeline_healthcheck.py
+!scripts/recover_outage.py
 web/
 frontend/node_modules/
 *.md
