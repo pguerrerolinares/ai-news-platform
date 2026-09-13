@@ -1,5 +1,14 @@
 # Backup & Restore Runbook
 
+> **Compose vigente**: producción corre con `docker-compose.coolify.yml` (Coolify),
+> no con el `docker-compose.yml` standalone que asumen los comandos `docker compose`
+> de abajo — ver la nota en `docs/runbooks/deployment.md`. Contra Coolify, sustituye
+> `docker compose ...` por `docker compose -f docker-compose.coolify.yml ...` (o
+> ejecuta los `docker exec`/`psql` equivalentes contra el contenedor `db` real). El
+> cron de backup (`./scripts/backup.sh`) corre en el host, fuera de Coolify — su
+> instalación efectiva en el VPS actual no está verificada (ver hallazgo #3,
+> excluido de esta campaña).
+
 ## Automated Backups
 
 Backups run daily at 2:00 UTC via cron:

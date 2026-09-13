@@ -1,5 +1,19 @@
 # Deployment Runbook
 
+> **Compose vigente en producción**: el VPS actual despliega con Coolify usando
+> `docker-compose.coolify.yml` (Traefik hace TLS/routing; ver sección 3b y
+> `docs/adr/001-remote-mcp-server.md`). Es lo único que corre hoy en `pguerrero.me`.
+>
+> `docker-compose.yml` (nginx + certbot propios, sin Coolify) es la ruta **standalone**
+> descrita en las secciones 1-2 de abajo, y **no se usa en producción desde que se
+> adoptó Coolify**. Además, sus servicios `api`/`pipeline`/`pipeline-cron` usan
+> `build: .` sin `dockerfile:`, y no hay ya un `Dockerfile` en la raíz (se separó en
+> `Dockerfile.api` / `Dockerfile.pipeline` / `Dockerfile.mcp`) — ese `docker compose up`
+> falla tal cual está hoy. Tratar las secciones 1-2 y "Rollback" como referencia
+> histórica, no como procedimiento probado; para producción real, usar la sección 3b
+> y el resto de este runbook adaptado a `docker-compose.coolify.yml` (comandos
+> `docker compose -f docker-compose.coolify.yml ...`).
+
 ## Initial VPS Setup (Hetzner CX22)
 
 ### 1. Server Provisioning
@@ -61,7 +75,7 @@ If deploying via Coolify (`docker-compose.coolify.yml`), Traefik handles SSL via
 - Both use `expose` (NOT `ports`) so traffic routes through Traefik
 - Traefik terminates SSL with Let's Encrypt and forwards internally
 - HTTP requests are redirected to HTTPS via middleware
-- The `mcp` service is reachable at `https://pguerrero.me/mcp` (MCP router has priority=10 to match before the frontend catch-all)
+- The `mcp` service is reachable at `https://pguerrero.me/ai-news/mcp` (MCP router has priority=100, above the frontend's 50, so it matches before the SPA catch-all — see `docs/adr/001-remote-mcp-server.md`)
 
 **Configuration:**
 1. In Coolify UI → **Environment Variables** → set `CORS_ORIGINS=https://pguerrero.me`

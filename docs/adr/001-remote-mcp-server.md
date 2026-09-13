@@ -4,6 +4,12 @@
 **Status**: Accepted
 **Track**: B (medium risk — new public endpoint, no DB schema change)
 
+> **Enmienda (2026-09-13)**: la ruta pública migró de `/mcp` a `/ai-news/mcp` (site
+> completo montado bajo el prefijo `/ai-news`, ver `docs/MIGRATION-ai-news-path.md`).
+> Las URLs `https://pguerrero.me/mcp` de este documento son históricas: la decisión
+> y el diseño de Traefik/rate-limit descritos abajo siguen vigentes sin cambios de
+> código, solo cambió el `PathPrefix` público.
+
 ## Context
 
 The MCP server (`src/mcp/server.py`) was originally designed for local stdio transport (Claude Code CLI). Publishing it as a remote endpoint at `https://pguerrero.me/mcp` allows any MCP-compatible client (Claude.ai, third-party agents) to access news data without a local install.
