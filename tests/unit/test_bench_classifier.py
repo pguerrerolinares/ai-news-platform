@@ -13,8 +13,11 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+
+import src.classifiers.llm as llm_module
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "bench_classifier.py"
@@ -136,31 +139,51 @@ class TestScoreRun:
         assert score.false_positives == 0
 
 
+class _TopicMismatchClient:
+    """Always answers is_news=true for a topic NOT in enabled_topics.
+
+    Used to prove the bench cannot accept what production's
+    `LLMClassifier._classify_batch` would reject (F1): a real pipeline run
+    drops any entry whose topic isn't enabled, no matter how high its
+    relevance or how true its is_news flag.
+    """
+
+    def __init__(self) -> None:
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    async def _create(self, **_kwargs: object) -> SimpleNamespace:
+        content = json.dumps([{"idx": 0, "is_news": True, "topic": "crypto", "relevance": 0.9}])
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+        )
+
+
 # ---------------------------------------------------------------------------
-# fake client / dry-run wiring uses the production prompt+parser
+# The bench must use production's actual accept/reject decision, not just
+# is_news + relevance -- otherwise it accepts what the pipeline rejects (F1).
 # ---------------------------------------------------------------------------
-class TestDryRunUsesProductionPromptAndParser:
+class TestBenchMatchesProductionDecision:
     async def test_classify_dataset_calls_production_build_prompt(self, tmp_path, monkeypatch):
         path = _write_dataset(tmp_path / "ds.jsonl", SYNTHETIC_ROWS[:2])
         labeled = bench_classifier.load_dataset(path)
 
         calls: list[str] = []
-        original = bench_classifier._build_prompt
+        original = llm_module._build_prompt
 
         def spy(batch, topics_info):
             prompt = original(batch, topics_info)
             calls.append(prompt)
             return prompt
 
-        monkeypatch.setattr(bench_classifier, "_build_prompt", spy)
+        monkeypatch.setattr(llm_module, "_build_prompt", spy)
 
         client = bench_classifier.FakeLLMClient()
-        predictions, _chars_in, _chars_out = await bench_classifier.classify_dataset(
+        predictions = await bench_classifier.classify_dataset(
             labeled,
             client=client,
             model="fake-model",
-            temperature=0.6,
-            extra_body=None,
+            enabled_topics=["models"],
             min_relevance=0.8,
             topics_info="- models: AI models",
         )
@@ -168,6 +191,24 @@ class TestDryRunUsesProductionPromptAndParser:
         assert '<item_content idx="0">' in calls[0]
         assert isinstance(predictions, dict)
         assert set(predictions.keys()) == {0, 1}
+
+    async def test_rejects_item_whose_topic_is_not_enabled(self, tmp_path):
+        """Production's `_classify_batch` drops entries with a disabled topic
+        (`if topic not in enabled_topics: continue`) regardless of is_news/
+        relevance. The bench must mirror that, not just check is_news+relevance.
+        """
+        path = _write_dataset(tmp_path / "ds.jsonl", [SYNTHETIC_ROWS[0]])
+        labeled = bench_classifier.load_dataset(path)
+
+        predictions = await bench_classifier.classify_dataset(
+            labeled,
+            client=_TopicMismatchClient(),
+            model="fake-model",
+            enabled_topics=["models"],  # "crypto" is NOT in here
+            min_relevance=0.8,
+            topics_info="- models: AI models",
+        )
+        assert predictions == {0: False}
 
 
 # ---------------------------------------------------------------------------

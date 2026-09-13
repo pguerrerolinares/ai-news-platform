@@ -1,5 +1,5 @@
-"""Benchmark the production LLM classifier prompt/parser against a hand-labeled
-dataset, reproducing the recall/false-positive/cost metrics from
+"""Benchmark the production LLM classifier against a hand-labeled dataset,
+reproducing the recall/false-positive/cost metrics from
 docs/adr/003-llm-kimi-k26-fail-loud.md.
 
 The hand-labeled dataset used for ADR-003 (166 items, single annotator) is NOT
@@ -10,27 +10,26 @@ in the repo. Supply your own as a JSONL file, one item per line:
 Fields:
     title   (required) str
     text    (optional) str
-    url     (optional) str
+    url     (optional) str -- stored for reference, not sent to the classifier
     source  (optional) str, defaults to "bench"
     label   (required) one of "news" / "not_news" / "ambiguous"
             ("ambiguous" is counted but excluded from recall/FP, same as ADR-003)
 
-This script imports the *production* prompt builder (`_build_prompt`) and
-parser (`_parse_llm_json`) from `src.classifiers.llm` -- it does not
-reimplement them. It replicates the classification decision itself
-(is_news and relevance >= MIN_RELEVANCE_SCORE) rather than calling
-`LLMClassifier.classify()` directly, so the topic list and model are explicit
-CLI/settings inputs instead of hidden inside that method.
-
-Model options (temperature, extra_body) are read from settings
+This script imports the production `LLMClassifier._classify_batch` from
+`src.classifiers.llm` -- prompt, parser, AND the accept/reject decision
+(is_news, enabled topic, relevance >= MIN_RELEVANCE_SCORE) -- so the bench
+cannot drift from what the pipeline actually does. `--model` and the enabled
+topics are explicit inputs; temperature/extra_body come from settings
 (OPENAI_TEMPERATURE / OPENAI_EXTRA_BODY), same knobs production uses -- set
 them to match whichever --model you're benchmarking (e.g. kimi-k3 requires
-OPENAI_TEMPERATURE=1.0).
+OPENAI_TEMPERATURE=1.0). A non-parseable LLM response raises `LLMParseError`
+and aborts the run (fail-loud): ADR-003 measured "LLM only", so silently
+falling back to keywords here would contaminate the metric.
 
-Cost is an ESTIMATE: `llm_call` (production code) discards token usage, so
-this script approximates prompt/completion tokens via a chars/4 heuristic and
-multiplies by the model's published price. Unknown models print "n/a", same
-as ADR-003 did for gpt-5.4-mini's daily projection.
+Cost comes from the API-reported token usage (`response.usage`), captured by
+wrapping the client (`UsageRecordingClient`) -- no change to production code.
+It's multiplied by the model's published price (ADR-003). Cost prints "n/a"
+if the API returned no usage, or the model has no listed price.
 
 Usage:
     python scripts/bench_classifier.py --dataset labels.jsonl --model kimi-k2.6 --runs 2
@@ -53,7 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import openai
 
 from src.classifiers.keyword import TOPIC_DEFINITIONS
-from src.classifiers.llm import BATCH_SIZE, SYSTEM_MESSAGE, _build_prompt, _parse_llm_json, llm_call
+from src.classifiers.llm import BATCH_SIZE, LLMClassifier
 from src.core.config import get_settings
 from src.extractors.base import ExtractedItem
 
@@ -94,7 +93,8 @@ class FakeLLMClient:
     prompt building, parsing, scoring, table rendering) without a real API
     key or network access. It alternates is_news True/False by item index --
     the resulting "metrics" are meaningless and must never be read as real
-    benchmark numbers.
+    benchmark numbers. Reports a deterministic fake `usage` (chars/4) so the
+    dry-run also exercises the cost column.
     """
 
     def __init__(self) -> None:
@@ -116,7 +116,37 @@ class FakeLLMClient:
         content = json.dumps(fake_results)
         message = SimpleNamespace(content=content)
         choice = SimpleNamespace(message=message)
-        return SimpleNamespace(choices=[choice])
+        usage = SimpleNamespace(
+            prompt_tokens=len(user_prompt) // 4,
+            completion_tokens=len(content) // 4,
+        )
+        return SimpleNamespace(choices=[choice], usage=usage)
+
+
+class UsageRecordingClient:
+    """Wraps an OpenAI-compatible client and accumulates token usage per run.
+
+    The bench already injects the `client` used by `LLMClassifier`, so this
+    captures real `response.usage` without touching production code (`llm_call`
+    discards it). `usage_seen` stays False if the wrapped API never reports
+    usage, so cost can print "n/a" instead of a silently-wrong zero.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.usage_seen = False
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    async def _create(self, **kwargs: Any) -> Any:
+        response = await self._inner.chat.completions.create(**kwargs)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self.usage_seen = True
+            self.prompt_tokens += usage.prompt_tokens
+            self.completion_tokens += usage.completion_tokens
+        return response
 
 
 def load_dataset(path: Path) -> list[LabeledItem]:
@@ -161,46 +191,31 @@ async def classify_dataset(
     *,
     client: Any,
     model: str,
-    temperature: float,
-    extra_body: dict[str, Any] | None,
+    enabled_topics: list[str],
     min_relevance: float,
     topics_info: str,
-) -> tuple[dict[int, bool], int, int]:
-    """Run the production prompt+parser over the dataset, batch by batch.
+) -> dict[int, bool]:
+    """Run production's `LLMClassifier._classify_batch` over the dataset.
 
-    Returns (predictions, total_prompt_chars, total_completion_chars) where
-    `predictions[i]` is True iff the model marked item i as news with
-    relevance >= min_relevance (the same decision `LLMClassifier` makes).
+    Batch by batch, using the exact same prompt, parser, and accept/reject
+    decision (is_news, enabled topic, relevance >= min_relevance) production
+    uses -- so the bench cannot silently accept what the pipeline rejects.
+    `predictions[i]` is True iff item i was in the batch's accepted results.
     """
     items = [li.item for li in labeled]
     predictions: dict[int, bool] = {}
-    total_prompt_chars = 0
-    total_completion_chars = 0
+    classifier = LLMClassifier(client=client)
 
     for start in range(0, len(items), BATCH_SIZE):
         batch = items[start : start + BATCH_SIZE]
-        prompt = _build_prompt(batch, topics_info)
-        total_prompt_chars += len(prompt)
-
-        raw = await llm_call(
-            client, model, SYSTEM_MESSAGE, prompt, temperature=temperature, extra_body=extra_body
+        accepted = await classifier._classify_batch(
+            client, model, batch, topics_info, enabled_topics, min_relevance
         )
-        total_completion_chars += len(raw)
-        parsed = _parse_llm_json(raw)
+        accepted_ids = {id(r.item) for r in accepted}
+        for local_idx, item in enumerate(batch):
+            predictions[start + local_idx] = id(item) in accepted_ids
 
-        batch_predictions = dict.fromkeys(range(len(batch)), False)
-        for entry in parsed:
-            idx = entry.get("idx")
-            if not isinstance(idx, int) or idx < 0 or idx >= len(batch):
-                continue
-            is_news = bool(entry.get("is_news", False))
-            relevance = float(entry.get("relevance", 0.0))
-            batch_predictions[idx] = is_news and relevance >= min_relevance
-
-        for local_idx, predicted in batch_predictions.items():
-            predictions[start + local_idx] = predicted
-
-    return predictions, total_prompt_chars, total_completion_chars
+    return predictions
 
 
 def score_run(
@@ -208,8 +223,8 @@ def score_run(
     predictions: dict[int, bool],
     *,
     model: str | None = None,
-    prompt_chars: int = 0,
-    completion_chars: int = 0,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
 ) -> RunScore:
     """Compute recall on news, false positives on not_news, and est. cost."""
     news_total = sum(1 for li in labeled if li.label == "news")
@@ -225,11 +240,9 @@ def score_run(
     recall = news_hits / news_total if news_total else 0.0
 
     cost: float | None = None
-    if model in PRICING_PER_1M_USD:
+    if model in PRICING_PER_1M_USD and prompt_tokens is not None and completion_tokens is not None:
         price_in, price_out = PRICING_PER_1M_USD[model]
-        prompt_tokens_est = prompt_chars / 4
-        completion_tokens_est = completion_chars / 4
-        cost = (prompt_tokens_est * price_in + completion_tokens_est * price_out) / 1_000_000
+        cost = (prompt_tokens * price_in + completion_tokens * price_out) / 1_000_000
 
     return RunScore(
         news_total=news_total,
@@ -247,8 +260,8 @@ def _print_table(scores: list[RunScore], *, model: str, dataset_path: Path) -> N
         f"Benchmark: model={model} | dataset={dataset_path} | runs={len(scores)}\n"
         f"Dataset: news={first.news_total} | not_news={first.not_news_total} | "
         f"ambiguous={first.ambiguous_total} (excluded from recall/false_positives)\n"
-        "Cost estimate uses a chars/4 token heuristic (llm_call does not expose real "
-        "usage) -- treat as order-of-magnitude only.\n"
+        "Cost from API-reported token usage x ADR-003 list price; n/a if the API "
+        "returned no usage or the model has no listed price.\n"
     )
     header = f"{'run':>4} | {'recall_on_news':>14} | {'false_positives':>16} | {'est_cost_usd':>13}"
     print(header)
@@ -267,9 +280,9 @@ def _print_table(scores: list[RunScore], *, model: str, dataset_path: Path) -> N
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Benchmark the production LLM classifier prompt/parser against a "
-            "hand-labeled dataset (see module docstring for the dataset format), "
-            "reproducing the recall/FP/cost table from docs/adr/003-llm-kimi-k26-fail-loud.md."
+            "Benchmark the production LLM classifier against a hand-labeled dataset "
+            "(see module docstring for the dataset format), reproducing the recall/FP/cost "
+            "table from docs/adr/003-llm-kimi-k26-fail-loud.md."
         )
     )
     parser.add_argument(
@@ -298,27 +311,28 @@ async def _run(args: argparse.Namespace) -> int:
 
     settings = get_settings()
     model = args.model or settings.openai_model
+    enabled_topics = settings.topics_list
     topics_info = "\n".join(
         f'- "{topic}": {data["description"]}'
         for topic, data in TOPIC_DEFINITIONS.items()
-        if topic in settings.topics_list
+        if topic in enabled_topics
     )
 
     scores: list[RunScore] = []
     for _ in range(args.runs):
-        client: Any = (
+        inner_client: Any = (
             FakeLLMClient()
             if args.dry_run
             else openai.AsyncOpenAI(
                 api_key=settings.openai_api_key, base_url=settings.openai_base_url
             )
         )
-        predictions, prompt_chars, completion_chars = await classify_dataset(
+        client = UsageRecordingClient(inner_client)
+        predictions = await classify_dataset(
             labeled,
             client=client,
             model=model,
-            temperature=settings.openai_temperature,
-            extra_body=settings.openai_extra_body,
+            enabled_topics=enabled_topics,
             min_relevance=settings.min_relevance_score,
             topics_info=topics_info,
         )
@@ -327,8 +341,8 @@ async def _run(args: argparse.Namespace) -> int:
                 labeled,
                 predictions,
                 model=model,
-                prompt_chars=prompt_chars,
-                completion_chars=completion_chars,
+                prompt_tokens=client.prompt_tokens if client.usage_seen else None,
+                completion_tokens=client.completion_tokens if client.usage_seen else None,
             )
         )
 
