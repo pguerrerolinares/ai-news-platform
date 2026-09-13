@@ -16,8 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.ratelimit import get_client_ip
+from src.core.config import get_settings
 from src.core.database import get_session
 from src.core.models import NewsItem, PipelineRun
+from src.pipeline.health import last_run_started_at
+from src.pipeline.health_rules import RUN_WINDOW, HealthAlert, evaluate_health
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 limiter = Limiter(key_func=get_client_ip)
@@ -214,16 +217,12 @@ async def admin_pipeline_runs(
     ]
 
 
-@router.get("/freshness", response_model=list[FreshnessResponse])
-@limiter.limit("10/minute")
-async def admin_freshness(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-    _user: UserClaims = Depends(require_auth_or_guest),
-) -> list[FreshnessResponse]:
-    """Per-source content freshness: when was the last item stored?"""
-    now = datetime.now(tz=UTC)
+async def _source_freshness(session: AsyncSession, now: datetime) -> list[FreshnessResponse]:
+    """Per-source content freshness: when was the last item stored?
 
+    Shared by `/freshness` and `/health` (rule f, `sources_dead`) so both
+    consumers agree on the same ok/stale/dead classification.
+    """
     result = await session.execute(
         select(
             NewsItem.source,
@@ -258,3 +257,53 @@ async def admin_freshness(
         )
 
     return responses
+
+
+@router.get("/freshness", response_model=list[FreshnessResponse])
+@limiter.limit("10/minute")
+async def admin_freshness(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _user: UserClaims = Depends(require_auth_or_guest),
+) -> list[FreshnessResponse]:
+    """Per-source content freshness: when was the last item stored?"""
+    now = datetime.now(tz=UTC)
+    return await _source_freshness(session, now)
+
+
+@router.get("/health", response_model=list[HealthAlert])
+@limiter.limit("10/minute")
+async def admin_health(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _user: UserClaims = Depends(require_auth_or_guest),
+) -> list[HealthAlert]:
+    """Derived health alerts from pipeline_runs, source freshness and config.
+
+    Publicly readable (guest token): messages are generic, no setting values
+    leak (see `src/pipeline/health_rules.py` for the rules and thresholds).
+    """
+    now = datetime.now(tz=UTC)
+    settings = get_settings()
+
+    last_run_at = await last_run_started_at(session)
+
+    result = await session.execute(
+        select(PipelineRun)
+        .where(PipelineRun.started_at >= now - RUN_WINDOW)
+        .order_by(PipelineRun.started_at.desc())
+        .limit(500)
+    )
+    runs = result.scalars().all()
+
+    freshness = await _source_freshness(session, now)
+    enabled = set(settings.enabled_sources_list)
+    dead_sources = [f.source for f in freshness if f.status == "dead" and f.source in enabled]
+
+    return evaluate_health(
+        now=now,
+        last_run_at=last_run_at,
+        runs=runs,
+        dead_sources=dead_sources,
+        has_llm_key=bool(settings.openai_api_key),
+    )
