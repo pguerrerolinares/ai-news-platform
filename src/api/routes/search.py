@@ -172,25 +172,15 @@ async def semantic_search_items(
     not configured).
     """
     retriever = _get_retriever()
-    if recent_first:
-        items = await retriever.retrieve(
-            session,
-            q,
-            limit=limit,
-            topic=topic,
-            source=source,
-            date_from=date_from,
-            date_to=date_to,
-        )
-    else:
-        items = await retriever.retrieve(
-            session,
-            q,
-            limit=limit,
-            topic=topic,
-            source=source,
-            date_from=date_from,
-            date_to=date_to,
-            recency_days=None,
-        )
+    recency_kwargs = {} if recent_first else {"recency_days": None}
+    items = await retriever.retrieve(
+        session,
+        q,
+        limit=limit,
+        topic=topic,
+        source=source,
+        date_from=date_from,
+        date_to=date_to,
+        **recency_kwargs,
+    )
     return [NewsItemResponse.model_validate(item) for item in items]
