@@ -1,0 +1,88 @@
+== P1 tool calls
+      1 mcp__ainews__search_news
+      1 mcp__ainews__semantic_search
+== P1 tool_result chars
+4348
+== P1 output_tokens y respuesta final
+4525
+5 más relevantes al problema que describes (consolidación + invalidación de memoria en agentes, contexto notas markdown + hybrid search). Nota: son de un feed de noticias AI (ainews), solo tengo título+resumen corto, no el paper completo — verifica el abstract antes de citarlos como fuente dura.
+
+**1. TRUSTMEM — Learning Trustworthy Memory Consolidation for LLM Agents with Long-Term Memory**
+https://arxiv.org/abs/2606.25161
+Ataca justo tu problema doble: no solo cómo consolidar (colapsar interacciones en memoria de largo plazo) sino cómo hacerlo de forma *confiable* — o sea, con criterio de cuándo una consolidación es válida y cuándo debería invalidarse. Es el paper más directo al bulk de tu pregunta.
+
+**2. Rethinking How to Remember: Beyond Atomic Facts in Lifelong LLM Agent Memory**
+https://arxiv.org/abs/2605.19952
+Argumenta contra el patrón "hecho atómico → fila en la DB" y a favor de unidades de memoria más ricas (con contexto/relación), que se consolidan y re-escriben con el tiempo. Resuena con tu contrato de "canon como delta" — es literalmente la idea de no tratar la memoria como log inmutable de hechos sueltos.
+
+**3. When Stored Evidence Stops Being Usable: Scale-Conditioned Evaluation of Agent Memory**
+https://arxiv.org/abs/2605.07313
+Este es el lado de invalidación: mide en qué punto memoria almacenada deja de ser útil/fiable a medida que escala el volumen. Útil si quieres un criterio objetivo (no heurístico) para decidir cuándo purgar o degradar una nota en vez de solo "por antigüedad".
+
+**4. EvoGraph-Mem: Failure-Aware Editable Graph Memory for Long-Term Language Agents**
+https://arxiv.org/abs/2608.11248
+Mecanismo concreto de invalidación: la memoria se edita/retracta cuando el agente detecta que una decisión basada en ella *falló* — señal de fallo como trigger de invalidación, no solo TTL o recency. Aplicable directo a un sistema donde las notas informan decisiones de agentes downstream.
+
+**5. Awesome-AI-Memory (repo, IAAR-Shanghai)**
+https://github.com/IAAR-Shanghai/Awesome-AI-Memory
+No es un paper, es un curated index vivo (research + frameworks + benchmarks de memoria de LLM/agentes). Te sirve como mapa de navegación continuo del espacio en vez de tener que rastrear arxiv paper por paper — dado que el campo se mueve rápido, mejor tener el índice que el snapshot.
+
+Si quieres, puedo tirar de `semantic_search`/`search_news` sobre ejes más específicos tuyos (p.ej. "graph memory vs flat markdown", "memory governance multi-agent" — hay un GateMem sobre eso, arxiv 2606.18829, si tu sistema termina siendo multi-agente compartido).
+
+== P2 tool calls
+      1 mcp__ainews__get_trending
+      6 mcp__ainews__search_news
+      1 mcp__ainews__semantic_search
+== P2 tool_result chars
+13832
+== P2 output_tokens y respuesta final
+4668
+Sí, sube — y no es solo percepción, hay señales concretas en los últimos meses.
+
+**El ancla es GitHub `spec-kit`** (75k+ pts en el feed, sigue siendo lejos el proyecto más grande de la categoría). Se lanzó hace justo más de 6 meses, pero es la gravedad que explica todo lo demás: fijó el vocabulario (`spec → plan → tasks`) que ahora todo el mundo clona.
+
+**Lo que sí cae dentro de la ventana de 6 meses (marzo→septiembre 2026):**
+
+- *Marzo–junio*: señales tempranas y dispersas — `spec_driven_develop` (SKILL.md genérico), `smart-ralph` (plugin de Claude Code), y Microsoft sacando un framework de tests de comportamiento de IA a partir de specs en texto (jun-2026, TechCrunch).
+- *Junio–septiembre*: el volumen y la ambición suben de escalón:
+  - `cc-sdd` — clona explícitamente el estilo de **Kiro** (AWS) y ya soporta Claude Code, Codex, Cursor, Copilot, Gemini CLI y Windsurf a la vez. Eso es convergencia multi-vendor, no un experimento aislado.
+  - `sample-specship` — empaquetado directamente como **"Kiro Power"**, o sea AWS metiendo el patrón en su propio producto.
+  - `ospec` y `vibecode-pro-max-kit` (este último con 906 pts, el más alto engagement reciente de la muestra) — el segundo con lenguaje de hype fuerte ("15 agentes, 33 skills, 0 human gate"), que es más señal de ruido/marketing que de calidad.
+  - Academia empezando a nombrar el patrón formalmente: **SDAD — "Spec-Driven Agentic Development for the AI-Native SDLC"** (arXiv, agosto 2026). Cuando algo pasa de prompt-hack a tener sigla y paper, es indicio de consolidación, no moda de temporada.
+
+**Trade-off que yo pondría sobre la mesa:** los "pts" del feed son proxy de popularidad de repo (stars/menciones), no de adopción en producción — y hay bastante ruido tipo `vibecode-pro-max-kit` inflando el conteo. Dicho eso, la razón estructural de fondo es real: sin spec como contrato, un agente autónomo rellena huecos de requisitos con alucinación silenciosa, y eso escala mal justo cuando delegas tareas multi-paso. Es el mismo problema que tu propio `exo` ya resuelve con `brainstorm → plan → orchestrate` — spec-driven development de facto, sin necesidad de adoptar ninguna de estas herramientas externas.
+
+Nota al margen: tienes una nota de hoy mismo en la KB, `research/Radar 2026-09-15 — consistencia de agentes, memoria, code-graph y spec-driven`, que probablemente ya cubre esto con más profundidad — este entorno está aislado y no pude leerla, así que si quieres cruzar datos, revísala tú.
+
+== P3 tool calls
+      2 mcp__ainews__search_news
+      1 mcp__ainews__semantic_search
+== P3 tool_result chars
+7880
+== P3 output_tokens y respuesta final
+5712
+Antes de nada: esto ya lo investigaste en julio — nota `cge vs prior art — posicionamiento en la literatura (research 2026-07)` en tu KB, con 4 frentes (arquitectura, call-graph sin tipos, costuras cross-lenguaje, code-graphs para agentes). Este sandbox no tiene acceso a `exo`/Bash, así que no puedo releerla — revísala tú antes de que duplique terreno. Lo que sigue es panorama actualizado con lo que hay en el radar de `ainews` hoy.
+
+**El eje real de la decisión: ¿grafo pre-computado o navegación on-demand?**
+
+1. **LSP como fuente de verdad, sin grafo propio** — en vez de indexar tú, delegas a los language servers existentes (pyright, gopls, rust-analyzer, tsserver) y expones sus queries (references, definitions, call hierarchy) a un MCP.
+   - **SCIP/LSIF (Sourcegraph)** — el estándar más maduro para code intelligence cross-lenguaje, en producción a escala real (GitHub usa LSIF). Si tu foso es "ORM Django+Prisma", esto no te resuelve la parte semántica (relaciones de ORM), pero sí toda la navegación estructural gratis.
+   - **serena** (oraios) — MCP wrapper directo sobre LSP para agentes. Tracción real en la comunidad de agentic coding, cero mantenimiento de índice propio.
+   - Trade-off: cero staleness (el LSP siempre refleja el código actual), pero no tienes control sobre qué relaciones capturas — si el LSP no modela algo (p.ej. resolución dinámica de ORM), no lo tienes.
+
+2. **Grafo ligero recomputado on-the-fly (sin BD persistente)** — el approach de **Aider's repo-map**: tree-sitter + PageRank sobre símbolos, recalculado en cada sesión, sin storage. Es la prueba de que "grafo" no implica "motor persistente en Go" — puede ser una función pura.
+
+3. **Grep/agentic search sin estructura** — el propio Claude Code no pre-computa grafo: deja que el agente itere con ripgrep+glob. Cero mantenimiento, cero staleness, pero paga en tokens/turnos por cada navegación. Es la baseline contra la que tienes que justificar cge en costo-beneficio.
+
+4. **Knowledge graphs con extracción vía LLM (no AST puro)**:
+   - **CodeFuse-CGM** (NeurIPS 2025, `codefuse-ai/CodeFuse-CGM`) — paper con venue top-tier real, framework graph-based LLM para tareas de SE. Es la referencia académica con más tracción que vas a encontrar en 2025.
+   - **code-graph-rag** (`vitali87/code-graph-rag`, ~1984 pts GitHub) — "ultimate RAG para monorepo" con knowledge graphs multi-lenguaje. Tracción open-source alta, sin paper detrás — mira su arquitectura como benchmark de posicionamiento, no como prior art académico.
+
+5. **RAG puro por embeddings, sin estructura** — **Hierarchical Embedding Fusion for RAG Code Generation** (arxiv 2603.06593). Más barato, peor para "quién llama a X" o análisis de impacto — no es competencia directa de cge, es un punto de comparación de para qué *no* sirve un grafo.
+
+6. **Directamente el mismo problema que cge**:
+   - **CodeNib** (arxiv 2607.25431, "Multi-View Data System for Serving Repository Context to Coding Agents") — este es el paper más pegado a tu problema exacto. Léelo si no lo tienes ya en la nota de julio.
+   - **soulforge**, **tokensave**, **memtrace** — MCP servers ya empaquetados que hacen "code graph + memoria para agentes" como producto. Son tu competencia directa de posicionamiento, no alternativas académicas — vale la pena un vistazo rápido a sus READMEs para ver qué prometen y dónde cojean (la mayoría son wrappers ligeros sobre tree-sitter, no resuelven la parte semántica ORM que es tu foso).
+
+**Mi lectura de tracción real**: SCIP/LSP-based (opción 1) es lo único con adopción en producción a escala fuera del hype de agentes; CodeFuse-CGM es la única pieza con respaldo académico serio (NeurIPS); el resto (code-graph-rag, soulforge, tokensave, memtrace) es tracción de GitHub-stars/hype de 2025-2026, no evidencia de que resuelvan bien el caso ORM que es tu cuello de botella real. Si el objetivo es "no reinventar la rueda", la pregunta que te tendría que importar no es "qué grafo usar" sino "¿el LSP + una capa semántica fina sobre ORM me cubre el 80% sin motor propio en Go?" — y esa comparación específica es la que tu nota de julio ya empezó a responder.
+

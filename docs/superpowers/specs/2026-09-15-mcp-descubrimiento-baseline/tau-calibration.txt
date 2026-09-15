@@ -1,0 +1,210 @@
+# q0: consolidating and invalidating long-term memory in LLM agents
+# percentiles p0.1/p1/p5/p50: [0.3106384979654522, 0.446127046898539, 0.525193926142213, 0.711887417474999]
+0	0.1911	arxiv	TRUSTMEM: Learning Trustworthy Memory Consolidation for LLM Agents with Long-Term Memory
+0	0.2386	arxiv	Accurate and Efficient Long-Term Memory for LLM Agents
+0	0.2750	arxiv	Infini Memory: Maintainable Topic Documents for Long-Term LLM Agent Memory
+0	0.2789	arxiv	HeLa-Mem: Hebbian Learning and Associative Memory for LLM Agents
+0	0.2806	arxiv	From Storage to Experience: A Survey on the Evolution of LLM Agent Memory Mechanisms
+0	0.2863	arxiv	D-Mem: A Dual-Process Memory System for LLM Agents
+0	0.2952	arxiv	AriadneMem: Threading the Maze of Lifelong Memory for LLM Agents
+0	0.2963	huggingface	Rethinking How to Remember: Beyond Atomic Facts in Lifelong LLM Agent Memory
+0	0.2975	github_search	LycheeMem: Compact, efficient, and extensible long-term memory for LLM agents.
+0	0.2977	arxiv	Experience Compression Spectrum: Unifying Memory, Skills, and Rules in LLM Agents
+0	0.2999	arxiv	Human-Inspired Memory Architecture for LLM Agents
+0	0.3002	arxiv	FSFM: A Biologically-Inspired Framework for Selective Forgetting of Agent Memory
+0	0.3003	huggingface	STALE: Can LLM Agents Know When Their Memories Are No Longer Valid?
+0	0.3044	arxiv	Shared Selective Persistent Memory for Agentic LLM Systems
+0	0.3052	arxiv	CAMeR: Keyword-Gated Hybrid Activation for Adaptive Memory Retention in LLM Agents
+0	0.3104	arxiv	Adaptive Memory Admission Control for LLM Agents
+0	0.3105	huggingface	Externalization in LLM Agents: A Unified Review of Memory, Skills, Protocols and Harness Engineering
+0	0.3106	arxiv	NextMem: Towards Latent Factual Memory for LLM-based Agents
+0	0.3108	arxiv	GAM: Hierarchical Graph-based Agentic Memory for LLM Agents
+0	0.3109	github_search	SimpleMem: SimpleMem: Efficient Lifelong Memory for LLM Agents — Text & Multimodal
+0	0.3116	arxiv	AdMem: Advanced Memory for Task-solving Agents
+0	0.3168	github	A-mem-sys: A-MEM: Agentic Memory for LLM Agents
+0	0.3176	arxiv	Memory Depth, Not Memory Access: Selective Parametric Consolidation for Long-Running Language Agents
+0	0.3181	arxiv	Governing Evolving Memory in LLM Agents: Risks, Mechanisms, and the Stability and Safety Governed Me
+0	0.3184	arxiv	DELTAMEM: Incremental Experience Memory for LLM Agents via Residual Trees
+0	0.3185	github	A-mem: A-MEM: Agentic Memory for LLM Agents
+0	0.3298	hackernews	Show HN: NERDs – Entity-centered long-term memory for LLM agents
+0	0.3303	huggingface	Harness the Memory: A Holistic Evaluation of Memory Substrates in Memory Agents
+0	0.3306	arxiv	A-TMA: Decoupling State-Aware Memory Failures in Long-Term Agent Memory
+0	0.3308	huggingface	Agent Memory Distillation: Empowering Small LLM Agents with Hierarchical Teacher Memory
+0	0.3386	huggingface	Memex(RL): Scaling Long-Horizon LLM Agents via Indexed Experience Memory
+0	0.3389	huggingface	EvoArena: Tracking Memory Evolution for Robust LLM Agents in Dynamic Environments
+0	0.3418	github	agentic-memory: Implementing cognitive architecture and psychological memory concepts into Agentic L
+0	0.3462	arxiv	When Personal Memory Has No Single Answer: Evaluating LLM Agents under Irreducible Conflict
+0	0.3477	huggingface	LongMemEval-V2: Evaluating Long-Term Agent Memory Toward Experienced Colleagues
+0	0.3488	arxiv	Learning to Forget: Sleep-Inspired Memory Consolidation for Resolving Proactive Interference in Larg
+0	0.3493	arxiv	Memory Reward Inflation in Self-Improving LLM Agents
+0	0.3507	arxiv	From Signals to Structure: How Memory Architecture Drives Language Emergence in LLM Agents
+0	0.3509	huggingface	Exploratory Memory-Augmented LLM Agent via Hybrid On- and Off-Policy Optimization
+0	0.3516	arxiv	MemEvoBench: Benchmarking Memory MisEvolution in LLM Agents
+# q1: spec-driven development for AI coding agents
+# percentiles p0.1/p1/p5/p50: [0.3444886165011063, 0.403482479304296, 0.4650611565768661, 0.627103321235132]
+1	0.2882	github_search	sample-specship: Spec-driven autonomous engineering workflow for AI coding agents: recon → plan → bu
+1	0.2990	github_search	spec_driven_develop: Spec-Driven Develop is a platform-agnostic AI agent skill that automates the pr
+1	0.3007	github_search	agent-skills: Production-grade engineering skills for AI coding agents.
+1	0.3163	github_search	Coding Tools MCP (v0.2.2):Give any AI chat or agent a pair of hands on your code
+1	0.3206	github	sdk-typescript: A model-driven approach to building AI agents in just a few lines of code. 
+1	0.3234	github	micro-agent: An AI agent that writes (actually useful) code for you
+1	0.3291	github	sdk-python: A model-driven approach to building AI agents in just a few lines of code.
+1	0.3291	github	awesome-agent-skills: A curated list of skills, tools, tutorials, and capabilities for AI coding age
+1	0.3299	arxiv	SDAD: Spec-Driven Agentic Development for the AI-Native SDLC
+1	0.3317	github_search	three-man-team: A structured 3-agent AI dev team — Architect, Builder, Reviewer. Built from producti
+1	0.3339	github	autobe: AI Vibe Coding Agent of TS backend server, enhanced by compiler skills, generating 100% work
+1	0.3347	github	full-self-coding: No prompts, no instructions, no plans, you have 100~1000 AI agent coding in parall
+1	0.3365	github_search	vix: Sleek, Fast and Token Efficient AI Coding Agent
+1	0.3422	github	aideml: AIDE: AI-Driven Exploration in the Space of Code. The machine Learning engineering agent tha
+1	0.3428	github	autogen: A programming framework for agentic AI
+1	0.3434	github_search	open-code-review: AI-powered multi-agent code review. Simulates a customizable team of Engineers per
+1	0.3435	github	agent-evaluation: A generative AI-powered framework for testing virtual agents.
+1	0.3444	github	agent-foreman: Stop AI agents from half-building features. Ship complete code in one session.
+1	0.3460	github_search	ai-agents-skills: 🧠 AI Agent Skills Repository - A curated collection of specialized skills for AI c
+1	0.3488	github	ai-agents-from-scratch: Demystify AI agents by building them yourself. Local LLMs, no black boxes, r
+1	0.3505	github_search	UltraGameStudio: UltraGameStudio - AI coding agent for game development: engine workflows, gameplay 
+1	0.3517	github	AgentBase: Multi-agent orchestrator for tracking and analyzing AI coding assistant conversations (Cl
+1	0.3522	github	BMAD-METHOD: Breakthrough Method for Agile Ai Driven Development
+1	0.3522	hackernews	Build a Basic AI Agent from Scratch: Tools
+1	0.3523	github_search	ospec: Spec-driven, agentic workflow framework for AI coding agents. Turn a request into a verifiabl
+1	0.3524	github_search	Aegis: Make AI coding agents architecture-aware: baseline-first, evidence-verified, drift-checked, a
+1	0.3541	github	mycoder: Simple to install, powerful command-line based AI agent system for coding.
+1	0.3542	github_search	agent-swarm: Agent Swarm framework for AI coding agents and more!
+1	0.3553	rss	Scientific computing in the age of agentic AI
+1	0.3559	github_search	agent-core: openJiuwen agent-core provides a complete set of SDK capabilities related to AI Agent de
+1	0.3559	github	solid-skills: AI agent skill for writing senior-engineer quality code through SOLID principles, TDD,
+1	0.3560	github_search	xagent: Build personal agents and enterprise AI workforces that plan, delegate, use tools, and deliv
+1	0.3562	github	spring-ai-alibaba: Agentic AI Framework for Java Developers
+1	0.3567	github_search	agents: AI agent tooling for data engineering workflows.
+1	0.3571	github	buildware-ai: An experimental AI coding tool.
+1	0.3572	github	nerve: The Simple Agent Development Kit.
+1	0.3577	github	AI-Agent-In-Action: AI Agent 开发实战
+1	0.3580	huggingface	Test-Driven AI Agent Definition (TDAD): Compiling Tool-Using Agents from Behavioral Specifications
+1	0.3580	hackernews	AgentsDock: An IDE designed for agentic AI research
+1	0.3585	github	agent-ci: Deploy once. Continuously improve your AI agents in production.
+# q2: code graph to give context to coding agents
+# percentiles p0.1/p1/p5/p50: [0.3895776791046437, 0.46778137308986706, 0.5465593513103937, 0.7037353057434195]
+2	0.3404	hackernews	Agent-talk: Enabling coding agents to work together
+2	0.3547	huggingface	Code World Model: Coding Agent as World Brain
+2	0.3604	github	how-to-build-a-coding-agent: A workshop that teaches you how to build your own coding agent. Similar
+2	0.3606	github_search	codeg: Collaborative multi-agent AI coding workspace: aggregate sessions from Claude Code, Codex, Op
+2	0.3648	github_search	agentacct: See what your coding agents did and what it cost. Breaks each task down into work steps —
+2	0.3677	arxiv	(Im)Paired Programming: Coding Agents Improve Productivity but Harm Understanding
+2	0.3709	arxiv	Agentic Coding in the Wild: Characterizing GitHub Copilot Traces at Production Scale
+2	0.3716	github_search	mathcode: MathCode: A Frontier Mathematical Coding Agent
+2	0.3724	github_search	aft: Give your agent a proper IDE and OS. The sensorimotor cortex for coding agents (OpenCode + Pi),
+2	0.3724	arxiv	CODESTRUCT: Code Agents over Structured Action Spaces
+2	0.3748	huggingface	Building AI Coding Agents for the Terminal: Scaffolding, Harness, Context Engineering, and Lessons L
+2	0.3805	github	dexto: A coding agent and general agent harness for building and orchestrating agentic applications.
+2	0.3832	github_search	agent-flow: Real-time visualization of Claude Code agent orchestration — see your agents think, bran
+2	0.3864	hackernews	Agent skills that bring team coding standards to Claude Code and Codex
+2	0.3874	github	quantalogic: Quantalogic ReAct Agent - Coding Agent Framework - Gives a ⭐️ if you like the project
+2	0.3880	github_search	Coding Tools MCP (v0.2.2):Give any AI chat or agent a pair of hands on your code
+2	0.3882	arxiv	Frontier Coding Agents Use Metaprogramming to Adapt to Unfamiliar Programming Languages
+2	0.3894	github	mycoder: Simple to install, powerful command-line based AI agent system for coding.
+2	0.3903	github_search	how-claude-code-works: Deep dive into Claude Code internals — architecture, agent loop, context engi
+2	0.3909	github_search	Graft: Turbocharge Claude Code, Cursor, Codex, Gemini & every coding agent: faster, cheaper, with co
+2	0.3918	github	agentsys: AI writes code. This automates everything else · 13 plugins · 42 agents · 28 skills · for 
+2	0.3928	github_search	Graft: Turbocharge Claude Code, Cursor, Codex, Gemini & every coding agent: faster, cheaper, with co
+2	0.3933	github	vc: VC - AI-orchestrated coding agent colony
+2	0.3938	github	everything-claude-code: The agent harness performance optimization system. Skills, instincts, memory
+2	0.3943	hackernews	MathCode, Mathematical Coding Agent
+2	0.3952	github	opcode: A powerful GUI app and Toolkit for Claude Code - Create custom agents, manage interactive Cl
+2	0.3970	github	codeselect: A simple, interactive tool to select and share code with AI assistants like Claude and C
+2	0.3973	hackernews	Opencode: AI coding agent, built for the terminal
+2	0.3980	github	CodeMachine-CLI: CodeMachine is an open-source tool that orchestrates AI coding agents into repeatab
+2	0.3999	github_search	cybercode: 整合 Claude Code 编程能力与 Hermes Agent 自进化能力的智能体 / An AI agent combining Claude Code coding ca
+2	0.4018	hackernews	We chose LangGraph to build our coding agent
+2	0.4045	hackernews	Show HN: AgentAPI – HTTP API for Claude Code, Goose, Aider, and Codex
+2	0.4050	github_search	vibecode-pro-max-kit: Your AI forgets. This remembers. Spec-driven coding harness for vibecoders, pr
+2	0.4050	arxiv	Executable World Models for ARC-AGI-3 in the Era of Coding Agents
+2	0.4053	hackernews	Open Design: Use Your Coding Agent as a Design Engine
+2	0.4066	github	codai: AI coding agent for your terminal.
+2	0.4071	github	AgentBase: Multi-agent orchestrator for tracking and analyzing AI coding assistant conversations (Cl
+2	0.4081	github_search	CoreCoder: Minimal AI coding agent (~1,000 lines of Python) inspired by Claude Code. Works with any 
+2	0.4093	huggingface	SWE-chat: Coding Agent Interactions From Real Users in the Wild
+2	0.4096	github_search	Orkas-VideoStudio: Turn your coding agent into a video studio: describe a video in plain language, a
+# q3: prompt injection defenses for tool-using agents
+# percentiles p0.1/p1/p5/p50: [0.4591114536570475, 0.5413913640760162, 0.60298461546901, 0.7388450067945014]
+3	0.3761	github_search	Adrian: Open-source runtime AI agent security tool - monitors and controls AI agents, catching malic
+3	0.3958	github_search	agent: Agentic offensive-security in your terminal
+3	0.4000	arxiv	AgentTrust: Runtime Safety Evaluation and Interception for AI Agent Tool Use
+3	0.4057	github_search	pipelock: Open-source AI agent firewall for MCP security and agent egress. Scans mediated HTTP, MCP,
+3	0.4158	github_search	prismor:  Self-hosted runtime control plane for AI agents. Blocks the rogue tool call before it exec
+3	0.4308	rss	OpenAI unveils Lockdown Mode to protect sensitive data from prompt injection attacks
+3	0.4313	hackernews	Domain-Camouflaged Injection Attacks Evade Detection in Multi-Agent LLM Systems
+3	0.4332	github_search	pentest-ai: Offensive-security MCP server with 197 wrapped tools, 17 specialist agents, and 14 SPA-a
+3	0.4365	github_search	augustus: LLM security testing framework for detecting prompt injection, jailbreaks, and adversarial
+3	0.4366	github	superagent: Superagent protects your AI applications against prompt injections, data leaks, and harm
+3	0.4390	arxiv	Provably Secure Agent Guardrail
+3	0.4420	github	invariant: Guardrails for secure and robust agent development
+3	0.4472	github_search	Doberman-Core: Your AI's guard dog. Doberman sits at runtime, gating every input, output and tool ca
+3	0.4566	huggingface	RedAct: Redacting Agent Capability Traces for Procedural Skill Protection
+3	0.4570	github_search	pentest-ai-agents: Turn Claude Code into your offensive security research assistant. Specialized AI 
+3	0.4585	huggingface	HazardAuditor: From Executable Threats to Safer Computer-Use Agents
+3	0.4612	github_search	hol-guard: Open-source antivirus for AI agents: block risky tools, secret access, prompt injection, 
+3	0.4635	hackernews	DoubleAgents: Fine-Tuning LLMs for Covert Malicious Tool Calls
+3	0.4667	github	HouYi: The automated prompt injection framework for LLM-integrated applications.
+3	0.4677	github	pentestagent: PentestAgent is an AI agent framework for black-box security testing, supporting bug b
+3	0.4759	github_search	agentdock: Secure MCP runtime for AI agents to operate local machines, servers, and containers with 
+3	0.4795	huggingface	The Blind Spot of Agent Safety: How Benign User Instructions Expose Critical Vulnerabilities in Comp
+3	0.4821	github	open-ptc-agent: An open source implementation of code execution with MCP (Programatic Tool Calling) 
+3	0.4825	rss	Microsoft open-source toolkit secures AI agents at runtime
+3	0.4864	github_search	agent-opfor: Open-source adversary emulation for AI agents and MCP servers. 
+3	0.4866	github_search	agent-threat-rules: Open detection standard -- like Sigma, but for AI agents. 425 rules, shipped in 
+3	0.4867	hackernews	Agent-C: a 4KB AI agent
+3	0.4870	github_search	Argus: Black-box, open-source red-team testing for AI agents. Point it at any HTTP, gRPC, or browser
+3	0.4874	arxiv	CAGE: Certified Authorization under Typed-Return Uncertainty for Tool-Using Agents
+3	0.4886	github_search	VulnClaw: 基于 AI Agent + MCP 工具链 + 渗透 Skill 编排， 配合大语言模型， 自然语言输入 → 自动完成「信息收集 → 漏洞发现 → 漏洞利用 → 报告生成」全流程。
+3	0.4897	hackernews	Matchlock – Secures AI agent workloads with a Linux-based sandbox
+3	0.4902	github_search	CyberStrike: AI-powered offensive security agent with 7,300+ actionable security skills. Autonomous 
+3	0.4913	github	agent-skills: The secure, validated skill registry for professional AI coding agents. Extend Antigra
+3	0.4919	github_search	AgentDoG: A Diagnostic Guardrail Framework for AI Agent Safety and Security
+3	0.4921	github_search	DeepSec: DeepSec — AI Security Offense & Defense Platform. Shield audits AI-generated code for hallu
+3	0.4939	arxiv	Agentao: A Governed Local-First Runtime for Tool-Using LLM Agents
+3	0.4950	github_search	anything-analyzer: 全能协议分析工具：浏览器抓包 + MITM 代理 + 指纹伪装 + AI 分析 + MCP Server 无缝对接 AI Agent/IDE   |  All-i
+3	0.4957	arxiv	SoK: Rethinking Jailbreaking in the Era of Agentic AI: Attacks, Defenses, and Practical Consideratio
+3	0.4969	github	agent-scan: Security scanner for AI agents, MCP servers and agent skills.
+3	0.4972	github	MCP-Zero: MCP-Zero: Active Tool Discovery for Autonomous LLM Agents
+# q4: evaluating retrieval quality in RAG systems
+# percentiles p0.1/p1/p5/p50: [0.38961732907108, 0.5350764172174169, 0.606841858843353, 0.7418867852927546]
+4	0.2586	github	rag-arena: Open-source RAG evaluation through users' feedback
+4	0.3044	arxiv	Deepchecks: Evaluating Retrieval-Augmented Generation (RAG)
+4	0.3301	arxiv	Evaluating RAG Metrics in Applied Contexts: An Experiment, Its Findings and Its Limitations
+4	0.3319	arxiv	BM25 Wins at Scale: A Scaling Study of Retrieval-Augmented Generation Paradigms
+4	0.3350	arxiv	AI Act Evaluation Benchmark: An Open, Transparent, and Reproducible Evaluation Dataset for NLP and R
+4	0.3501	github	RAGHub: A community-driven collection of RAG (Retrieval-Augmented Generation) frameworks, projects, 
+4	0.3508	github	RAG-Retrieval: Unify Efficient Fine-tuning of  RAG Retrieval, including Embedding, ColBERT, ReRanker
+4	0.3523	github	AutoRAG: AutoRAG: An Open-Source Framework for Retrieval-Augmented Generation (RAG) Evaluation & Opt
+4	0.3601	arxiv	When Retrieval Doesn't Help: A Large-Scale Study of Biomedical RAG
+4	0.3668	github	paper-qa: High accuracy RAG for answering questions from scientific documents with citations
+4	0.3686	github	R2R: SoTA production-ready AI retrieval system. Agentic Retrieval-Augmented Generation (RAG) with a 
+4	0.3740	arxiv	LayerRAG-Bench: A Cross-Layer Reliability Benchmark for Agentic Retrieval-Augmented Generation
+4	0.3750	github	RAG-Survey: Collecting awesome papers of RAG for AIGC.  We propose a taxonomy of RAG foundations, en
+4	0.3841	arxiv	Overcoming the "Impracticality" of RAG: Proposing a Real-World Benchmark and Multi-Dimensional Diagn
+4	0.3856	arxiv	Evidence Interfaces Shape How Retrieval-Augmented Readers Use Support
+4	0.3859	arxiv	To Isolate or to Score? Model-Adaptive Assessment for Cost-Efficient Multi-Agent RAG
+4	0.3865	github	graphrag: A modular graph-based Retrieval-Augmented Generation (RAG) system
+4	0.3893	arxiv	An End-to-End Ukrainian RAG for Local Deployment. Optimized Hybrid Search and Lightweight Generation
+4	0.3908	arxiv	CuSearch: Curriculum Rollout Sampling via Search Depth for Agentic RAG
+4	0.3942	arxiv	ScalableRAG: High-Quality RAG at Zero Ingestion Cost
+4	0.3985	github	Medical-Graph-RAG: A Graph RAG System for Evidenced-based Medical Information Retrieval  [ACL 2025]
+4	0.4042	github	rag-experiment-accelerator: The RAG Experiment Accelerator is a versatile tool designed to expedite 
+4	0.4053	huggingface	Rethinking Reasoning-Intensive Retrieval: Evaluating and Advancing Retrievers in Agentic Search Syst
+4	0.4075	arxiv	RAG-TESTER: Automated End-to-End Testing of Retrieval-Augmented Large Language Models
+4	0.4085	github	raggo: A lightweight, production-ready RAG (Retrieval Augmented Generation) library in Go.
+4	0.4095	github	erag: an AI interaction tool with RAG hybrid search, conversation context, web content processing an
+4	0.4120	github	RAGMeUp: Generic rag framework to apply the power of LLMs on any given dataset
+4	0.4157	hackernews	Show HN: Neum AI – Open-source large-scale RAG framework
+4	0.4168	arxiv	Rethinking RAG in Long Videos: What to Retrieve and How to Use It?
+4	0.4172	github	Controllable-RAG-Agent: This repository provides an advanced Retrieval-Augmented Generation (RAG) so
+4	0.4172	arxiv	Optimization and Constraint Modeling using LLMs with a Retrieval Augmented Generation Process
+4	0.4177	github	local-LLM-with-RAG: Running local Language Language Models (LLM) to perform Retrieval-Augmented Gene
+4	0.4192	github	rag-chat: Prototype SDK for RAG development.
+4	0.4216	hackernews	Show HN: SpRAG – Open-source RAG implementation for challenging real-world tasks
+4	0.4235	arxiv	URAG: A Benchmark for Uncertainty Quantification in Retrieval-Augmented Large Language Models
+4	0.4243	arxiv	Configurable Clinical Information Extraction with Agentic RAG: What Works, What Breaks, and Why
+4	0.4260	github	ragflow: RAGFlow is a leading open-source Retrieval-Augmented Generation (RAG) engine that fuses cut
+4	0.4267	arxiv	Hit-RAG: Learning to Reason with Long Contexts via Preference Alignment
+4	0.4276	arxiv	SGR-Bench: Benchmarking Search Agents on State-Gated Retrieval
+4	0.4278	github	fastRAG: Efficient Retrieval Augmentation and Generation Framework
