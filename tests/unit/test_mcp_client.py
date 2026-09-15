@@ -76,7 +76,7 @@ class TestTokenRefresh:
         plain ``return_value``) with no real await inside, so under respx's mocked
         transport a task runs start-to-finish before the next one is scheduled —
         there is never real interleaving, and this test passes 5/5 even with the
-        lock removed (verified separately; see task-11-report.md). Forcing a real
+        lock removed (verified by temporarily removing the lock: 5 guest POSTs). Forcing a real
         suspension point in both the 401 response and the guest-token response is
         what makes N concurrent ``get_top()`` calls actually race on the token:
         without the lock, all N see the same stale token and each fires its own

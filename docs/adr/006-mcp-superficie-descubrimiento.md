@@ -35,7 +35,7 @@ rate-limit para todos los clientes MCP (en la API y en Traefik); HNSW devolvía 
   sin `ORDER BY ... LIMIT` — con o sin el guard. Verificado con `EXPLAIN (ANALYZE, BUFFERS)` contra
   220 filas sembradas (60 cercanas, 160 lejanas): mismo plan (`Seq Scan` + `Filter` post-scan,
   `Rows Removed by Filter: 160`) con el guard activo y con él desactivado forzando
-  `enable_seqscan=off; enable_bitmapscan=off` (task-4-report.md). Se deja como guardia defensiva
+  `enable_seqscan=off; enable_bitmapscan=off`. Confirmado en el catálogo: `pg_amop` para `hnsw`/`vector_cosine_ops` solo registra un operador de ordenación (`amoppurpose = 'o'`), nunca de filtro. Se deja como guardia defensiva
   para si la query cambia algún día a `ORDER BY distance LIMIT` (ahí sí sería necesaria), no porque
   cambie el plan hoy.
 - El MCP reenvía el `X-Forwarded-For` del cliente; la API loggea `client_ip`; Traefik limita por

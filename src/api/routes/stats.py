@@ -454,7 +454,8 @@ async def stats_trend(
     # No-op for this query shape: pgvector's HNSW index only supports ORDER BY
     # <-> LIMIT n (nearest-neighbor) scans, never a plain WHERE distance filter like
     # this grouped query's, so there is no HNSW-capped subset to guard against here
-    # (verified via EXPLAIN, see task-4-report.md). Kept as a guard if the query
+    # (pg_amop: hnsw vector_cosine_ops only registers an ORDER BY operator,
+    # amoppurpose = 'o'; EXPLAIN agrees). Kept as a guard if the query
     # shape changes to add an ORDER BY distance LIMIT.
     await force_exact_scan(session)
 
