@@ -70,14 +70,32 @@ class TestTokenRefresh:
         coroutines hitting 401 on the same stale token each fired their own
         POST /api/auth/guest. Fixed with the same double-checked lock as the initial
         guest-token acquisition (decision: Paul).
+
+        Both mocked side effects below are ``async def`` and genuinely suspend
+        (``await asyncio.sleep(...)``). respx resolves a *sync* side effect (or a
+        plain ``return_value``) with no real await inside, so under respx's mocked
+        transport a task runs start-to-finish before the next one is scheduled —
+        there is never real interleaving, and this test passes 5/5 even with the
+        lock removed (verified separately; see task-11-report.md). Forcing a real
+        suspension point in both the 401 response and the guest-token response is
+        what makes N concurrent ``get_top()`` calls actually race on the token:
+        without the lock, all N see the same stale token and each fires its own
+        guest POST while the others are suspended inside their own POST call; with
+        the lock, only the first to acquire it refreshes and the rest see the
+        already-fresh token once they get the lock.
         """
 
-        def top_response(request: httpx.Request) -> httpx.Response:
+        async def top_response(request: httpx.Request) -> httpx.Response:
             if request.headers["Authorization"] == "Bearer stale":
+                await asyncio.sleep(0.01)
                 return httpx.Response(401)
             return httpx.Response(200, json=[])
 
-        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest("fresh"))
+        async def guest_response(request: httpx.Request) -> httpx.Response:
+            await asyncio.sleep(0.01)
+            return _guest("fresh")
+
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(side_effect=guest_response)
         respx.get(f"{BASE}/api/items/top").mock(side_effect=top_response)
 
         client = APIClient(base_url=BASE, token="stale")
