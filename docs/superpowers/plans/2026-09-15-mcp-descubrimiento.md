@@ -25,7 +25,7 @@
 - Pin `mcp>=1.29,<2` (escrito `mcp~=1.29`, equivalente, por la convención `~=` de CLAUDE.md).
 - `stateless_http=True`; `ToolAnnotations(readOnlyHint=True, openWorldHint=False)` en **camelCase** (snake_case es un no-op silencioso).
 - Scan exacto: `SET LOCAL enable_indexscan = off` en la búsqueda semántica y en `trend` semántico. `find_similar` sin filtros y `limit≤20` sigue con HNSW.
-- `/api/stats/trend`: rate-limit `20/minute`; `since ≤ 24 meses` (730 días); bucket `date_trunc(unit, ...)` en UTC, semanas ISO (lunes), buckets vacíos incluidos (count 0); `semantic` cuenta items con `cosine_distance < τ`, `τ = setting TREND_SEMANTIC_THRESHOLD`, devuelto como `threshold`; en `semantic`, `total_in_bucket` cuenta solo items con embedding del modelo activo.
+- `/api/stats/trend`: rate-limit `20/minute`; `since ≤ 24 meses` (730 días); bucket `date_trunc(unit, ...)` en UTC, semanas ISO (lunes), buckets vacíos incluidos (count 0). `semantic` **sin τ ni calibración** (pre-check (a) STOP, decisión delegada en consultor: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md`): cutoff explícito `max_distance: float = 0.40` (`ge=0.20, le=0.60`; ignorado en keyword; 422 fuera de rango) + `by_distance` acumulado a 5 bandas fijas `TREND_DISTANCE_EDGES = (0.30, 0.35, 0.40, 0.45, 0.50)` (`src/api/trend.py`) vía una sola query agrupada por `bucket, source, width_bucket(dist, ARRAY[...]), (dist < :max_distance)` con `dist < greatest(:max_distance, 0.50)`; `total_in_bucket` cuenta solo items con embedding del modelo activo. Se elimina `Settings.trend_semantic_threshold` (nunca llegó a existir en código).
 - Errores del cliente MCP por `error.code`: `NOT_FOUND` → "item not found"; `EMBEDDING_NOT_FOUND` → "item exists but has no embedding yet; similar unavailable"; 422 → detalle de validación; 429 → "rate limited, retry in Xs"; timeout/5xx → "backend unavailable". Se mantiene el refresh del guest token en 401. El SDK antepone `"Error executing tool <name>: "`.
 - IPI: instrucciones del server y descripciones declaran `title/summary/full_text` como contenido de terceros no confiable (dato, no instrucción). Sin sanitización.
 - Código y comentarios en inglés; `from __future__ import annotations` en módulos nuevos **excepto** `src/api/routes/search.py` y `src/api/routes/stats.py` (slowapi rompe con PEP 563 en params `date`; ver docstring de `search.py`).
@@ -57,9 +57,8 @@ Nota: el `.venv` local tiene `mcp 1.27.2`; la Task 7 lo sube. Los limiters de sl
 | `src/api/schemas.py` | Modify | `EngagementResponse`, `NewsItemDetailResponse`, `TrendBucket`, `TrendResponse` |
 | `src/api/item_detail.py` | Create | reglas puras de engagement/discussion_url + `to_item_detail` |
 | `src/api/routes/items.py` | Modify | `GET /api/items/{id}` devuelve detalle |
-| `src/api/trend.py` | Create | calendario de buckets + ensamblado de respuesta (puro) |
-| `src/api/routes/stats.py` | Modify | `GET /api/stats/trend` |
-| `src/core/config.py` | Modify | `trend_semantic_threshold` |
+| `src/api/trend.py` | Create | calendario de buckets + bandas de distancia + ensamblado de respuesta (puro) |
+| `src/api/routes/stats.py` | Modify | `GET /api/stats/trend` (`max_distance`, sin `Settings.trend_semantic_threshold`) |
 | `src/api/app.py` | Modify | log `api_request` con `client_ip` |
 | `src/mcp/client.py` | Rewrite | cliente async + mapeo de errores + XFF |
 | `src/mcp/models.py` | Create | modelos pydantic de salida estructurada + `Literal`s |
@@ -84,24 +83,27 @@ Nota: el `.venv` local tiene `mcp 1.27.2`; la Task 7 lo sube. Los limiters de sl
 
 ---
 
-### Task 0: Pre-checks en prod y baseline (gate manual, antes de cualquier código)
+### Task 0: Pre-checks en prod y baseline (gate manual, antes de cualquier código) — CERRADA
 
 Requiere acceso SSH a `root@89.167.115.45` (`pguerrero-prod`) y la CLI `claude`. Todo es **read-only**. Si un pre-check marcado **STOP** refuta su supuesto: parar el plan y consultar a Paul con la evidencia.
+
+**Resultado**: ejecutada 2026-09-15. Pre-check (a) dio **STOP** (spread 0.19 > 0.10: un τ global no separa relevantes/no relevantes entre queries). Paul delegó la decisión en un consultor (fable); la decisión — cutoff explícito `max_distance` + bandas fijas de distancia devueltas al consumidor, sin calibración — está en `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md` (sección `## Decisión`) y propagada a la spec §4.3.5 y a la Task 4 de este plan. El resto de pre-checks ((b), (c), (d), (e)) no dio STOP: ver `prechecks.md`.
 
 **Files:**
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/prechecks.md`
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau-calibration.txt`
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau-labels.tsv`
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md`
+- Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau_analysis.py`
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/mcp-ainews.json`
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/p1.txt`, `p2.txt`, `p3.txt`
 - Create: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/before-{1,2,3}.jsonl`, `before.md`
 
 **Interfaces:**
 - Consumes: nada.
-- Produces: τ (float, en `tau.md`) que la Task 4 copia a `trend_semantic_threshold`; `before.md` que la Task 10 compara.
+- Produces: la decisión de tendencia semántica (`tau.md` → spec §4.3.5) que la Task 4 implementa (`max_distance`, `TREND_DISTANCE_EDGES`, sin `Settings.trend_semantic_threshold`); `before.md` que la Task 10 compara.
 
-- [ ] **Step 1: Baseline ANTES de tocar nada** (el MCP actual de prod)
+- [x] **Step 1: Baseline ANTES de tocar nada** (el MCP actual de prod)
 
 ```bash
 B=docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline
@@ -126,7 +128,7 @@ for i in 1 2 3; do
 done
 ```
 
-- [ ] **Step 2: Extraer métricas del baseline**
+- [x] **Step 2: Extraer métricas del baseline**
 
 ```bash
 B=docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline
@@ -156,7 +158,7 @@ Escribir `$B/before.md` con esta tabla (rellenar con la salida; la columna "rele
 Notas cualitativas (¿llegó a papers/repos? ¿pudo hablar de tendencia en P2?):
 ```
 
-- [ ] **Step 3: Pre-checks (b) y (c) — SQL read-only en prod**
+- [x] **Step 3: Pre-checks (b) y (c) — SQL read-only en prod**
 
 ```bash
 ssh root@89.167.115.45
@@ -183,7 +185,7 @@ Registrar la salida literal en `$B/prechecks.md` bajo `## (b)`, `## (c)`. Criter
 - (c1) informativo (se documenta en la descripción de `find_similar`).
 - (c2) si hay filas con `type` NULL, anotarlas: tendrán `engagement: null` (decisión 9).
 
-- [ ] **Step 4: Pre-check (a) — calibración de τ (STOP si un τ global no vale)**
+- [x] **Step 4: Pre-check (a) — calibración de τ (STOP si un τ global no vale)**
 
 En el host de prod, dentro del contenedor `api` (tiene la clave de embeddings):
 
@@ -281,7 +283,9 @@ PY
 Expected: una línea por query, `spread=…`, y `OK` o `STOP`. Escribir `tau.md` con la salida literal y el τ elegido (mediana, 2 decimales).
 **STOP** si `spread > 0.10`: un τ único no separa relevantes de no relevantes entre queries → consultar a Paul (alternativa registrada en la spec: top-K con límite de granularidad).
 
-- [ ] **Step 5: Pre-check (d) — Traefik y proxy delante (STOP si hay otro proxy)**
+**Resultado**: `spread=0.1907` → **STOP** (global tau refuted). Paul delegó la decisión en un consultor (fable), que confirmó el STOP con `tau_analysis.py` (mismo directorio: precisión@K, τ relativo `d_min+δ` con spread 0.147, separabilidad R/N) y descartó también top-K fijo (dilución con K grande). Decisión: sin τ ni calibración — cutoff explícito `max_distance` (default 0.40) + `by_distance` acumulado a 5 bandas fijas; el LLM consumidor lee la forma y elige la banda. Registrada en `tau.md` (`## Decisión`) y propagada a la spec §4.3.5 y a la Task 4 de este plan.
+
+- [x] **Step 5: Pre-check (d) — Traefik y proxy delante (STOP si hay otro proxy)**
 
 ```bash
 ssh root@89.167.115.45
@@ -297,14 +301,14 @@ Registrar salida en `prechecks.md` `## (d)`. Criterios:
 - **STOP** si el puerto 443 lo escucha algo distinto de `docker-proxy`/`traefik` (p.ej. nginx/caddy/haproxy en el host) o aparecen `cf-ray`/`via`: habría un proxy delante de Traefik, `RemoteAddr` sería ese proxy y quitar `depth=1` no daría buckets por cliente.
 - Informativo: la config `forwardedHeaders` (va a la enmienda de ADR-001).
 
-- [ ] **Step 6: Pre-check (e) — ya resuelto por código** (decisión 1). Añadir a `prechecks.md`:
+- [x] **Step 6: Pre-check (e) — ya resuelto por código** (decisión 1). Añadir a `prechecks.md`:
 
 ```markdown
 ## (e)
 `frontend/src/pages/Discover.tsx:138` usa `/api/search/semantic` → la web conserva el sesgo de recencia (`recent_first=true` por defecto); el MCP pasa `recent_first=false`.
 ```
 
-- [ ] **Step 7: Commit del baseline**
+- [x] **Step 7: Commit del baseline**
 
 ```bash
 git -C . add docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/
@@ -1332,19 +1336,20 @@ git -C . commit -m "feat(api): item detail with full_text, discussion_url and ty
 
 ---
 
-### Task 4: `GET /api/stats/trend` (keyword y semantic con τ)
+### Task 4: `GET /api/stats/trend` (keyword y semantic por bandas de distancia, sin τ)
+
+> Contrato decidido tras el STOP de Task 0 Step 4 (τ global refutado, spread 0.19): Paul delegó en un consultor. Ver `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md` (`## Decisión`) y spec §4.3.5.
 
 **Files:**
 - Modify: `src/api/schemas.py` (añadir `TrendBucket`, `TrendResponse` al final)
 - Create: `src/api/trend.py`
-- Modify: `src/core/config.py` (tras el bloque `# --- Embeddings ...`)
 - Modify: `src/api/routes/stats.py` (imports + ruta nueva al final)
 - Test: Create `tests/unit/test_trend.py`
 - Test: Create `tests/integration/test_api_trend.py`
 
 **Interfaces:**
-- Consumes: `_ts_query(q: str)` de `src/api/routes/search.py`; `effective_date`, `day_start` de `src/core/queries.py`; `EmbeddingService.embed_text(text: str) -> list[float]`; `seed_news_item`, `seed_embedding` de conftest; τ de `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md` (Task 0).
-- Produces: `TrendBucket(bucket: date, count: int, total_in_bucket: int, share: float, by_source: dict[str, int])`; `TrendResponse(query: str, method: Literal["keyword","semantic"], granularity: Literal["week","month"], since: date, threshold: float | None, buckets: list[TrendBucket])`; `bucket_starts(since: date, until: date, granularity: str) -> list[date]`; `build_buckets(starts: list[date], counts: dict[tuple[date, str], int], totals: dict[date, int]) -> list[TrendBucket]`; `Settings.trend_semantic_threshold: float`; `GET /api/stats/trend?q&method&granularity&since` (lo usa `APIClient.topic_trend` en Task 6).
+- Consumes: `_ts_query(q: str)` de `src/api/routes/search.py`; `effective_date`, `day_start` de `src/core/queries.py`; `EmbeddingService.embed_text(text: str) -> list[float]`; `seed_news_item`, `seed_embedding` de conftest.
+- Produces: `TREND_DISTANCE_EDGES: tuple[float, ...] = (0.30, 0.35, 0.40, 0.45, 0.50)` (en `src/api/trend.py`); `TrendBucket(bucket: date, count: int, total_in_bucket: int, share: float, by_source: dict[str, int], by_distance: dict[str, int] | None)`; `TrendResponse(query: str, method: Literal["keyword","semantic"], granularity: Literal["week","month"], since: date, max_distance: float | None, distance_edges: list[float] | None, buckets: list[TrendBucket])`; `bucket_starts(since: date, until: date, granularity: str) -> list[date]`; `build_buckets(starts: list[date], counts: dict[tuple[date, str], int], totals: dict[date, int], bands: dict[tuple[date, str, int], int] | None = None) -> list[TrendBucket]`; `GET /api/stats/trend?q&method&granularity&since&max_distance` (lo usa `APIClient.topic_trend` — Task 11 le añade `max_distance`). **No hay `Settings.trend_semantic_threshold`**: el cutoff siempre viaja como parámetro de request, nunca como config del servidor.
 
 - [ ] **Step 1: Escribir los tests que fallan**
 
@@ -1357,7 +1362,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.api.trend import bucket_starts, build_buckets
+from src.api.trend import TREND_DISTANCE_EDGES, bucket_starts, build_buckets
 
 
 class TestBucketStarts:
@@ -1379,7 +1384,8 @@ class TestBucketStarts:
 
 
 class TestBuildBuckets:
-    def test_includes_empty_buckets_and_normalizes_share(self):
+    def test_keyword_has_no_by_distance(self):
+        """Without a bands dict (keyword), by_distance is None throughout."""
         starts = [date(2026, 8, 31), date(2026, 9, 7)]
         counts = {(date(2026, 9, 7), "github"): 1, (date(2026, 9, 7), "arxiv"): 2}
         totals = {date(2026, 9, 7): 9}
@@ -1393,6 +1399,7 @@ class TestBuildBuckets:
                 "total_in_bucket": 0,
                 "share": 0.0,
                 "by_source": {},
+                "by_distance": None,
             },
             {
                 "bucket": date(2026, 9, 7),
@@ -1400,8 +1407,33 @@ class TestBuildBuckets:
                 "total_in_bucket": 9,
                 "share": 0.3333,
                 "by_source": {"arxiv": 2, "github": 1},
+                "by_distance": None,
             },
         ]
+
+    def test_semantic_by_distance_is_cumulative_with_all_edges_present(self):
+        """3 items at cosine distance 0.10 / 0.38 / 0.47 from the query (decision's
+        worked example): by_distance accumulates band counts at each fixed edge, and
+        all 5 edges are present even for a bucket with zero bands.
+        """
+        assert TREND_DISTANCE_EDGES == (0.30, 0.35, 0.40, 0.45, 0.50)
+        starts = [date(2026, 8, 31), date(2026, 9, 7)]
+        counts = {(date(2026, 9, 7), "arxiv"): 2}  # within max_distance=0.40: the 0.10 and 0.38 items
+        totals = {date(2026, 9, 7): 3}
+        # width_bucket index: 0 = dist < 0.30 (the 0.10 item); 2 = 0.35 <= dist < 0.40
+        # (the 0.38 item); 4 = 0.45 <= dist < 0.50 (the 0.47 item, a different source).
+        bands = {
+            (date(2026, 9, 7), "arxiv", 0): 1,
+            (date(2026, 9, 7), "arxiv", 2): 1,
+            (date(2026, 9, 7), "github", 4): 1,
+        }
+
+        buckets = build_buckets(starts, counts, totals, bands=bands)
+
+        empty, week = buckets
+        assert empty.by_distance == {"0.30": 0, "0.35": 0, "0.40": 0, "0.45": 0, "0.50": 0}
+        assert week.by_distance == {"0.30": 1, "0.35": 1, "0.40": 2, "0.45": 2, "0.50": 3}
+        assert week.count == 2  # count is independent of by_distance: at max_distance, from `counts`
 ```
 
 Crear `tests/integration/test_api_trend.py`:
@@ -1411,12 +1443,12 @@ Crear `tests/integration/test_api_trend.py`:
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, date, datetime, time, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
-from src.core.config import get_settings
 from src.rag.embeddings import EmbeddingService
 from tests.integration.conftest import seed_embedding, seed_news_item
 
@@ -1436,6 +1468,16 @@ def _monday(d: date) -> date:
 
 def _noon(d: date) -> datetime:
     return datetime.combine(d, time(12), tzinfo=UTC)
+
+
+def _unit_vector_at_distance(dist: float) -> list[float]:
+    """A 512-dim unit vector whose cosine distance from [1, 0, 0, ...] is exactly `dist`."""
+    cos_theta = 1 - dist
+    sin_theta = math.sqrt(1 - cos_theta * cos_theta)
+    return [cos_theta, sin_theta] + [0.0] * 510
+
+
+_QUERY_VECTOR = [1.0] + [0.0] * 511
 
 
 class TestTrendKeyword:
@@ -1483,7 +1525,8 @@ class TestTrendKeyword:
         assert resp.status_code == 200
         body = resp.json()
         assert body["method"] == "keyword"
-        assert body["threshold"] is None
+        assert body["max_distance"] is None
+        assert body["distance_edges"] is None
         by_bucket = {b["bucket"]: b for b in body["buckets"]}
         assert list(by_bucket) == [
             first_week.isoformat(),
@@ -1493,6 +1536,7 @@ class TestTrendKeyword:
         current = by_bucket[this_week.isoformat()]
         assert current["count"] == 2
         assert current["by_source"] == {"arxiv": 1, "github": 1}
+        assert current["by_distance"] is None
         assert current["total_in_bucket"] == 3
         assert current["share"] == pytest.approx(2 / 3, abs=1e-4)
         empty = by_bucket[middle_week.isoformat()]
@@ -1510,26 +1554,38 @@ class TestTrendKeyword:
         assert resp.status_code == 422
         assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
+    async def test_out_of_range_max_distance_is_422_even_in_keyword(self, client, auth_headers):
+        resp = await client.get(
+            "/api/stats/trend",
+            params={"q": "agents", "max_distance": 0.7},
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 422
+
 
 class TestTrendSemantic:
-    async def test_counts_within_threshold_over_items_with_embedding(
+    async def test_by_distance_is_cumulative_over_three_items(
         self, client, db_session, auth_headers, monkeypatch
     ):
-        monkeypatch.setattr(get_settings(), "trend_semantic_threshold", 0.2)
+        """Decision's worked example: items at cosine distance 0.10 / 0.38 / 0.47 from
+        the query -> by_distance == {"0.30":1,"0.35":1,"0.40":2,"0.45":2,"0.50":3};
+        count==2 at the default max_distance=0.40.
+        """
         week = _monday(datetime.now(tz=UTC).date())
-        near = await seed_news_item(
-            db_session, title="Near item", source="arxiv", published_at=_noon(week)
-        )
+        near = await seed_news_item(db_session, title="Near", source="arxiv", published_at=_noon(week))
+        mid = await seed_news_item(db_session, title="Mid", source="github", published_at=_noon(week))
         far = await seed_news_item(
-            db_session, title="Far item", source="github", published_at=_noon(week)
+            db_session, title="Far", source="hackernews", published_at=_noon(week)
         )
         await seed_news_item(
-            db_session, title="Item without embedding", source="rss", published_at=_noon(week)
+            db_session, title="No embedding", source="rss", published_at=_noon(week)
         )
-        await seed_embedding(db_session, near, vector=[1.0] + [0.0] * 511)
-        await seed_embedding(db_session, far, vector=[0.0, 1.0] + [0.0] * 510)
+        await seed_embedding(db_session, near, vector=_unit_vector_at_distance(0.10))
+        await seed_embedding(db_session, mid, vector=_unit_vector_at_distance(0.38))
+        await seed_embedding(db_session, far, vector=_unit_vector_at_distance(0.47))
         fake = AsyncMock(spec=EmbeddingService)
-        fake.embed_text.return_value = [1.0] + [0.0] * 511
+        fake.embed_text.return_value = _QUERY_VECTOR
         monkeypatch.setattr("src.api.routes.stats._embedding_service", fake)
 
         resp = await client.get(
@@ -1545,14 +1601,46 @@ class TestTrendSemantic:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["threshold"] == 0.2
+        assert body["max_distance"] == 0.40
+        assert body["distance_edges"] == [0.30, 0.35, 0.40, 0.45, 0.50]
         assert len(body["buckets"]) == 1
         bucket = body["buckets"][0]
         assert bucket["bucket"] == week.isoformat()
-        assert bucket["count"] == 1
-        assert bucket["by_source"] == {"arxiv": 1}
-        assert bucket["total_in_bucket"] == 2  # the rss item has no embedding
-        assert bucket["share"] == 0.5
+        assert bucket["count"] == 2
+        assert bucket["by_source"] == {"arxiv": 1, "github": 1}
+        assert bucket["by_distance"] == {
+            "0.30": 1,
+            "0.35": 1,
+            "0.40": 2,
+            "0.45": 2,
+            "0.50": 3,
+        }
+        assert bucket["total_in_bucket"] == 3  # the rss item has no embedding
+
+        resp = await client.get(
+            "/api/stats/trend",
+            params={
+                "q": "anything",
+                "method": "semantic",
+                "granularity": "week",
+                "since": week.isoformat(),
+                "max_distance": 0.5,
+            },
+            headers=auth_headers,
+        )
+        bucket = resp.json()["buckets"][0]
+        assert bucket["count"] == 3
+        assert bucket["by_source"] == {"arxiv": 1, "github": 1, "hackernews": 1}
+
+    async def test_max_distance_out_of_range_is_422(self, client, auth_headers):
+        resp = await client.get(
+            "/api/stats/trend",
+            params={"q": "agents", "method": "semantic", "max_distance": 0.7},
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 422
+        assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
     async def test_embedding_failure_is_503_not_an_empty_series(
         self, client, auth_headers, monkeypatch
@@ -1577,7 +1665,7 @@ Run: `.venv/bin/pytest tests/unit/test_trend.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'src.api.trend'`.
 
 Run: `.venv/bin/pytest tests/integration/test_api_trend.py -q -m integration`
-Expected: FAIL — `assert 404 == 200` (ruta inexistente) / `AttributeError` en `trend_semantic_threshold`.
+Expected: FAIL — `assert 404 == 200` (ruta inexistente).
 
 - [ ] **Step 3: Implementación mínima**
 
@@ -1590,6 +1678,7 @@ class TrendBucket(BaseModel):
     total_in_bucket: int
     share: float
     by_source: dict[str, int]
+    by_distance: dict[str, int] | None = None
 
 
 class TrendResponse(BaseModel):
@@ -1597,20 +1686,31 @@ class TrendResponse(BaseModel):
     method: Literal["keyword", "semantic"]
     granularity: Literal["week", "month"]
     since: date
-    threshold: float | None = None
+    max_distance: float | None = None
+    distance_edges: list[float] | None = None
     buckets: list[TrendBucket]
 ```
 
 Crear `src/api/trend.py`:
 
 ```python
-"""Pure helpers for GET /api/stats/trend: bucket calendar and response assembly."""
+"""Pure helpers for GET /api/stats/trend: bucket calendar and response assembly.
+
+No calibrated threshold: pre-check (a) (docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md)
+found that a single global cosine-distance cutoff does not separate relevant from
+irrelevant items across queries (spread 0.19 > 0.10 between the best per-query cutoff).
+The cutoff is instead an explicit request parameter (``max_distance``), and the response
+also reports a cumulative histogram at 5 fixed bands so the caller (an LLM) can read the
+shape of the distribution instead of trusting a single number.
+"""
 
 from __future__ import annotations
 
 from datetime import date, timedelta
 
 from src.api.schemas import TrendBucket
+
+TREND_DISTANCE_EDGES: tuple[float, ...] = (0.30, 0.35, 0.40, 0.45, 0.50)
 
 
 def _next_month(d: date) -> date:
@@ -1635,17 +1735,45 @@ def bucket_starts(since: date, until: date, granularity: str) -> list[date]:
     return starts
 
 
+def _cumulative_by_distance(band_counts: dict[int, int]) -> dict[str, int]:
+    """Cumulative count at each fixed edge, from a histogram keyed by width_bucket index.
+
+    ``width_bucket(dist, TREND_DISTANCE_EDGES)`` returns 0 for dist < edges[0], i for
+    edges[i-1] <= dist < edges[i], and len(edges) for dist >= edges[-1]. The cumulative
+    count "within edge i" (0-indexed) is the sum of bands 0..i.
+    """
+    cumulative: dict[str, int] = {}
+    running = 0
+    for i, edge in enumerate(TREND_DISTANCE_EDGES):
+        running += band_counts.get(i, 0)
+        cumulative[f"{edge:.2f}"] = running
+    return cumulative
+
+
 def build_buckets(
     starts: list[date],
     counts: dict[tuple[date, str], int],
     totals: dict[date, int],
+    bands: dict[tuple[date, str, int], int] | None = None,
 ) -> list[TrendBucket]:
-    """One TrendBucket per start; share = count / total_in_bucket (0.0 when empty)."""
+    """One TrendBucket per start; share = count / total_in_bucket (0.0 when empty).
+
+    ``bands`` (bucket, source, width_bucket index) -> count is only passed for semantic
+    trend and becomes each bucket's cumulative ``by_distance`` (all 5 edges present,
+    0 where empty); ``None`` for keyword, where distance has no meaning.
+    """
     buckets: list[TrendBucket] = []
     for start in starts:
         by_source = {source: n for (bucket, source), n in counts.items() if bucket == start}
         count = sum(by_source.values())
         total = totals.get(start, 0)
+        by_distance = None
+        if bands is not None:
+            band_counts: dict[int, int] = {}
+            for (bucket, _source, band), n in bands.items():
+                if bucket == start:
+                    band_counts[band] = band_counts.get(band, 0) + n
+            by_distance = _cumulative_by_distance(band_counts)
         buckets.append(
             TrendBucket(
                 bucket=start,
@@ -1653,22 +1781,11 @@ def build_buckets(
                 total_in_bucket=total,
                 share=round(count / total, 4) if total else 0.0,
                 by_source=dict(sorted(by_source.items())),
+                by_distance=by_distance,
             )
         )
     return buckets
 ```
-
-En `src/core/config.py`, justo después de `embedding_model: str = "text-embedding-3-small"`:
-
-```python
-
-    # --- Trend (/api/stats/trend, method=semantic) ---
-    # Cosine distance below which an item counts as "about" the query. Calibrated on
-    # production data: docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md
-    trend_semantic_threshold: float = 0.5
-```
-
-**Sustituye `0.5` por el τ registrado en `tau.md` (Task 0, Step 4)** si difiere; los tests fijan su propio umbral con `monkeypatch`, así que no dependen del valor.
 
 En `src/api/routes/stats.py` (sin `from __future__ import annotations`), reemplazar el bloque de imports por:
 
@@ -1681,6 +1798,7 @@ from datetime import date as date_type
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from sqlalchemy import ColumnElement, Date, case, cast, func, select, text
+from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth import UserClaims, require_auth_or_guest
@@ -1697,7 +1815,7 @@ from src.api.schemas import (
     StatsSummaryResponse,
     TrendResponse,
 )
-from src.api.trend import bucket_starts, build_buckets
+from src.api.trend import TREND_DISTANCE_EDGES, bucket_starts, build_buckets
 from src.core.config import get_settings
 from src.core.database import get_session
 from src.core.logging import get_logger
@@ -1742,13 +1860,19 @@ async def stats_trend(
     method: str = Query(
         "keyword",
         pattern="^(keyword|semantic)$",
-        description="keyword = full-text match; semantic = cosine distance below the threshold",
+        description="keyword = full-text match; semantic = distance bands below max_distance",
     ),
     granularity: str = Query(
         "month", pattern="^(week|month)$", description="ISO weeks or calendar months (UTC)"
     ),
     since: date_type | None = Query(
         None, description="Start date (inclusive); default 182 days ago, at most 730 days ago"
+    ),
+    max_distance: float = Query(
+        0.40,
+        ge=0.20,
+        le=0.60,
+        description="Cosine-distance cutoff for method=semantic (ignored in keyword)",
     ),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
@@ -1757,6 +1881,10 @@ async def stats_trend(
 
     Empty buckets are included (count 0). ``share`` = count / total_in_bucket; for
     ``semantic`` the total only counts items with an embedding of the active model.
+    ``semantic`` has no calibrated threshold (pre-check (a) found no single cosine-distance
+    cutoff separates relevant from irrelevant items across queries): ``max_distance`` is an
+    explicit cutoff and ``by_distance`` gives the cumulative count at 5 fixed bands
+    (0.30-0.50) so the caller can read the shape instead of trusting one number.
     """
     today = datetime.now(tz=UTC).date()
     start = since or (today - timedelta(days=_TREND_DEFAULT_DAYS))
@@ -1774,7 +1902,6 @@ async def stats_trend(
         func.date_trunc(granularity, func.timezone("UTC", effective_date)), Date
     ).label("bucket")
     in_window = effective_date >= day_start(starts[0])
-    threshold: float | None = None
 
     if method == "keyword":
         match = NewsItem.search_vector.bool_op("@@")(_ts_query(q))
@@ -1784,38 +1911,69 @@ async def stats_trend(
             .group_by(bucket, NewsItem.source)
         )
         total_stmt = select(bucket, func.count(NewsItem.id)).where(in_window).group_by(bucket)
-    else:
-        settings = get_settings()
-        try:
-            query_vec = await _get_embedding_service().embed_text(q)
-        except Exception as exc:
-            logger.error("trend_embed_failed", exc_info=True)
-            raise APIError(
-                503,
-                "EMBEDDING_UNAVAILABLE",
-                "Semantic trend unavailable: the query could not be embedded",
-            ) from exc
-        threshold = settings.trend_semantic_threshold
-        has_embedding = (ItemEmbedding.item_id == NewsItem.id) & (
-            ItemEmbedding.model == settings.embedding_model
-        )
-        close = ItemEmbedding.embedding.cosine_distance(query_vec) < threshold
-        # Exact scan: deterministic counts, never an HNSW-capped subset (ADR-006).
-        await session.execute(text("SET LOCAL enable_indexscan = off"))
-        count_stmt = (
-            select(bucket, NewsItem.source, func.count(NewsItem.id))
-            .join(ItemEmbedding, has_embedding)
-            .where(in_window & close)
-            .group_by(bucket, NewsItem.source)
-        )
-        total_stmt = (
-            select(bucket, func.count(NewsItem.id))
-            .join(ItemEmbedding, has_embedding)
-            .where(in_window)
-            .group_by(bucket)
+
+        counts = {(row[0], row[1]): row[2] for row in (await session.execute(count_stmt)).all()}
+        totals = {row[0]: row[1] for row in (await session.execute(total_stmt)).all()}
+
+        return TrendResponse(
+            query=q,
+            method=method,
+            granularity=granularity,
+            since=start,
+            max_distance=None,
+            distance_edges=None,
+            buckets=build_buckets(starts, counts, totals),
         )
 
-    counts = {(row[0], row[1]): row[2] for row in (await session.execute(count_stmt)).all()}
+    settings = get_settings()
+    try:
+        query_vec = await _get_embedding_service().embed_text(q)
+    except Exception as exc:
+        logger.error("trend_embed_failed", exc_info=True)
+        raise APIError(
+            503,
+            "EMBEDDING_UNAVAILABLE",
+            "Semantic trend unavailable: the query could not be embedded",
+        ) from exc
+
+    has_embedding = (ItemEmbedding.item_id == NewsItem.id) & (
+        ItemEmbedding.model == settings.embedding_model
+    )
+    distance = ItemEmbedding.embedding.cosine_distance(query_vec)
+    band = func.width_bucket(distance, pg_array(TREND_DISTANCE_EDGES)).label("band")
+    within_max = (distance < max_distance).label("within_max")
+    # Widest edge we still need rows for: TREND_DISTANCE_EDGES[-1] (0.50) unless the
+    # caller asked for a wider max_distance (up to 0.60).
+    edge_cutoff = max(max_distance, TREND_DISTANCE_EDGES[-1])
+
+    # Exact scan: deterministic band counts, never an HNSW-capped subset (ADR-006).
+    await session.execute(text("SET LOCAL enable_indexscan = off"))
+
+    # Single grouped query: (bucket, source, band, within_max) -> count. `counts` (by
+    # source, at max_distance) and `bands` (cumulative histogram) are both derived from
+    # these rows in Python — see build_buckets.
+    band_stmt = (
+        select(bucket, NewsItem.source, band, within_max, func.count(NewsItem.id))
+        .join(ItemEmbedding, has_embedding)
+        .where(in_window & (distance < edge_cutoff))
+        .group_by(bucket, NewsItem.source, band, within_max)
+    )
+    total_stmt = (
+        select(bucket, func.count(NewsItem.id))
+        .join(ItemEmbedding, has_embedding)
+        .where(in_window)
+        .group_by(bucket)
+    )
+
+    counts: dict[tuple[date_type, str], int] = {}
+    bands: dict[tuple[date_type, str, int], int] = {}
+    for bucket_start, source, band_idx, is_within_max, n in (
+        await session.execute(band_stmt)
+    ).all():
+        key = (bucket_start, source, band_idx)
+        bands[key] = bands.get(key, 0) + n
+        if is_within_max:
+            counts[(bucket_start, source)] = counts.get((bucket_start, source), 0) + n
     totals = {row[0]: row[1] for row in (await session.execute(total_stmt)).all()}
 
     return TrendResponse(
@@ -1823,10 +1981,36 @@ async def stats_trend(
         method=method,
         granularity=granularity,
         since=start,
-        threshold=threshold,
-        buckets=build_buckets(starts, counts, totals),
+        max_distance=max_distance,
+        distance_edges=list(TREND_DISTANCE_EDGES),
+        buckets=build_buckets(starts, counts, totals, bands=bands),
     )
 ```
+
+**SQL verificado en local** (Postgres de test, `ai-news-platform-db-1`) contra una tabla `news_items`/`item_embeddings` temporal (transacción con rollback, no persiste nada) con 3 items a distancia exacta 0.10/0.38/0.47 de la query, `max_distance=0.40`, `granularity=week`:
+
+```
+=== GROUPED (width_bucket) ===
+{'bucket': datetime.date(2026, 9, 7), 'source': 'arxiv', 'band': 0, 'within_max': True, 'n': 1}
+{'bucket': datetime.date(2026, 9, 14), 'source': 'arxiv', 'band': 0, 'within_max': True, 'n': 1}
+{'bucket': datetime.date(2026, 9, 14), 'source': 'github', 'band': 2, 'within_max': True, 'n': 1}
+{'bucket': datetime.date(2026, 9, 14), 'source': 'hackernews', 'band': 4, 'within_max': False, 'n': 1}
+
+=== TOTAL (embedding JOIN only) ===
+{'bucket': datetime.date(2026, 9, 7), 'total': 1}
+{'bucket': datetime.date(2026, 9, 14), 'total': 3}
+
+=== EXPLAIN ANALYZE (grouped query) ===
+GroupAggregate  (cost=30.65..30.69 rows=1 width=135) (actual time=0.101..0.104 rows=4 loops=1)
+  ->  Sort (actual time=0.096..0.097 rows=4 loops=1)
+        ->  Nested Loop (actual time=0.041..0.087 rows=4 loops=1)
+              ->  Bitmap Heap Scan on item_embeddings e (actual time=0.021..0.036 rows=4 loops=1)
+              ->  Index Scan using news_items_pkey on news_items n (actual time=0.002..0.002 rows=1 loops=4)
+Planning Time: 0.217 ms
+Execution Time: 0.143 ms
+```
+
+`band=0` → dist < 0.30 (el item a 0.10); `band=2` → 0.35 <= dist < 0.40 (el item a 0.38, `within_max=True` porque 0.38 < 0.40); `band=4` → 0.45 <= dist < 0.50 (el item a 0.47, `within_max=False`). Coincide con el ejemplo de la decisión (`by_distance == {"0.30":1,"0.35":1,"0.40":2,"0.45":2,"0.50":3}`, `count==2` a `max_distance=0.40`). Coste: decenas de μs sobre 5 filas — a escala de prod (~17k×512 dims) la Task 2 ya midió el mismo patrón de scan exacto en "decenas de ms" (ADR-006); el `GROUP BY` extra es agregación en memoria, no un segundo scan.
 
 - [ ] **Step 4: Correr los tests y verificar que pasan**
 
@@ -1839,8 +2023,8 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C . add src/api/schemas.py src/api/trend.py src/core/config.py src/api/routes/stats.py tests/unit/test_trend.py tests/integration/test_api_trend.py
-git -C . commit -m "feat(api): /api/stats/trend with keyword and thresholded semantic buckets [Track B]"
+git -C . add src/api/schemas.py src/api/trend.py src/api/routes/stats.py tests/unit/test_trend.py tests/integration/test_api_trend.py
+git -C . commit -m "feat(api): /api/stats/trend with keyword and distance-banded semantic buckets [Track B]"
 ```
 
 ---
@@ -1945,7 +2129,9 @@ git -C . commit -m "feat(api): log each request with the real client IP [Track B
 
 ---
 
-### Task 6: Cliente MCP async con mapeo de errores y reenvío de XFF
+### Task 6: Cliente MCP async con mapeo de errores y reenvío de XFF — YA IMPLEMENTADA (commit `82284e4`)
+
+> Esta tarea ya está commiteada tal cual (verificado: `src/mcp/client.py` y `tests/unit/test_mcp_client.py` en el working tree coinciden con `git show 82284e4`). La Task 11 (después de esta, antes de la Task 7) la corrige en dos puntos que no podía cubrir cuando se escribió: `topic_trend` no tenía `max_distance` (la Task 4 no existía aún) y el refresh de token en 401 no estaba serializado bajo el lock. No re-ejecutar esta tarea; ir directo a la Task 11.
 
 **Files:**
 - Rewrite: `src/mcp/client.py`
@@ -2391,6 +2577,511 @@ git -C . commit -m "feat(mcp): async API client with actionable errors and X-For
 
 ---
 
+### Task 11: Fix del cliente MCP (topic_trend max_distance + lock del refresh 401)
+
+> Se ejecuta **ANTES de la Task 7** (que consume `APIClient` en el server MCP). Nota para el extractor de tareas del orquestador: la Task 6 (`feat(mcp): async API client...`, commit `82284e4`) ya está implementada; esta tarea la corrige en dos puntos que la Task 6 dejó pendientes: (1) `topic_trend` no tenía `max_distance` porque la Task 4 aún no existía cuando se escribió; (2) el refresh de token en 401 corría fuera del lock (decisión de Paul: debe ir bajo el mismo lock que la adquisición inicial, con doble comprobación).
+
+**Files:**
+- Rewrite: `src/mcp/client.py`
+- Rewrite: `tests/unit/test_mcp_client.py`
+
+**Interfaces:**
+- Consumes: `/api/stats/trend` con `max_distance` (Task 4).
+- Produces (usadas por `src/mcp/server.py` en Task 7): `APIClient.topic_trend(self, q: str, *, method: str, granularity: str, since: str | None = None, max_distance: float | None = None, forwarded_for: str | None = None) -> dict[str, Any]` (envía `max_distance` solo si no es `None`); `APIClient._refresh_token(self, stale_token: str) -> None` (privado; refresco de 401 serializado bajo `self._token_lock` con doble comprobación).
+
+- [ ] **Step 1: Escribir los tests que fallan** — reemplazar `tests/unit/test_mcp_client.py` entero por:
+
+```python
+"""Tests for the async MCP API client."""
+
+from __future__ import annotations
+
+import asyncio
+
+import httpx
+import pytest
+import respx
+
+from src.mcp.client import APIClient, APIRequestError
+
+BASE = "http://localhost:8000"
+ITEM_ID = "3f1c8a52-8a55-4a7e-9a36-1a2b3c4d5e6f"
+
+
+def _guest(token: str = "test-jwt") -> httpx.Response:  # noqa: S107 test fixture, not a secret
+    return httpx.Response(200, json={"access_token": token, "token_type": "bearer"})
+
+
+class TestAuth:
+    @respx.mock
+    async def test_acquires_guest_token_lazily_on_first_call(self):
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        client = APIClient(base_url=BASE)
+        assert guest.call_count == 0
+        await client.get_top()
+
+        assert guest.call_count == 1
+        assert top.calls.last.request.headers["Authorization"] == "Bearer test-jwt"
+
+    @respx.mock
+    async def test_guest_token_failure_raises_actionable_error(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=httpx.Response(500))
+
+        client = APIClient(base_url=BASE)
+        with pytest.raises(APIRequestError, match="guest token acquisition failed"):
+            await client.get_top()
+
+    @respx.mock
+    async def test_explicit_token_skips_guest(self):
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        client = APIClient(base_url=BASE, token="pre-existing-jwt")  # noqa: S106
+        await client.get_top()
+
+        assert guest.call_count == 0
+
+
+class TestTokenRefresh:
+    @respx.mock
+    async def test_refreshes_token_and_retries_once_on_401(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(side_effect=[_guest("stale"), _guest("fresh")])
+        top = respx.get(f"{BASE}/api/items/top").mock(
+            side_effect=[httpx.Response(401), httpx.Response(200, json=[{"title": "Fresh"}])]
+        )
+
+        client = APIClient(base_url=BASE)
+        result = await client.get_top()
+
+        assert result == [{"title": "Fresh"}]
+        assert top.calls.last.request.headers["Authorization"] == "Bearer fresh"
+
+    @respx.mock
+    async def test_concurrent_401s_trigger_a_single_guest_refresh(self):
+        """Regression: the 401-refresh used to run outside the token lock, so N
+        coroutines hitting 401 on the same stale token each fired their own
+        POST /api/auth/guest. Fixed with the same double-checked lock as the initial
+        guest-token acquisition (decision: Paul).
+        """
+
+        def top_response(request: httpx.Request) -> httpx.Response:
+            if request.headers["Authorization"] == "Bearer stale":
+                return httpx.Response(401)
+            return httpx.Response(200, json=[])
+
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest("fresh"))
+        respx.get(f"{BASE}/api/items/top").mock(side_effect=top_response)
+
+        client = APIClient(base_url=BASE, token="stale")  # noqa: S106
+        results = await asyncio.gather(*(client.get_top() for _ in range(5)))
+
+        assert guest.call_count == 1
+        assert results == [[]] * 5
+        assert client.token == "fresh"
+
+
+class TestForwardedFor:
+    @respx.mock
+    async def test_forwards_client_ip_header(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        await APIClient(base_url=BASE).get_top(forwarded_for="203.0.113.7")
+
+        assert top.calls.last.request.headers["X-Forwarded-For"] == "203.0.113.7"
+
+    @respx.mock
+    async def test_no_header_when_nothing_to_forward(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        await APIClient(base_url=BASE).get_top()
+
+        assert "X-Forwarded-For" not in top.calls.last.request.headers
+
+
+class TestEndpoints:
+    @respx.mock
+    async def test_semantic_search_disables_recency_and_passes_filters(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        route = respx.get(f"{BASE}/api/search/semantic").mock(
+            return_value=httpx.Response(200, json=[])
+        )
+
+        await APIClient(base_url=BASE).search(
+            "agent memory", mode="semantic", source="arxiv", date_from="2026-01-01", limit=5
+        )
+
+        params = route.calls.last.request.url.params
+        assert params["q"] == "agent memory"
+        assert params["recent_first"] == "false"
+        assert params["source"] == "arxiv"
+        assert params["date_from"] == "2026-01-01"
+        assert params["limit"] == "5"
+        assert "topic" not in params
+
+    @respx.mock
+    async def test_keyword_search_uses_fts_endpoint(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        route = respx.get(f"{BASE}/api/search").mock(return_value=httpx.Response(200, json=[]))
+
+        await APIClient(base_url=BASE).search("GLM-5", mode="keyword", topic="models")
+
+        params = route.calls.last.request.url.params
+        assert params["q"] == "GLM-5"
+        assert params["topic"] == "models"
+        assert "recent_first" not in params
+
+    @respx.mock
+    async def test_get_item_find_similar_trend_and_top_paths(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        item = respx.get(f"{BASE}/api/items/{ITEM_ID}").mock(
+            return_value=httpx.Response(200, json={"id": ITEM_ID})
+        )
+        similar = respx.get(f"{BASE}/api/items/{ITEM_ID}/similar").mock(
+            return_value=httpx.Response(200, json=[])
+        )
+        trend = respx.get(f"{BASE}/api/stats/trend").mock(
+            return_value=httpx.Response(200, json={"buckets": []})
+        )
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        client = APIClient(base_url=BASE)
+        assert await client.get_item(ITEM_ID) == {"id": ITEM_ID}
+        await client.find_similar(ITEM_ID, limit=7)
+        await client.topic_trend(
+            "agents", method="semantic", granularity="week", since="2026-06-01"
+        )
+        await client.get_top(days=3, source="hackernews", limit=4)
+
+        assert item.called
+        assert similar.calls.last.request.url.params["limit"] == "7"
+        trend_params = trend.calls.last.request.url.params
+        assert (trend_params["q"], trend_params["method"], trend_params["granularity"]) == (
+            "agents",
+            "semantic",
+            "week",
+        )
+        assert trend_params["since"] == "2026-06-01"
+        assert "max_distance" not in trend_params
+        top_params = top.calls.last.request.url.params
+        assert (top_params["days"], top_params["source"], top_params["limit"]) == (
+            "3",
+            "hackernews",
+            "4",
+        )
+
+    @respx.mock
+    async def test_topic_trend_sends_max_distance_only_when_given(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        trend = respx.get(f"{BASE}/api/stats/trend").mock(
+            return_value=httpx.Response(200, json={"buckets": []})
+        )
+
+        client = APIClient(base_url=BASE)
+        await client.topic_trend("agents", method="semantic", granularity="week", max_distance=0.5)
+
+        assert trend.calls.last.request.url.params["max_distance"] == "0.5"
+
+
+class TestErrorMapping:
+    @pytest.fixture()
+    def api(self):
+        with respx.mock(base_url=BASE) as router:
+            router.post("/api/auth/guest").mock(return_value=_guest())
+            yield router
+
+    async def test_not_found_code(self, api):
+        api.get(f"/api/items/{ITEM_ID}").mock(
+            return_value=httpx.Response(
+                404, json={"error": {"code": "NOT_FOUND", "message": "Item x not found"}}
+            )
+        )
+        with pytest.raises(APIRequestError, match="^item not found$"):
+            await APIClient(base_url=BASE).get_item(ITEM_ID)
+
+    async def test_embedding_not_found_code(self, api):
+        api.get(f"/api/items/{ITEM_ID}/similar").mock(
+            return_value=httpx.Response(
+                404, json={"error": {"code": "EMBEDDING_NOT_FOUND", "message": "No embedding"}}
+            )
+        )
+        with pytest.raises(APIRequestError, match="no embedding yet; similar unavailable"):
+            await APIClient(base_url=BASE).find_similar(ITEM_ID)
+
+    async def test_fastapi_validation_detail(self, api):
+        api.get("/api/stats/trend").mock(
+            return_value=httpx.Response(
+                422,
+                json={"detail": [{"loc": ["query", "granularity"], "msg": "String should match"}]},
+            )
+        )
+        with pytest.raises(APIRequestError, match="invalid arguments: granularity: String should"):
+            await APIClient(base_url=BASE).topic_trend("x", method="keyword", granularity="day")
+
+    async def test_api_error_validation_message(self, api):
+        api.get("/api/stats/trend").mock(
+            return_value=httpx.Response(
+                422,
+                json={"error": {"code": "VALIDATION_ERROR", "message": "since must be within"}},
+            )
+        )
+        with pytest.raises(APIRequestError, match="invalid arguments: since must be within"):
+            await APIClient(base_url=BASE).topic_trend("x", method="keyword", granularity="week")
+
+    async def test_rate_limited_uses_retry_after(self, api):
+        api.get("/api/items/top").mock(
+            return_value=httpx.Response(
+                429, headers={"Retry-After": "12"}, json={"error": "Rate limit exceeded"}
+            )
+        )
+        with pytest.raises(APIRequestError, match="rate limited, retry in 12s"):
+            await APIClient(base_url=BASE).get_top()
+
+    async def test_server_error_is_backend_unavailable(self, api):
+        api.get("/api/items/top").mock(return_value=httpx.Response(503, text="down"))
+        with pytest.raises(APIRequestError, match=r"backend unavailable \(HTTP 503\)"):
+            await APIClient(base_url=BASE).get_top()
+
+    async def test_timeout_is_backend_unavailable(self, api):
+        api.get("/api/items/top").mock(side_effect=httpx.ReadTimeout("slow"))
+        with pytest.raises(APIRequestError, match=r"backend unavailable \(timeout\)"):
+            await APIClient(base_url=BASE).get_top()
+```
+
+- [ ] **Step 2: Correr los tests y verificar que fallan**
+
+Run: `.venv/bin/pytest tests/unit/test_mcp_client.py -q`
+Expected: FAIL — `TypeError: topic_trend() got an unexpected keyword argument 'max_distance'` en `test_topic_trend_sends_max_distance_only_when_given`; `test_concurrent_401s_trigger_a_single_guest_refresh` falla con `assert 5 == 1` (5 POSTs de guest, uno por corrutina).
+
+- [ ] **Step 3: Implementación mínima** — reemplazar `src/mcp/client.py` entero por:
+
+```python
+"""Async HTTP client for the AI News Platform API, used by the MCP server."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+import httpx
+
+_TIMEOUT = httpx.Timeout(30.0)
+
+_Params = dict[str, str | int | float]
+
+
+class APIRequestError(Exception):
+    """An API call failed; the message is actionable for the calling agent."""
+
+
+def _validation_detail(body: object, message: str | None) -> str:
+    if message:
+        return message
+    if isinstance(body, dict) and isinstance(body.get("detail"), list):
+        parts = []
+        for err in body["detail"]:
+            loc = err.get("loc") or ["?"]
+            parts.append(f"{loc[-1]}: {err.get('msg', 'invalid')}")
+        return "; ".join(parts)
+    return "request rejected by the API"
+
+
+def _raise_for_api_error(resp: httpx.Response) -> None:
+    """Translate a non-2xx API response into an actionable APIRequestError."""
+    if resp.is_success:
+        return
+    status = resp.status_code
+    try:
+        body: object = resp.json()
+    except ValueError:
+        body = None
+    error = body.get("error") if isinstance(body, dict) else None
+    code = error.get("code") if isinstance(error, dict) else None
+    message = error.get("message") if isinstance(error, dict) else None
+
+    if code == "NOT_FOUND":
+        raise APIRequestError("item not found")
+    if code == "EMBEDDING_NOT_FOUND":
+        raise APIRequestError("item exists but has no embedding yet; similar unavailable")
+    if status == 422:
+        raise APIRequestError(f"invalid arguments: {_validation_detail(body, message)}")
+    if status == 429:
+        raise APIRequestError(f"rate limited, retry in {resp.headers.get('Retry-After', '60')}s")
+    if status >= 500:
+        raise APIRequestError(f"backend unavailable (HTTP {status})")
+    raise APIRequestError(f"unexpected API response (HTTP {status}): {message or resp.text[:200]}")
+
+
+class APIClient:
+    """Async client over the REST API; one instance is shared by all tool calls."""
+
+    def __init__(self, base_url: str = "http://localhost:8000", token: str = "") -> None:
+        self.base_url = base_url.rstrip("/")
+        self._http = httpx.AsyncClient(base_url=self.base_url, timeout=_TIMEOUT)
+        self.token = token
+        self._token_lock = asyncio.Lock()
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
+
+    async def _acquire_guest_token(self) -> str:
+        try:
+            resp = await self._http.post("/api/auth/guest")
+        except httpx.TransportError as exc:
+            raise APIRequestError(f"backend unavailable ({type(exc).__name__})") from exc
+        if resp.status_code != 200:
+            raise APIRequestError(
+                f"backend unavailable (guest token acquisition failed: HTTP {resp.status_code})"
+            )
+        return resp.json()["access_token"]
+
+    async def _ensure_token(self) -> None:
+        if self.token:
+            return
+        async with self._token_lock:
+            if not self.token:
+                self.token = await self._acquire_guest_token()
+
+    async def _refresh_token(self, stale_token: str) -> None:
+        """Refresh the guest token once, even if many callers 401 at the same time.
+
+        Same lock as ``_ensure_token``, with the same double-checked pattern: only the
+        first caller to grab the lock whose token still equals the one that got the 401
+        performs the POST; by the time the rest of the woken-up callers acquire the
+        lock, ``self.token`` has already moved on, so they skip the request and just
+        retry with the fresh one. N coroutines racing on the same expired token make
+        exactly one ``POST /api/auth/guest`` (decision: Paul).
+        """
+        async with self._token_lock:
+            if self.token == stale_token:
+                self.token = await self._acquire_guest_token()
+
+    async def _send(
+        self, path: str, params: _Params | None, forwarded_for: str | None
+    ) -> httpx.Response:
+        headers = {"Authorization": f"Bearer {self.token}"}
+        if forwarded_for:
+            headers["X-Forwarded-For"] = forwarded_for
+        try:
+            return await self._http.get(path, params=params, headers=headers)
+        except httpx.TimeoutException as exc:
+            raise APIRequestError("backend unavailable (timeout)") from exc
+        except httpx.TransportError as exc:
+            raise APIRequestError(f"backend unavailable ({type(exc).__name__})") from exc
+
+    async def _get(
+        self,
+        path: str,
+        params: _Params | None = None,
+        *,
+        forwarded_for: str | None = None,
+    ) -> Any:
+        """GET *path* with auth, refreshing the guest token once on 401.
+
+        The MCP server is long-lived but guest tokens are short-lived, so a cached
+        token eventually expires. On 401 we re-acquire once and retry; the refresh
+        itself is serialized through ``_refresh_token`` so N concurrent calls that all
+        401 on the same stale token trigger a single guest-token POST, not N.
+        """
+        await self._ensure_token()
+        used_token = self.token
+        resp = await self._send(path, params, forwarded_for)
+        if resp.status_code == 401:
+            await self._refresh_token(used_token)
+            resp = await self._send(path, params, forwarded_for)
+        _raise_for_api_error(resp)
+        return resp.json()
+
+    async def search(
+        self,
+        q: str,
+        *,
+        mode: str,
+        topic: str | None = None,
+        source: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int = 10,
+        forwarded_for: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: _Params = {"q": q, "limit": limit}
+        for key, value in (
+            ("topic", topic),
+            ("source", source),
+            ("date_from", date_from),
+            ("date_to", date_to),
+        ):
+            if value:
+                params[key] = value
+        if mode == "semantic":
+            params["recent_first"] = "false"
+            return await self._get("/api/search/semantic", params, forwarded_for=forwarded_for)
+        return await self._get("/api/search", params, forwarded_for=forwarded_for)
+
+    async def get_item(self, item_id: str, *, forwarded_for: str | None = None) -> dict[str, Any]:
+        return await self._get(f"/api/items/{item_id}", forwarded_for=forwarded_for)
+
+    async def find_similar(
+        self, item_id: str, *, limit: int = 5, forwarded_for: str | None = None
+    ) -> list[dict[str, Any]]:
+        return await self._get(
+            f"/api/items/{item_id}/similar", {"limit": limit}, forwarded_for=forwarded_for
+        )
+
+    async def topic_trend(
+        self,
+        q: str,
+        *,
+        method: str,
+        granularity: str,
+        since: str | None = None,
+        max_distance: float | None = None,
+        forwarded_for: str | None = None,
+    ) -> dict[str, Any]:
+        params: _Params = {"q": q, "method": method, "granularity": granularity}
+        if since:
+            params["since"] = since
+        if max_distance is not None:
+            params["max_distance"] = max_distance
+        return await self._get("/api/stats/trend", params, forwarded_for=forwarded_for)
+
+    async def get_top(
+        self,
+        *,
+        days: int = 7,
+        topic: str | None = None,
+        source: str | None = None,
+        limit: int = 10,
+        forwarded_for: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: _Params = {"days": days, "limit": limit}
+        if topic:
+            params["topic"] = topic
+        if source:
+            params["source"] = source
+        return await self._get("/api/items/top", params, forwarded_for=forwarded_for)
+```
+
+- [ ] **Step 4: Correr los tests y verificar que pasan**
+
+Run: `.venv/bin/pytest tests/unit/test_mcp_client.py -q`
+Expected: PASS (18 tests, verificado en local: 18 passed).
+
+Run: `.venv/bin/ruff check src/mcp/client.py tests/unit/test_mcp_client.py && .venv/bin/ruff format --check src/mcp/client.py tests/unit/test_mcp_client.py && .venv/bin/pyright src/mcp/client.py`
+Expected: `All checks passed!`, sin ficheros por formatear, `0 errors`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git -C . add src/mcp/client.py tests/unit/test_mcp_client.py
+git -C . commit -m "fix(mcp): topic_trend max_distance + serialize the 401 token refresh under the lock [Track B]"
+```
+
+---
+
 ### Task 7: Server MCP — 5 tools de descubrimiento, salida estructurada, stateless
 
 **Files:**
@@ -2604,7 +3295,8 @@ class TestFindSimilarTrendTop:
             "method": "semantic",
             "granularity": "week",
             "since": "2026-08-31",
-            "threshold": 0.42,
+            "max_distance": 0.42,
+            "distance_edges": [0.30, 0.35, 0.40, 0.45, 0.50],
             "buckets": [
                 {
                     "bucket": "2026-08-31",
@@ -2612,6 +3304,7 @@ class TestFindSimilarTrendTop:
                     "total_in_bucket": 120,
                     "share": 0.025,
                     "by_source": {"arxiv": 3},
+                    "by_distance": {"0.30": 1, "0.35": 1, "0.40": 3, "0.45": 3, "0.50": 5},
                 }
             ],
         }
@@ -2619,13 +3312,29 @@ class TestFindSimilarTrendTop:
 
         _, out = await mcp.call_tool(
             "topic_trend",
-            {"query": "agents", "method": "semantic", "granularity": "week", "since": "2026-09-01"},
+            {
+                "query": "agents",
+                "method": "semantic",
+                "granularity": "week",
+                "since": "2026-09-01",
+                "max_distance": 0.42,
+            },
         )
 
         fake_client.topic_trend.assert_awaited_once_with(
-            "agents", method="semantic", granularity="week", since="2026-09-01", forwarded_for=None
+            "agents",
+            method="semantic",
+            granularity="week",
+            since="2026-09-01",
+            max_distance=0.42,
+            forwarded_for=None,
         )
         assert out == series
+
+    async def test_topic_trend_max_distance_out_of_range_is_rejected(self, fake_client):
+        with pytest.raises(ToolError, match="less than or equal to 0.6"):
+            await mcp.call_tool("topic_trend", {"query": "agents", "max_distance": 0.9})
+        fake_client.topic_trend.assert_not_awaited()
 
     async def test_get_top_defaults(self, fake_client):
         fake_client.get_top.return_value = [API_ITEM]
@@ -2870,6 +3579,7 @@ class TrendBucketOut(BaseModel):
     total_in_bucket: int
     share: float
     by_source: dict[str, int]
+    by_distance: dict[str, int] | None = None
 
 
 class TrendResult(BaseModel):
@@ -2877,7 +3587,8 @@ class TrendResult(BaseModel):
     method: TrendMethod
     granularity: Granularity
     since: str
-    threshold: float | None = None
+    max_distance: float | None = None
+    distance_edges: list[float] | None = None
     buckets: list[TrendBucketOut]
 
 
@@ -3070,10 +3781,7 @@ async def topic_trend(
     ctx: Context,
     method: Annotated[
         TrendMethod,
-        Field(
-            description="keyword (default): exact full-text matches. semantic: items whose "
-            "embedding is within a fixed cosine-distance threshold (returned as threshold)"
-        ),
+        Field(description="keyword (default): exact full-text matches. semantic: see below"),
     ] = "keyword",
     granularity: Annotated[
         Granularity, Field(description="ISO weeks (Monday, UTC) or calendar months")
@@ -3082,20 +3790,34 @@ async def topic_trend(
         date | None,
         Field(description="Inclusive start, YYYY-MM-DD; default ~6 months ago, max 24 months"),
     ] = None,
+    max_distance: Annotated[
+        float | None,
+        Field(
+            ge=0.2,
+            le=0.6,
+            description="semantic only: cosine-distance cutoff (default 0.40 if omitted)",
+        ),
+    ] = None,
 ) -> TrendResult:
     """Whether a topic is rising: item counts per time bucket, normalized.
 
     Each bucket has count, total_in_bucket and share = count / total_in_bucket (use share
     to compare buckets: the corpus grows and sources change), plus by_source. Empty
-    buckets are included. Dates are publication dates, except for repos and models where
-    they are the first capture date. Niche topics give small, noisy weekly counts; prefer
-    month for long windows.
+    buckets are included. Niche topics give small, noisy weekly counts; prefer month for
+    long windows. Effective date of repos/models is first capture, not publication.
+
+    semantic counts items whose embedding is within max_distance (cosine, default 0.40);
+    by_distance gives the cumulative count at 0.30-0.50 per bucket. The right cutoff
+    depends on the topic: read the shape in the tightest band with >= 20 items total; if
+    even 0.50 is nearly empty, the corpus has no signal for this query — use
+    method=keyword instead.
     """
     data = await _get_client().topic_trend(
         query,
         method=method,
         granularity=granularity,
         since=_iso(since),
+        max_distance=max_distance,
         forwarded_for=_forwarded_for(ctx),
     )
     return TrendResult.model_validate(data)
@@ -3281,8 +4003,10 @@ rate-limit para todos los clientes MCP (en la API y en Traefik); HNSW devolvía 
 - `get_item` devuelve `full_text` entero (sin tope: un tope traslada coste al agente) y
   `engagement {kind: points|stars|downloads|upvotes, value} | null`.
 - API: filtros en la búsqueda semántica con **scan exacto** (`SET LOCAL enable_indexscan = off`);
-  `/api/stats/trend` (keyword = FTS; semantic = `cosine_distance < TREND_SEMANTIC_THRESHOLD`,
-  τ calibrado en prod, ver `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md`).
+  `/api/stats/trend` (keyword = FTS; semantic = sin τ global — pre-check (a) lo refutó, spread 0.19 —
+  cutoff explícito `max_distance` (default 0.40) + `by_distance` acumulado a 5 bandas fijas
+  `TREND_DISTANCE_EDGES`, decisión delegada en consultor, ver
+  `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md`).
 - El MCP reenvía el `X-Forwarded-For` del cliente; la API loggea `client_ip`; Traefik limita por
   `RemoteAddr` (enmienda ADR-001). `stateless_http=True`. `mcp~=1.29` (el SDK 2.x renombra
   `FastMCP` → `MCPServer`).
@@ -3302,8 +4026,12 @@ rate-limit para todos los clientes MCP (en la API y en Traefik); HNSW devolvía 
 - **Aditivo** (mantener las 5 antiguas + 3 nuevas): sin rotura, pero latest/trending/briefing/top
   solapan propósito (el smell "Unclear Purpose").
 - **Contrato mínimo** search/fetch/trend: pierde el ranking por ventana (`composite_score`).
-- **Top-K por fecha** para la tendencia semántica: sin calibración, pero ruidoso con muchos buckets;
-  se eligió umbral τ con verificación previa de que un τ global separa relevantes entre queries.
+- **Umbral τ global calibrado en prod**: descartado — pre-check (a) lo refutó (spread 0.19 > 0.10
+  entre el mejor τ por query); un corte único no separa relevantes de no relevantes entre queries.
+  **Top-K por fecha**: también descartado (dilución con K grande, mismo pre-check). Se eligió un
+  cutoff explícito (`max_distance`) más un histograma acumulado por bandas fijas (`by_distance`),
+  que traslada la lectura de la forma de la distribución al consumidor (un LLM) en vez de que el
+  servidor calibre un corte.
 - **HNSW con `ef_search`/`iterative_scan`**: escala mejor, pero depende de la versión de pgvector y
   da recall aproximado; a ~17k items el scan exacto cuesta decenas de ms.
 
@@ -3385,7 +4113,7 @@ por:
 │   └── mcp/                          # MCP server (ADR-006: search, get_item, find_similar, topic_trend, get_top; stateless streamable-http; GET /health, ADR-004) + async client + models (structured output)
 ```
 
-En `## Configuration`, al final de la línea `Key defaults: ...`, añadir: `, TREND_SEMANTIC_THRESHOLD=<τ de tau.md> (cosine distance for /api/stats/trend?method=semantic, ADR-006)` usando el valor numérico real de `tau.md`.
+En `## Configuration`, al final de la línea `Key defaults: ...`, añadir: `, /api/stats/trend?method=semantic max_distance=0.40 (request param, not a server setting — no global threshold, see ADR-006)`.
 
 - [ ] **Step 4: `README.md`** — reemplazar el párrafo:
 
@@ -3463,6 +4191,31 @@ claude -p "Call the ainews search tool with query='agents' and topic='foo' and p
   --model sonnet --strict-mcp-config --mcp-config $B/mcp-ainews.json --allowedTools mcp__ainews >> $B/smoke.md
 # (iv) client_ip en el log de la API
 ssh root@89.167.115.45 'API=$(docker ps --format "{{.Names}}" | grep "^api-" | head -1); docker logs --since 10m "$API" 2>&1 | grep api_request | tail -5' >> $B/smoke.md
+# (v) query de nicho (riesgo documentado en tau.md: el LLM puede quedarse solo con `count`
+# al max_distance default y perder señal en temas poco cubiertos, tipo q2 del pre-check (a))
+claude -p "Call the ainews topic_trend tool with query='code graph to give context to coding agents', method='semantic', granularity='month', and print the raw JSON result, including by_distance for every bucket." \
+  --model sonnet --strict-mcp-config --mcp-config $B/mcp-ainews.json --allowedTools mcp__ainews >> $B/smoke.md
+# (vi) EXPLAIN ANALYZE read-only de la query agrupada de /api/stats/trend (riesgo tau.md:
+# "debería seguir en decenas de ms"; solo SELECT, ninguna escritura). Ejecutar dentro
+# del ssh (mismo patrón que Task 0 Step 3), pegando la salida en $B/smoke.md:
+ssh root@89.167.115.45
+DB=$(docker ps --format '{{.Names}}' | grep '^db-' | head -1)
+API=$(docker ps --format '{{.Names}}' | grep '^api-' | head -1)
+MODEL=$(docker exec -i "$API" python -c "from src.core.config import get_settings; print(get_settings().embedding_model)")
+docker exec -i "$DB" sh -c 'PGPASSWORD=$POSTGRES_PASSWORD psql -U ainews -d ainews' <<SQL
+EXPLAIN ANALYZE
+SELECT date_trunc('month', timezone('UTC', coalesce(n.published_at, n.created_at)))::date AS bucket,
+       n.source,
+       width_bucket(e.embedding <=> (SELECT embedding FROM item_embeddings LIMIT 1), ARRAY[0.30,0.35,0.40,0.45,0.50]) AS band,
+       (e.embedding <=> (SELECT embedding FROM item_embeddings LIMIT 1)) < 0.40 AS within_max,
+       count(*)
+FROM news_items n
+JOIN item_embeddings e ON e.item_id = n.id AND e.model = '$MODEL'
+WHERE coalesce(n.published_at, n.created_at) >= now() - interval '182 days'
+  AND (e.embedding <=> (SELECT embedding FROM item_embeddings LIMIT 1)) < 0.50
+GROUP BY bucket, n.source, band, within_max;
+SQL
+exit
 ```
 
 Expected:
@@ -3470,15 +4223,22 @@ Expected:
 - (ii) los 5 nombres (sin `Missing session ID`).
 - (iii) texto con `Input should be` y los topics válidos, no `No items found`.
 - (iv) líneas `api_request` cuyo `client_ip` es tu IP pública (no `10.x`/`172.16-31.x`/`192.168.x`). Si sale IP privada: FALLO del criterio 4 → revisar reenvío XFF antes de cerrar.
+- (v) JSON con `by_distance` por bucket; comprobar a ojo que no está todo en 0 (si hasta la banda 0.50 está casi vacía, es la señal documentada en tau.md de que el corpus no tiene nada sobre esa query — no es un bug).
+- (vi) plan con `GroupAggregate`/`Nested Loop` sobre `item_embeddings`, `Execution Time` en decenas de ms (no segundos) al tamaño real de prod (~17k×512 dims, ADR-006). Es una consulta `SELECT`/`EXPLAIN ANALYZE` real (ejecuta la query) pero de solo lectura: no escribe filas.
 
 - [ ] **Step 4: Repetir el baseline DESPUÉS**
 
+Usar el comando corregido documentado en `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/before.md` (cwd aislado, sin `CLAUDE.md` ni acceso a la KB, y `--disallowedTools` explícito con todas las tools built-in conocidas) — el comando del brief original (`--disallowedTools WebSearch WebFetch Bash` desde el cwd del repo) no restringe `Read`/`Grep`/`Glob`/`ToolSearch` y contaminó la primera corrida de Task 0 con contenido de la KB local de Paul en vez de resultados reales del MCP (ver `before.md`, sección "Concern").
+
 ```bash
-B=docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline
+B=$(pwd)/docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline
+RUNDIR=$(mktemp -d /tmp/task10-isolated-run.XXXXXX)  # cwd aislado, sin CLAUDE.md ni KB accesible
+cd "$RUNDIR"
 for i in 1 2 3; do
   claude -p "$(cat $B/p$i.txt)" --model sonnet --output-format stream-json --verbose \
     --strict-mcp-config --mcp-config $B/mcp-ainews.json \
-    --allowedTools mcp__ainews --disallowedTools WebSearch WebFetch Bash \
+    --allowedTools mcp__ainews \
+    --disallowedTools Read Write Edit NotebookEdit Glob Grep Bash BashOutput KillBash WebFetch WebSearch Task TodoWrite ExitPlanMode SlashCommand ToolSearch Agent \
     > $B/after-$i.jsonl
 done
 for i in 1 2 3; do

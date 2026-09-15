@@ -31,6 +31,7 @@
 - Fusionar búsquedas, enums, texto vs JSON: sin evidencia específica → criterio.
 - Prior art: 0/12 servers exponen similares ni tendencias por tema; los comparables directos (treesoop/ai-news-mcp, JoonJ14/ai-newsroom) son de catch-up.
 - Spec MCP 2026-07-28 (stateless); SDK `mcp` v2.0.0 renombra `FastMCP`→`MCPServer` (rompe import) → pin `<2`. Prod MCP corre 1.30.0.
+- Tendencia semántica (decisión §6 (a), delegada en consultor): Steck, Ekanadham, Kallus, "Is Cosine-Similarity of Embeddings Really About Similarity?", WWW'24 Companion, arXiv:2403.05440 (la distancia coseno absoluta no es comparable entre queries — motiva no calibrar un τ global); Arampatzis, Kamps, Robertson, "Where to stop reading a ranked list?", SIGIR'09 (el cutoff óptimo de un ranking es específico de la query, no una constante).
 
 ## 4. Diseño
 
@@ -52,7 +53,7 @@ Item compacto en listados: `id · title · source · topic · published_at (YYYY
 | `search(query, mode=semantic\|keyword, topic?, source?, date_from?, date_to?, limit≤50)` | items por relevancia | keyword: `/api/search` **+ filtro `source`**. semantic: `/api/search/semantic` **+ filtros, sin sesgo de recencia** |
 | `get_item(id)` | item completo + `full_text` **entero, sin tope** + `discussion_url` (de `metadata.hn_url`; null si no hay) + `engagement` + `author` | `/api/items/{id}` con schema de detalle |
 | `find_similar(id, limit≤20)` | vecinos semánticos | `/api/items/{id}/similar` (existe) |
-| `topic_trend(query, method=keyword\|semantic, granularity=week\|month, since)` | ver §4.3.4 | endpoint nuevo `/api/stats/trend` |
+| `topic_trend(query, method=keyword\|semantic, granularity=week\|month, since, max_distance?)` | ver §4.3.5 | endpoint nuevo `/api/stats/trend` |
 | `get_top(days=7, topic?, source?, limit≤50)` | ranking `composite_score` en ventana | `/api/items/top` (existe) |
 
 - Enums `Literal`: `topic ∈ {models, tools, papers, products, open_source, agents, regulation}`; `source ∈ {github, arxiv, rss, hackernews, huggingface, github_search, webscraper}` (coincide con `/api/sources` en prod).
@@ -69,12 +70,13 @@ Item compacto en listados: `id · title · source · topic · published_at (YYYY
 2. **`/api/search` + filtro `source`** (hoy solo `topic`, `date_from`, `date_to`: `search.py:61-87,96-105`).
 3. **`/api/search/semantic` + filtros** `topic, source, date_from, date_to`; parámetro `recent_first` (default `true`, porque la web lo usa: `Discover.tsx:138`); el MCP envía `recent_first=false` (el filtro temporal es explícito vía `date_from`).
 4. **`NewsItemDetail`** en `/api/items/{id}`: añade `full_text`, `discussion_url`, `engagement` (reglas §4.2).
-5. **`/api/stats/trend?q&method&granularity&since`** (rate-limit 20/min, `since ≤ 24 meses`):
+5. **`/api/stats/trend?q&method&granularity&since&max_distance`** (rate-limit 20/min, `since ≤ 24 meses`):
    - Bucket: `date_trunc(unit, coalesce(published_at, created_at), 'UTC')`; semanas ISO (lunes). Buckets vacíos rellenados (count 0; en Python sobre la serie de buckets esperada).
-   - `keyword`: match FTS sobre `search_vector`, `GROUP BY bucket, source`.
-   - `semantic`: 1 embedding de la query (`text-embedding-3-small`, ~$3e-7/llamada) + scan exacto de distancias; `count = nº items con cosine_distance < τ` por bucket y fuente. **τ = setting `TREND_SEMANTIC_THRESHOLD`**, calibrado en pre-check (§6), devuelto en la respuesta (`threshold`).
-   - Respuesta: `{method, granularity, threshold?, buckets: [{bucket, count, total_in_bucket, share, by_source}]}`. En `semantic`, `total_in_bucket` cuenta solo items **con embedding del modelo activo** (JOIN), para que `share` no mezcle cobertura de embeddings.
+   - `keyword`: match FTS sobre `search_vector`, `GROUP BY bucket, source`. `max_distance` se ignora.
+   - `semantic`: 1 embedding de la query (`text-embedding-3-small`, ~$3e-7/llamada) + scan exacto de distancias (`SET LOCAL enable_indexscan = off`). **Sin τ ni calibración** (pre-check §6 (a) STOP: un corte único no separa relevantes de no relevantes entre queries — ver decisión). El cutoff es un parámetro explícito **`max_distance: float = 0.40`** (`ge=0.20, le=0.60`; 422 fuera de rango) y la respuesta añade, por bucket, el conteo acumulado a 5 distancias fijas: constante `TREND_DISTANCE_EDGES = (0.30, 0.35, 0.40, 0.45, 0.50)` en `src/api/trend.py`. Una sola query agrupada por `bucket, source, width_bucket(dist, ARRAY[0.30,0.35,0.40,0.45,0.50]), (dist < :max_distance)`, con `dist < greatest(:max_distance, 0.50)` en el `WHERE` (JOIN con embedding del modelo activo); de esas filas se derivan tanto `count`/`by_source` (a `max_distance`) como `by_distance` (acumulado por banda). `total_in_bucket` cuenta solo items **con embedding del modelo activo** (JOIN), para que `share` no mezcle cobertura de embeddings.
+   - Respuesta: `{query, method, granularity, since, max_distance: float|None, distance_edges: list[float]|None, buckets: [{bucket, count, total_in_bucket, share, by_source, by_distance: dict[str,int]|None}]}`. `max_distance`, `distance_edges` y `by_distance` son `null` en `keyword`; `by_distance` trae siempre las 5 claves `"0.30".."0.50"` (0 si vacío) en `semantic`.
    - Fecha efectiva: `published_at` es `pushed_at` en github_search, `now()` de captura en github trending y `lastModified` en HF, y el upsert no la actualiza (`store.py:85-105`) → para repos/modelos significa "primera captura". Se documenta en la descripción de la tool.
+   - El consumidor es un LLM: `topic_trend` (Task 7) documenta que la banda correcta depende del tema — leer la forma en la banda más ajustada con ≥20 items totales; si hasta 0.50 está casi vacío, el corpus no tiene señal para esa query (usar `method=keyword`).
 
 ### 4.4 Errores (cliente MCP)
 Mapeo por `error.code` del cuerpo (`{"error": {"code", "message"}}`), no solo por status:
@@ -92,13 +94,13 @@ Mapeo por `error.code` del cuerpo (`{"error": {"code", "message"}}`), no solo po
 - **Contrato `tools/list`**: aserción por proyección (nombres, `enum` de `topic/source/mode/method/granularity`, `required`, `annotations == {"readOnlyHint": true, "openWorldHint": false}`), no snapshot completo (el `outputSchema` arrastra `title`s de pydantic que cambian con versiones).
 - **Integración API** (Postgres + pgvector de `tests/integration/conftest.py`):
   - semantic con filtro: con tablas pequeñas el planner no elige HNSW y el test pasaría sin el fix (medido con 200 y 1000 filas) → el test fuerza el camino de índice con `SET LOCAL enable_sort = off`; ≤10% cumplen el filtro, `limit=10` → `len == 10` (medido: sin fix 3/10, con fix 10/10).
-  - trend keyword/semantic: buckets vacíos presentes, UTC, `share` con `total_in_bucket` solo con embedding, τ aplicado.
+  - trend keyword/semantic: buckets vacíos presentes, UTC, `share` con `total_in_bucket` solo con embedding; `build_buckets` recibe además las bandas (`bands: dict[tuple[date,str,int], int]`) y produce `by_distance` acumulado con `"0.30"…"0.50"` siempre presentes (0 si vacío) y `None` en keyword; integración semantic con 3 vectores a distancia 0.10/0.38/0.47 de la query → `by_distance == {"0.30":1,"0.35":1,"0.40":2,"0.45":2,"0.50":3}`, `count == 2` con `max_distance` default (0.40), y `count == 3` con `max_distance=0.5`; `max_distance=0.7` → 422; en keyword, `max_distance`/`distance_edges`/`by_distance` son `None`.
   - detalle: `engagement.kind` por fuente y tipo HF; `discussion_url`.
 - **Smoke prod post-deploy**: 5 tools contra `https://pguerrero.me/ai-news/mcp`; el log de la API muestra `client_ip` público, no la IP del contenedor MCP.
 - **Manual (no CI)**: 3-4 prompts de research reales en Claude Code, observar selección de tools.
 
 ## 6. Pre-checks (antes de código; si alguno refuta un supuesto, se reabre esa decisión con Paul)
-- (a) **Calibración de τ y validez de un τ global**: para 3-5 queries de research reales, distribución de distancias en prod y etiquetado rápido de relevantes en el top-N; elegir τ. Si las distribuciones varían tanto entre queries que un τ único no separa relevantes/no relevantes → reabrir (alternativa: top-K con límite de granularidad).
+- (a) **Calibración de τ y validez de un τ global** — **ejecutado → STOP** (spread 0.19 > 0.10 entre el mejor τ por query de 5 queries de research reales etiquetadas: `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/tau.md`). Un τ único no separa relevantes/no relevantes entre queries; top-K fijo tampoco (dilución con K grande, ver `tau_analysis.py` en el mismo directorio). Paul delegó la decisión en un consultor: se elimina la calibración y el cutoff pasa a ser el parámetro explícito `max_distance` con bandas de distancia devueltas al consumidor (§4.3.5, `docs/superpowers/sdd/trend-decision.md`).
 - (b) `full_text`: max/p99 de longitud por fuente en prod (read-only). Informativo: Claude Code guarda a fichero las respuestas >25k tokens, no trunca.
 - (c) Cobertura de embeddings en prod (items sin embedding del modelo activo) y presencia de `metadata.type` en items HF históricos.
 - (d) Traefik de Coolify: config de `forwardedHeaders` (`trustedIPs`/`insecure`) y confirmar que sin `depth=1` el `sourceCriterion` usa la IP real.
@@ -115,7 +117,7 @@ Mapeo por `error.code` del cuerpo (`{"error": {"code", "message"}}`), no solo po
 4. Log de la API con `client_ip` público de cliente tras una llamada MCP en prod.
 
 ## 9. Documentación
-ADR-006 (superficie MCP de descubrimiento, con evidencia y decisión τ); enmienda ADR-002 (dice rate-limit guest "por jti"; el código usa `get_client_ip`); enmienda ADR-001 (borde Traefik por `RemoteAddr`); `AGENTS.md` (tabla API, trend, detalle, filtros); README sección MCP. KB: nota `ai-news-pipeline` vía /document.
+ADR-006 (superficie MCP de descubrimiento, con evidencia y la decisión de tendencia semántica por bandas de distancia — sin τ global, ver §4.3.5); enmienda ADR-002 (dice rate-limit guest "por jti"; el código usa `get_client_ip`); enmienda ADR-001 (borde Traefik por `RemoteAddr`); `AGENTS.md` (tabla API, trend, detalle, filtros); README sección MCP. KB: nota `ai-news-pipeline` vía /document.
 
 ## 10. Fuera de alcance
 B2 residual (MemoryStorage por worker, emisor de tokens para `/api/chat`); calidad de summaries del clasificador; migración a SDK v2; `also_covered_by` (el dedup no guarda clusters); tools de catch-up; resources/prompts/MCP Registry; eval automatizado de selección de tools.
