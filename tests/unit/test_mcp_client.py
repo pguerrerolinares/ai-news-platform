@@ -1,339 +1,219 @@
-"""Tests for the MCP API client."""
+"""Tests for the async MCP API client."""
 
 from __future__ import annotations
-
-from datetime import UTC, datetime
-from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
 
-from src.mcp.client import APIClient
+from src.mcp.client import APIClient, APIRequestError
 
 BASE = "http://localhost:8000"
+ITEM_ID = "3f1c8a52-8a55-4a7e-9a36-1a2b3c4d5e6f"
+
+
+def _guest(token: str = "test-jwt") -> httpx.Response:  # noqa: S107 test fixture, not a secret
+    return httpx.Response(200, json={"access_token": token, "token_type": "bearer"})
 
 
 class TestAuth:
     @respx.mock
-    def test_acquires_guest_token_on_init(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "test-jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
+    async def test_acquires_guest_token_lazily_on_first_call(self):
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
         client = APIClient(base_url=BASE)
-        assert client.token == "test-jwt"
+        assert guest.call_count == 0
+        await client.get_top()
+
+        assert guest.call_count == 1
+        assert top.calls.last.request.headers["Authorization"] == "Bearer test-jwt"
 
     @respx.mock
-    def test_guest_token_failure_raises(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(500, json={"detail": "Server error"})
-        )
-        with pytest.raises(RuntimeError, match="guest token acquisition failed"):
-            APIClient(base_url=BASE)
+    async def test_guest_token_failure_raises_actionable_error(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=httpx.Response(500))
 
-    def test_explicit_token_skips_guest(self):
-        """Providing a token directly should skip the guest endpoint."""
+        client = APIClient(base_url=BASE)
+        with pytest.raises(APIRequestError, match="guest token acquisition failed"):
+            await client.get_top()
+
+    @respx.mock
+    async def test_explicit_token_skips_guest(self):
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
         client = APIClient(base_url=BASE, token="pre-existing-jwt")
-        assert client.token == "pre-existing-jwt"
+        await client.get_top()
+
+        assert guest.call_count == 0
 
 
 class TestTokenRefresh:
-    """A long-lived client must recover from an expired guest token (401)."""
-
     @respx.mock
-    def test_refreshes_token_and_retries_on_401(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            side_effect=[
-                httpx.Response(200, json={"access_token": "token-1", "token_type": "bearer"}),
-                httpx.Response(200, json={"access_token": "token-2", "token_type": "bearer"}),
-            ]
+    async def test_refreshes_token_and_retries_once_on_401(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(side_effect=[_guest("stale"), _guest("fresh")])
+        top = respx.get(f"{BASE}/api/items/top").mock(
+            side_effect=[httpx.Response(401), httpx.Response(200, json=[{"title": "Fresh"}])]
         )
-        respx.get(f"{BASE}/api/items/today").mock(
-            side_effect=[
-                httpx.Response(401, json={"detail": "Token expired"}),
-                httpx.Response(200, json=[{"title": "Fresh"}]),
-            ]
-        )
+
         client = APIClient(base_url=BASE)
-        result = client.get_latest()
+        result = await client.get_top()
+
         assert result == [{"title": "Fresh"}]
-        # Guest endpoint hit twice: once on init, once to refresh after 401.
-        assert respx.calls.call_count == 4  # guest, 401 GET, guest, 200 GET
+        assert top.calls.last.request.headers["Authorization"] == "Bearer fresh"
+
+
+class TestForwardedFor:
+    @respx.mock
+    async def test_forwards_client_ip_header(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        await APIClient(base_url=BASE).get_top(forwarded_for="203.0.113.7")
+
+        assert top.calls.last.request.headers["X-Forwarded-For"] == "203.0.113.7"
 
     @respx.mock
-    def test_retried_request_uses_refreshed_token(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            side_effect=[
-                httpx.Response(200, json={"access_token": "stale", "token_type": "bearer"}),
-                httpx.Response(200, json={"access_token": "fresh", "token_type": "bearer"}),
-            ]
+    async def test_no_header_when_nothing_to_forward(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
+        await APIClient(base_url=BASE).get_top()
+
+        assert "X-Forwarded-For" not in top.calls.last.request.headers
+
+
+class TestEndpoints:
+    @respx.mock
+    async def test_semantic_search_disables_recency_and_passes_filters(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        route = respx.get(f"{BASE}/api/search/semantic").mock(
+            return_value=httpx.Response(200, json=[])
         )
-        respx.get(f"{BASE}/api/items/today").mock(
-            side_effect=[
-                httpx.Response(401, json={"detail": "Token expired"}),
-                httpx.Response(200, json=[]),
-            ]
+
+        await APIClient(base_url=BASE).search(
+            "agent memory", mode="semantic", source="arxiv", date_from="2026-01-01", limit=5
         )
+
+        params = route.calls.last.request.url.params
+        assert params["q"] == "agent memory"
+        assert params["recent_first"] == "false"
+        assert params["source"] == "arxiv"
+        assert params["date_from"] == "2026-01-01"
+        assert params["limit"] == "5"
+        assert "topic" not in params
+
+    @respx.mock
+    async def test_keyword_search_uses_fts_endpoint(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        route = respx.get(f"{BASE}/api/search").mock(return_value=httpx.Response(200, json=[]))
+
+        await APIClient(base_url=BASE).search("GLM-5", mode="keyword", topic="models")
+
+        params = route.calls.last.request.url.params
+        assert params["q"] == "GLM-5"
+        assert params["topic"] == "models"
+        assert "recent_first" not in params
+
+    @respx.mock
+    async def test_get_item_find_similar_trend_and_top_paths(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        item = respx.get(f"{BASE}/api/items/{ITEM_ID}").mock(
+            return_value=httpx.Response(200, json={"id": ITEM_ID})
+        )
+        similar = respx.get(f"{BASE}/api/items/{ITEM_ID}/similar").mock(
+            return_value=httpx.Response(200, json=[])
+        )
+        trend = respx.get(f"{BASE}/api/stats/trend").mock(
+            return_value=httpx.Response(200, json={"buckets": []})
+        )
+        top = respx.get(f"{BASE}/api/items/top").mock(return_value=httpx.Response(200, json=[]))
+
         client = APIClient(base_url=BASE)
-        client.get_latest()
-        assert client.token == "fresh"
-        assert respx.calls.last.request.headers["Authorization"] == "Bearer fresh"
-
-    @respx.mock
-    def test_persistent_401_raises_without_infinite_retry(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(200, json={"access_token": "jwt", "token_type": "bearer"})
+        assert await client.get_item(ITEM_ID) == {"id": ITEM_ID}
+        await client.find_similar(ITEM_ID, limit=7)
+        await client.topic_trend(
+            "agents", method="semantic", granularity="week", since="2026-06-01"
         )
-        guest_route = respx.routes[0]
-        items_route = respx.get(f"{BASE}/api/items/today").mock(
-            return_value=httpx.Response(401, json={"detail": "Token expired"})
+        await client.get_top(days=3, source="hackernews", limit=4)
+
+        assert item.called
+        assert similar.calls.last.request.url.params["limit"] == "7"
+        trend_params = trend.calls.last.request.url.params
+        assert (trend_params["q"], trend_params["method"], trend_params["granularity"]) == (
+            "agents",
+            "semantic",
+            "week",
         )
-        client = APIClient(base_url=BASE)
-        with pytest.raises(httpx.HTTPStatusError):
-            client.get_latest()
-        # One refresh attempt only: init + one retry = 2 guest acquisitions, 2 GETs.
-        assert guest_route.call_count == 2
-        assert items_route.call_count == 2
+        assert trend_params["since"] == "2026-06-01"
+        top_params = top.calls.last.request.url.params
+        assert (top_params["days"], top_params["source"], top_params["limit"]) == (
+            "3",
+            "hackernews",
+            "4",
+        )
 
 
-class TestClose:
-    @respx.mock
-    def test_close_closes_http_client(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
+class TestErrorMapping:
+    @pytest.fixture()
+    def api(self):
+        with respx.mock(base_url=BASE) as router:
+            router.post("/api/auth/guest").mock(return_value=_guest())
+            yield router
+
+    async def test_not_found_code(self, api):
+        api.get(f"/api/items/{ITEM_ID}").mock(
             return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+                404, json={"error": {"code": "NOT_FOUND", "message": "Item x not found"}}
             )
         )
-        client = APIClient(base_url=BASE)
-        with patch.object(client._http, "close") as mock_close:
-            client.close()
-            mock_close.assert_called_once()
+        with pytest.raises(APIRequestError, match="^item not found$"):
+            await APIClient(base_url=BASE).get_item(ITEM_ID)
 
-    @respx.mock
-    def test_context_manager_closes(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
+    async def test_embedding_not_found_code(self, api):
+        api.get(f"/api/items/{ITEM_ID}/similar").mock(
             return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+                404, json={"error": {"code": "EMBEDDING_NOT_FOUND", "message": "No embedding"}}
             )
         )
-        client = APIClient(base_url=BASE)
-        with patch.object(client._http, "close") as mock_close:
-            with client:
-                pass
-            mock_close.assert_called_once()
+        with pytest.raises(APIRequestError, match="no embedding yet; similar unavailable"):
+            await APIClient(base_url=BASE).find_similar(ITEM_ID)
 
-
-class TestSearch:
-    @respx.mock
-    def test_search_sends_query(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
+    async def test_fastapi_validation_detail(self, api):
+        api.get("/api/stats/trend").mock(
             return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+                422,
+                json={"detail": [{"loc": ["query", "granularity"], "msg": "String should match"}]},
             )
         )
-        respx.get(f"{BASE}/api/search").mock(
-            return_value=httpx.Response(200, json=[{"title": "Test", "source": "hackernews"}])
-        )
-        client = APIClient(base_url=BASE)
-        result = client.search(q="AI")
-        assert len(result) == 1
-        assert "q=AI" in str(respx.calls.last.request.url)
+        with pytest.raises(APIRequestError, match="invalid arguments: granularity: String should"):
+            await APIClient(base_url=BASE).topic_trend("x", method="keyword", granularity="day")
 
-    @respx.mock
-    def test_search_with_topic_filter(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
+    async def test_api_error_validation_message(self, api):
+        api.get("/api/stats/trend").mock(
             return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+                422,
+                json={"error": {"code": "VALIDATION_ERROR", "message": "since must be within"}},
             )
         )
-        respx.get(f"{BASE}/api/search").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.search(q="AI", topic="models")
-        assert "topic=models" in str(respx.calls.last.request.url)
+        with pytest.raises(APIRequestError, match="invalid arguments: since must be within"):
+            await APIClient(base_url=BASE).topic_trend("x", method="keyword", granularity="week")
 
-    @respx.mock
-    def test_search_with_date_range(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
+    async def test_rate_limited_uses_retry_after(self, api):
+        api.get("/api/items/top").mock(
             return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
+                429, headers={"Retry-After": "12"}, json={"error": "Rate limit exceeded"}
             )
         )
-        respx.get(f"{BASE}/api/search").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.search(q="AI", date_from="2026-01-01", date_to="2026-02-01")
-        url = str(respx.calls.last.request.url)
-        assert "date_from=2026-01-01" in url
-        assert "date_to=2026-02-01" in url
+        with pytest.raises(APIRequestError, match="rate limited, retry in 12s"):
+            await APIClient(base_url=BASE).get_top()
 
+    async def test_server_error_is_backend_unavailable(self, api):
+        api.get("/api/items/top").mock(return_value=httpx.Response(503, text="down"))
+        with pytest.raises(APIRequestError, match=r"backend unavailable \(HTTP 503\)"):
+            await APIClient(base_url=BASE).get_top()
 
-class TestGetLatest:
-    @respx.mock
-    def test_get_latest_calls_today(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/items/today").mock(
-            return_value=httpx.Response(200, json=[{"title": "News"}])
-        )
-        client = APIClient(base_url=BASE)
-        result = client.get_latest(limit=5)
-        assert len(result) == 1
-
-    @respx.mock
-    def test_get_latest_with_topic(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/items/today").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.get_latest(topic="models")
-        assert "topic=models" in str(respx.calls.last.request.url)
-
-
-class TestGetTrending:
-    @respx.mock
-    def test_get_trending_sends_filter(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/items").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.get_trending()
-        assert "trending=true" in str(respx.calls.last.request.url).lower()
-
-    @respx.mock
-    def test_trending_returns_list(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/items").mock(
-            return_value=httpx.Response(200, json=[{"title": "Hot"}, {"title": "Hotter"}])
-        )
-        client = APIClient(base_url=BASE)
-        result = client.get_trending()
-        assert isinstance(result, list)
-        assert len(result) == 2
-
-
-class TestSemanticSearch:
-    @respx.mock
-    def test_semantic_search_sends_query(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/search/semantic").mock(
-            return_value=httpx.Response(200, json=[{"title": "Vector Result", "source": "arxiv"}])
-        )
-        client = APIClient(base_url=BASE)
-        result = client.semantic_search(q="transformer architecture")
-        assert len(result) == 1
-        assert "q=transformer+architecture" in str(respx.calls.last.request.url).replace(
-            "%20", "+"
-        ) or "q=transformer" in str(respx.calls.last.request.url)
-
-    @respx.mock
-    def test_semantic_search_sends_limit(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/search/semantic").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.semantic_search(q="LLM", limit=5)
-        assert "limit=5" in str(respx.calls.last.request.url)
-
-    @respx.mock
-    def test_semantic_search_sends_auth_header(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "my-jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/search/semantic").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.semantic_search(q="AI")
-        assert respx.calls.last.request.headers["Authorization"] == "Bearer my-jwt"
-
-    @respx.mock
-    def test_semantic_search_raises_on_http_error(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/search/semantic").mock(
-            return_value=httpx.Response(500, json={"detail": "Server error"})
-        )
-        client = APIClient(base_url=BASE)
-        with pytest.raises(httpx.HTTPStatusError):
-            client.semantic_search(q="AI")
-
-    @respx.mock
-    def test_semantic_search_returns_parsed_json(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        items = [{"title": "A"}, {"title": "B"}]
-        respx.get(f"{BASE}/api/search/semantic").mock(return_value=httpx.Response(200, json=items))
-        client = APIClient(base_url=BASE)
-        result = client.semantic_search(q="neural")
-        assert result == items
-
-
-class TestGetBriefing:
-    @respx.mock
-    def test_get_briefing_by_date(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/briefings/2026-02-17").mock(
-            return_value=httpx.Response(200, json={"date": "2026-02-17", "total_items": 50})
-        )
-        client = APIClient(base_url=BASE)
-        result = client.get_briefing("2026-02-17")
-        assert result["date"] == "2026-02-17"
-
-    @respx.mock
-    def test_sends_auth_header(self):
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "my-jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/items/today").mock(return_value=httpx.Response(200, json=[]))
-        client = APIClient(base_url=BASE)
-        client.get_latest()
-        assert respx.calls.last.request.headers["Authorization"] == "Bearer my-jwt"
-
-    @respx.mock
-    def test_get_briefing_defaults_to_today(self):
-        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-        respx.post(f"{BASE}/api/auth/guest").mock(
-            return_value=httpx.Response(
-                200, json={"access_token": "jwt", "token_type": "bearer", "expires_in": 86400}
-            )
-        )
-        respx.get(f"{BASE}/api/briefings/{today}").mock(
-            return_value=httpx.Response(200, json={"date": today})
-        )
-        client = APIClient(base_url=BASE)
-        result = client.get_briefing()
-        assert today in str(respx.calls.last.request.url)
-        assert result["date"] == today
+    async def test_timeout_is_backend_unavailable(self, api):
+        api.get("/api/items/top").mock(side_effect=httpx.ReadTimeout("slow"))
+        with pytest.raises(APIRequestError, match=r"backend unavailable \(timeout\)"):
+            await APIClient(base_url=BASE).get_top()
