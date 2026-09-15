@@ -4,6 +4,11 @@
 **Status**: Accepted
 **Track**: C (high risk — destructive DB migration, security-relevant)
 
+> **Enmienda (2026-09-15)**: donde se dice "rate limiting (guest by `jti`, user by `sub`,
+> fallback IP)", el código real limita solo por IP del cliente (`src/api/ratelimit.get_client_ip`
+> es el único `key_func`). Desde ADR-006 el MCP reenvía el `X-Forwarded-For` del cliente, así que
+> los clientes MCP también tienen bucket propio.
+
 ## Context
 
 Following the 2026-07-11 auth audit, Paul decided the web frontend should be **public, guest-only**: no login, no registered users, no admin. The registered-user auth stack (OTP codes emailed via Resend, WebAuthn/passkeys, JWT access + refresh token rotation, `require_admin`) added significant surface — extra tables, extra endpoints, extra scheduler job, extra frontend pages — for a platform with no actual multi-user need. Guest tokens (`POST /api/auth/guest`, `require_auth_or_guest`) already covered the platform's only real requirement: read-only public access with rate limiting.

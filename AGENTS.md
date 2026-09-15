@@ -119,6 +119,8 @@ ai-news-platform/
 │   │   ├── app.py                    # FastAPI app, middleware, lifespan
 │   │   ├── auth.py                   # Guest tokens: create_guest_token, require_auth, require_auth_or_guest
 │   │   ├── schemas.py                # Pydantic response models
+│   │   ├── item_detail.py            # Item detail rules: engagement kind by source/HF type, discussion_url
+│   │   ├── trend.py                  # /api/stats/trend bucket calendar (ISO weeks/months) + share assembly
 │   │   └── routes/                   # auth (guest), items, briefings, search, chat, topics, sources, stats, admin
 │   ├── feed/                           # Feed algorithm (query-time ranking)
 │   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ/FP8/FP16/NVFP4/abliterated/censored + param size normalization)
@@ -139,7 +141,7 @@ ai-news-platform/
 │   │       ├── seen_filter.py        # Persistent dedup: URL hash + title similarity vs DB
 │   │       └── store.py              # DB upsert (url_hash GREATEST) + embedding generation (512-dim)
 │   ├── rag/                          # embeddings, retriever, chat (SSE streaming)
-│   └── mcp/                          # MCP server (streamable-http; GET /health for the container healthcheck, ADR-004) + client
+│   └── mcp/                          # MCP server (ADR-006: search, get_item, find_similar, topic_trend, get_top; stateless streamable-http; GET /health, ADR-004) + async client + models (structured output)
 ├── frontend/                         # React 19 (Vite + Shadcn UI + Tailwind CSS 4)
 │   └── src/
 │       ├── lib/                      # api.ts, auth.ts (guest tokens), constants.ts, types.ts
@@ -182,12 +184,14 @@ ai-news-platform/
 | GET | /api/items/by-date/{date} | Guest/JWT | Items for specific date |
 | GET | /api/items/trending | Guest/JWT | Trending items |
 | GET | /api/items/top | Guest/JWT | Top items by composite_score (normalized across sources) |
+| GET | /api/items/{id} | Guest/JWT | Item detail: + `full_text` (untruncated), `discussion_url` (HN thread), `engagement {kind: points\|stars\|downloads\|upvotes, value}` or null (ADR-006) |
 | GET | /api/items/{id}/similar | Guest/JWT | Similar via pgvector cosine |
 | GET | /api/briefings/{date} | Guest/JWT | Daily briefing (resilient — synthesizes if no row) |
 | GET | /api/briefings | Guest/JWT | Recent briefings |
-| GET | /api/search | Guest/JWT | Full-text search (FTS, sort_by) |
+| GET | /api/search | Guest/JWT | Full-text search (FTS, sort_by; filters: topic, source, date_from, date_to) |
+| GET | /api/search/semantic | Guest/JWT | Semantic search, exact cosine scan (filters: topic, source, date_from, date_to; `recent_first=true` searches 30d first — web default, MCP passes false) |
 | GET | /api/sources | Guest/JWT | Sources with item counts |
-| GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution |
+| GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution, trend (`q`, `method=keyword\|semantic`, `granularity=week\|month`, `since` ≤ 730d; buckets with count/total_in_bucket/share/by_source; 20/min) |
 | POST | /api/chat | JWT (`require_auth`) | RAG Q&A (SSE streaming, 10/min) — inaccessible from the web: there is no current issuer of full (non-guest) user tokens. Kept for a possible future token issuer (e.g. MCP) so the LLM spend stays gated, not open to any guest. |
 | GET | /api/admin/audit | Guest/JWT | Item audit (dedup/scoring details) |
 | GET | /api/admin/pipeline-runs | Guest/JWT | `pipeline_runs` history with per-stage counts (error messages sanitized) |
@@ -198,10 +202,10 @@ Pagination: all paginated endpoints return `X-Total-Count` header.
 Errors: `{"error": {"code": "UPPER_SNAKE_CASE", "message": "..."}}`.
 Auth: Guest token only (24h TTL, read-only). `Authorization: Bearer`.
 Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoints use `require_auth_or_guest`. Chat requires `require_auth` (rejects guests, and nothing currently issues non-guest tokens).
-Rate limiting: per client IP (`get_client_ip` — rightmost non-private X-Forwarded-For, trusts only private/docker-network proxies). Per-route limits (10-30 req/min, see `@limiter.limit(...)` in each router). MemoryStorage (slowapi default): per-worker counters, not shared across processes.
+Rate limiting: per client IP (`get_client_ip` — rightmost non-private X-Forwarded-For, trusts only private/docker-network proxies). Per-route limits (10-30 req/min, see `@limiter.limit(...)` in each router). MemoryStorage (slowapi default): per-worker counters, not shared across processes. The MCP server forwards the caller's `X-Forwarded-For`, so MCP clients get their own buckets too, and Traefik limits `/ai-news/mcp` by `RemoteAddr` (ADR-006, ADR-001 amendment). The API logs `api_request` with `client_ip` for every request except `/health` and `/metrics`.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 Caching: `items`, `briefings`, `stats`, `sources` and `topics` set `Cache-Control: public, max-age=60` on 2xx responses via `src/api/caching.set_cache_header()`. Never on `search`, `admin`, `auth`, `chat`, or any error response. `items`/`briefings` listing queries also defer `full_text`/`search_vector` (never `metadata_`, read by `composite_scorer.score_newsitem`) since `NewsItemResponse` never serializes them.
-Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`) filters by `settings.embedding_model` so results never mix distances from different embedding models.
+Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`) filters by `settings.embedding_model` so results never mix distances from different embedding models. Semantic search and the semantic trend force an exact scan (`SET LOCAL enable_indexscan = off`): HNSW returns at most `hnsw.ef_search` (40) rows and filters after the ANN step (ADR-006).
 
 **Observability note**: the `pipeline-cron` process (scheduler) does not expose `/metrics` — only `app.py`
 (the API) does. The real operational source of truth for the pipeline is the `pipeline_runs` table
@@ -211,7 +215,7 @@ Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`
 
 All config via env vars. See `.env.example` for full list.
 
-Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-k2.6`, `OPENAI_TEMPERATURE=0.6`, `OPENAI_EXTRA_BODY={"thinking": {"type": "disabled"}}`, `MIN_RELEVANCE_SCORE=0.8` (see ADR-003; 4xx/quota LLM errors fail the run, only transient errors fall back to keywords; a non-parseable LLM response — empty, truncated, or not a JSON array — also falls back to keywords for that batch, logging `llm_response_not_parseable` and incrementing `ainews_llm_parse_failures_total`; per-item title/text are wrapped in `<item_content idx="N">` delimiters with `<`/`>` escaped, and the system prompt states that content is untrusted data, never instructions — see #15; `scripts/bench_classifier.py --dataset <labels.jsonl> [--dry-run]` reproduces the ADR-003 recall/FP/cost table via `LLMClassifier._classify_batch`, the same accept/reject decision production uses), `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,hackernews_leading,arxiv,rss,github,github_search,huggingface,webscraper` (Reddit disabled)
+Key defaults: `OPENAI_BASE_URL=api.moonshot.cn/v1`, `OPENAI_MODEL=kimi-k2.6`, `OPENAI_TEMPERATURE=0.6`, `OPENAI_EXTRA_BODY={"thinking": {"type": "disabled"}}`, `MIN_RELEVANCE_SCORE=0.8` (see ADR-003; 4xx/quota LLM errors fail the run, only transient errors fall back to keywords; a non-parseable LLM response — empty, truncated, or not a JSON array — also falls back to keywords for that batch, logging `llm_response_not_parseable` and incrementing `ainews_llm_parse_failures_total`; per-item title/text are wrapped in `<item_content idx="N">` delimiters with `<`/`>` escaped, and the system prompt states that content is untrusted data, never instructions — see #15; `scripts/bench_classifier.py --dataset <labels.jsonl> [--dry-run]` reproduces the ADR-003 recall/FP/cost table via `LLMClassifier._classify_batch`, the same accept/reject decision production uses), `EMBEDDING_MODEL=text-embedding-3-small`, `ENABLED_SOURCES=hackernews,hackernews_leading,arxiv,rss,github,github_search,huggingface,webscraper` (Reddit disabled), `/api/stats/trend?method=semantic max_distance=0.40` (request param, not a server setting — no global threshold, see ADR-006)
 Feed algorithm: `FEED_MMR_LAMBDA=0.7` (0=diverse, 1=quality), `FEED_CANDIDATE_MULTIPLIER=5` (pool size = limit × N)
 Composite scoring weights: `COMPOSITE_W_VELOCITY=0.35`, `COMPOSITE_W_RELEVANCE=0.30`, `COMPOSITE_W_RECENCY=0.20`, `COMPOSITE_W_TOPIC=0.15`
 Velocity thresholds (p95-calibrated): `VELOCITY_THRESHOLD_GITHUB=1000.0` (stars/day), `VELOCITY_THRESHOLD_HACKERNEWS=0.15` (points/hour), `VELOCITY_THRESHOLD_HUGGINGFACE=1000000.0` (downloads)
