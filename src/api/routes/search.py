@@ -149,15 +149,48 @@ async def search_items(
 async def semantic_search_items(
     request: Request,
     q: str = Query(..., min_length=1, description="Free-text search query to embed"),
+    topic: str | None = Query(None, description="Filter by topic"),
+    source: str | None = Query(None, description="Filter by source"),
+    date_from: date | None = Query(None, description="Start date (inclusive)"),
+    date_to: date | None = Query(None, description="End date (inclusive)"),
+    recent_first: bool = Query(
+        True,
+        description=(
+            "Search the last 30 days first and fall back to the full range when there "
+            "are fewer than `limit` hits (web default). false ranks the whole filtered range."
+        ),
+    ),
     limit: int = Query(20, ge=1, le=50, description="Max results to return"),
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
 ) -> list[NewsItemResponse]:
     """Search news items by semantic (vector) similarity.
 
-    Embeds the query string and returns the top-N most similar news items
-    ranked by cosine distance. Returns an empty list when the embedding
-    service is unavailable (e.g. ``embedding_api_key`` not configured).
+    Embeds the query string and returns the top-N most similar news items ranked by
+    exact cosine distance, optionally filtered by topic, source and date range. Returns
+    an empty list when the embedding service is unavailable (e.g. ``embedding_api_key``
+    not configured).
     """
-    items = await _get_retriever().retrieve(session, q, limit=limit)
+    retriever = _get_retriever()
+    if recent_first:
+        items = await retriever.retrieve(
+            session,
+            q,
+            limit=limit,
+            topic=topic,
+            source=source,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    else:
+        items = await retriever.retrieve(
+            session,
+            q,
+            limit=limit,
+            topic=topic,
+            source=source,
+            date_from=date_from,
+            date_to=date_to,
+            recency_days=None,
+        )
     return [NewsItemResponse.model_validate(item) for item in items]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -259,3 +259,49 @@ class TestSemanticSearchEmbeddingsUnavailable:
             resp = await api_client.get("/api/search/semantic", params={"q": "test"})
         assert resp.status_code == 200
         assert resp.json() == []
+
+
+# ---------------------------------------------------------------------------
+# Filters and recency (MCP discovery surface, ADR-006)
+# ---------------------------------------------------------------------------
+class TestSemanticSearchFilters:
+    @pytest.fixture(autouse=True)
+    def _reset_search_limiter(self):
+        from src.api.routes.search import limiter
+
+        limiter.reset()
+
+    async def test_forwards_filters_and_disables_recency(self, api_client: AsyncClient):
+        with patch(
+            "src.rag.retriever.Retriever.retrieve",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_retrieve:
+            resp = await api_client.get(
+                "/api/search/semantic",
+                params={
+                    "q": "agent memory",
+                    "topic": "papers",
+                    "source": "arxiv",
+                    "date_from": "2026-01-01",
+                    "date_to": "2026-06-30",
+                    "recent_first": "false",
+                    "limit": 10,
+                },
+            )
+        assert resp.status_code == 200
+        kwargs = mock_retrieve.call_args.kwargs
+        assert kwargs["topic"] == "papers"
+        assert kwargs["source"] == "arxiv"
+        assert kwargs["date_from"] == date(2026, 1, 1)
+        assert kwargs["date_to"] == date(2026, 6, 30)
+        assert kwargs["recency_days"] is None
+
+    async def test_recent_first_is_the_default(self, api_client: AsyncClient):
+        with patch(
+            "src.rag.retriever.Retriever.retrieve",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_retrieve:
+            await api_client.get("/api/search/semantic", params={"q": "agent memory"})
+        assert "recency_days" not in mock_retrieve.call_args.kwargs
