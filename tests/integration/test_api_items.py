@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
@@ -213,29 +212,9 @@ class TestDeferredHeavyColumns:
         assert resp.json()
         _assert_full_text_not_selected(statements, "/api/items/by-date/{date}")
 
-    async def test_get_item_defers_full_text(
-        self, client, db_session, integration_engine, auth_headers
-    ):
-        item = await seed_news_item(db_session, full_text="x" * 5000)
-
-        resp, statements = await _capture_sql(
-            integration_engine, client.get(f"/api/items/{item.id}", headers=auth_headers)
-        )
-
-        assert resp.status_code == 200
-        _assert_full_text_not_selected(statements, "/api/items/{item_id}")
-
-    async def test_get_item_404_defers_full_text(
-        self, client, db_session, integration_engine, auth_headers
-    ):
-        """Even the not-found path must not have selected full_text before raising."""
-        resp, statements = await _capture_sql(
-            integration_engine,
-            client.get(f"/api/items/{uuid.uuid4()}", headers=auth_headers),
-        )
-
-        assert resp.status_code == 404
-        _assert_full_text_not_selected(statements, "/api/items/{item_id} (404)")
+    # NOTE: GET /api/items/{item_id} is a detail endpoint (Task 3) and now selects
+    # full_text on purpose — it is intentionally excluded from this class. See
+    # TestGetItemDetail below for its full_text/discussion_url/engagement contract.
 
     async def test_similar_items_defers_full_text(
         self, client, db_session, integration_engine, auth_headers
@@ -254,3 +233,40 @@ class TestDeferredHeavyColumns:
 
         assert resp.status_code == 200
         _assert_full_text_not_selected(statements, "/api/items/{item_id}/similar")
+
+
+class TestGetItemDetail:
+    @pytest.fixture(autouse=True)
+    def _reset_items_limiter(self):
+        from src.api.routes.items import limiter
+
+        limiter.reset()
+
+    async def test_detail_has_full_text_discussion_and_engagement(
+        self, client, db_session, auth_headers
+    ):
+        item = await seed_news_item(
+            db_session,
+            source="hackernews",
+            score=321,
+            full_text="Full body of the story.",
+            metadata_={"hn_url": "https://news.ycombinator.com/item?id=42"},
+        )
+
+        resp = await client.get(f"/api/items/{item.id}", headers=auth_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["full_text"] == "Full body of the story."
+        assert data["discussion_url"] == "https://news.ycombinator.com/item?id=42"
+        assert data["engagement"] == {"kind": "points", "value": 321}
+
+    async def test_detail_engagement_null_for_arxiv(self, client, db_session, auth_headers):
+        item = await seed_news_item(db_session, source="arxiv", score=0, metadata_={})
+
+        resp = await client.get(f"/api/items/{item.id}", headers=auth_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["engagement"] is None
+        assert data["discussion_url"] is None

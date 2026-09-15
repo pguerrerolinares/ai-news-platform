@@ -186,6 +186,8 @@ class TestGetItemEndpoint:
         item.author = None
         item.score = 42
         item.composite_score = 0.85
+        item.full_text = "Full article text"
+        item.metadata_ = {"hn_url": "https://news.ycombinator.com/item?id=1"}
         return item
 
     async def test_get_item_found_returns_200(self, api_client: AsyncClient):
@@ -216,6 +218,9 @@ class TestGetItemEndpoint:
         assert data["title"] == "Test Article"
         assert data["source"] == "hackernews"
         assert data["score"] == 42
+        assert data["full_text"] == "Full article text"
+        assert data["discussion_url"] == "https://news.ycombinator.com/item?id=1"
+        assert data["engagement"] == {"kind": "points", "value": 42}
 
     async def test_get_item_not_found_returns_404(self, api_client: AsyncClient):
         """Returns 404 with error body when no item matches the given UUID."""
