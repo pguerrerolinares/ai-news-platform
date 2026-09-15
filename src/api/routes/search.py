@@ -63,6 +63,7 @@ def _build_search_query(
     topic: str | None,
     date_from: date | None,
     date_to: date | None,
+    source: str | None = None,
 ) -> Select:
     """Build the FTS-only search query (no ILIKE — see migration 019).
 
@@ -79,6 +80,8 @@ def _build_search_query(
 
     if topic:
         query = query.where(NewsItem.topic == topic)
+    if source:
+        query = query.where(NewsItem.source == source)
     if date_from:
         query = query.where(effective_date >= day_start(date_from))
     if date_to:
@@ -98,6 +101,7 @@ async def search_items(
     response: Response,
     q: str = Query(..., min_length=1, description="Search text"),
     topic: str | None = Query(None, description="Filter by topic"),
+    source: str | None = Query(None, description="Filter by source"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),
     date_to: date | None = Query(None, description="End date (inclusive)"),
     sort_by: str = Query("relevance", pattern="^(relevance|date|score)$", description="Sort order"),
@@ -114,7 +118,7 @@ async def search_items(
     (ADR-005). Results are ranked by relevance and can be filtered by topic
     and date range.
     """
-    query = _build_search_query(q, topic, date_from, date_to)
+    query = _build_search_query(q, topic, date_from, date_to, source)
 
     # Count total matching results (before limit/offset)
     total = await count_query(session, query)
