@@ -138,6 +138,7 @@ class TestSearch:
 
         _, out = await mcp.call_tool("search", {"query": "agents", "mode": "keyword"})
 
+        assert isinstance(out, dict)
         assert out["items"][0]["published_at"] == "2026-08-26"
 
 
