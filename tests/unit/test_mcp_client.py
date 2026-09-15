@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 import respx
@@ -61,6 +63,29 @@ class TestTokenRefresh:
 
         assert result == [{"title": "Fresh"}]
         assert top.calls.last.request.headers["Authorization"] == "Bearer fresh"
+
+    @respx.mock
+    async def test_concurrent_401s_trigger_a_single_guest_refresh(self):
+        """Regression: the 401-refresh used to run outside the token lock, so N
+        coroutines hitting 401 on the same stale token each fired their own
+        POST /api/auth/guest. Fixed with the same double-checked lock as the initial
+        guest-token acquisition (decision: Paul).
+        """
+
+        def top_response(request: httpx.Request) -> httpx.Response:
+            if request.headers["Authorization"] == "Bearer stale":
+                return httpx.Response(401)
+            return httpx.Response(200, json=[])
+
+        guest = respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest("fresh"))
+        respx.get(f"{BASE}/api/items/top").mock(side_effect=top_response)
+
+        client = APIClient(base_url=BASE, token="stale")
+        results = await asyncio.gather(*(client.get_top() for _ in range(5)))
+
+        assert guest.call_count == 1
+        assert results == [[]] * 5
+        assert client.token == "fresh"
 
 
 class TestForwardedFor:
@@ -146,12 +171,25 @@ class TestEndpoints:
             "week",
         )
         assert trend_params["since"] == "2026-06-01"
+        assert "max_distance" not in trend_params
         top_params = top.calls.last.request.url.params
         assert (top_params["days"], top_params["source"], top_params["limit"]) == (
             "3",
             "hackernews",
             "4",
         )
+
+    @respx.mock
+    async def test_topic_trend_sends_max_distance_only_when_given(self):
+        respx.post(f"{BASE}/api/auth/guest").mock(return_value=_guest())
+        trend = respx.get(f"{BASE}/api/stats/trend").mock(
+            return_value=httpx.Response(200, json={"buckets": []})
+        )
+
+        client = APIClient(base_url=BASE)
+        await client.topic_trend("agents", method="semantic", granularity="week", max_distance=0.5)
+
+        assert trend.calls.last.request.url.params["max_distance"] == "0.5"
 
 
 class TestErrorMapping:

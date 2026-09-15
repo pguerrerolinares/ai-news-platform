@@ -9,6 +9,8 @@ import httpx
 
 _TIMEOUT = httpx.Timeout(30.0)
 
+_Params = dict[str, str | int | float]
+
 
 class APIRequestError(Exception):
     """An API call failed; the message is actionable for the calling agent."""
@@ -82,8 +84,22 @@ class APIClient:
             if not self.token:
                 self.token = await self._acquire_guest_token()
 
+    async def _refresh_token(self, stale_token: str) -> None:
+        """Refresh the guest token once, even if many callers 401 at the same time.
+
+        Same lock as ``_ensure_token``, with the same double-checked pattern: only the
+        first caller to grab the lock whose token still equals the one that got the 401
+        performs the POST; by the time the rest of the woken-up callers acquire the
+        lock, ``self.token`` has already moved on, so they skip the request and just
+        retry with the fresh one. N coroutines racing on the same expired token make
+        exactly one ``POST /api/auth/guest`` (decision: Paul).
+        """
+        async with self._token_lock:
+            if self.token == stale_token:
+                self.token = await self._acquire_guest_token()
+
     async def _send(
-        self, path: str, params: dict[str, str | int] | None, forwarded_for: str | None
+        self, path: str, params: _Params | None, forwarded_for: str | None
     ) -> httpx.Response:
         headers = {"Authorization": f"Bearer {self.token}"}
         if forwarded_for:
@@ -98,19 +114,22 @@ class APIClient:
     async def _get(
         self,
         path: str,
-        params: dict[str, str | int] | None = None,
+        params: _Params | None = None,
         *,
         forwarded_for: str | None = None,
     ) -> Any:
         """GET *path* with auth, refreshing the guest token once on 401.
 
         The MCP server is long-lived but guest tokens are short-lived, so a cached
-        token eventually expires. On 401 we re-acquire once and retry.
+        token eventually expires. On 401 we re-acquire once and retry; the refresh
+        itself is serialized through ``_refresh_token`` so N concurrent calls that all
+        401 on the same stale token trigger a single guest-token POST, not N.
         """
         await self._ensure_token()
+        used_token = self.token
         resp = await self._send(path, params, forwarded_for)
         if resp.status_code == 401:
-            self.token = await self._acquire_guest_token()
+            await self._refresh_token(used_token)
             resp = await self._send(path, params, forwarded_for)
         _raise_for_api_error(resp)
         return resp.json()
@@ -127,7 +146,7 @@ class APIClient:
         limit: int = 10,
         forwarded_for: str | None = None,
     ) -> list[dict[str, Any]]:
-        params: dict[str, str | int] = {"q": q, "limit": limit}
+        params: _Params = {"q": q, "limit": limit}
         for key, value in (
             ("topic", topic),
             ("source", source),
@@ -158,11 +177,14 @@ class APIClient:
         method: str,
         granularity: str,
         since: str | None = None,
+        max_distance: float | None = None,
         forwarded_for: str | None = None,
     ) -> dict[str, Any]:
-        params: dict[str, str | int] = {"q": q, "method": method, "granularity": granularity}
+        params: _Params = {"q": q, "method": method, "granularity": granularity}
         if since:
             params["since"] = since
+        if max_distance is not None:
+            params["max_distance"] = max_distance
         return await self._get("/api/stats/trend", params, forwarded_for=forwarded_for)
 
     async def get_top(
@@ -174,7 +196,7 @@ class APIClient:
         limit: int = 10,
         forwarded_for: str | None = None,
     ) -> list[dict[str, Any]]:
-        params: dict[str, str | int] = {"days": days, "limit": limit}
+        params: _Params = {"days": days, "limit": limit}
         if topic:
             params["topic"] = topic
         if source:
