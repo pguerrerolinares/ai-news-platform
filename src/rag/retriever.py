@@ -4,29 +4,18 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.models import ItemEmbedding, NewsItem
-from src.core.queries import day_end_exclusive, day_start, effective_date
+from src.core.queries import day_end_exclusive, day_start, effective_date, force_exact_scan
 from src.rag.embeddings import EmbeddingService
 
 logger = get_logger(__name__)
 
 _DEFAULT_RECENCY_DAYS = 30
-
-
-async def _force_exact_scan(session: AsyncSession) -> None:
-    """Disable index scans for the rest of the current transaction.
-
-    pgvector's HNSW index returns at most ``hnsw.ef_search`` rows (40 by default) and
-    applies WHERE filters after the ANN step, so a filtered query or ``limit > 40``
-    silently returns fewer rows. An exact scan over the corpus (~17k x 512 dims) costs
-    tens of milliseconds (ADR-006).
-    """
-    await session.execute(text("SET LOCAL enable_indexscan = off"))
 
 
 class Retriever:
@@ -66,7 +55,7 @@ class Retriever:
             logger.error("retriever_embed_failed", exc_info=True)
             return []
 
-        await _force_exact_scan(session)
+        await force_exact_scan(session)
 
         if recency_days is None:
             return await self._search(

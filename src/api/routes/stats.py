@@ -2,10 +2,11 @@
 
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_type
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
-from sqlalchemy import ColumnElement, Date, case, cast, func, select, text
+from sqlalchemy import ColumnElement, Date, case, cast, func, select
 from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +29,13 @@ from src.core.config import get_settings
 from src.core.database import get_session
 from src.core.logging import get_logger
 from src.core.models import ItemEmbedding, NewsItem
-from src.core.queries import day_end_exclusive, day_start, effective_date, since_days
+from src.core.queries import (
+    day_end_exclusive,
+    day_start,
+    effective_date,
+    force_exact_scan,
+    since_days,
+)
 from src.rag.embeddings import EmbeddingService
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -356,13 +363,12 @@ async def stats_score_distribution(
 async def stats_trend(
     request: Request,
     q: str = Query(..., min_length=1, max_length=200, description="Topic to measure"),
-    method: str = Query(
+    method: Literal["keyword", "semantic"] = Query(
         "keyword",
-        pattern="^(keyword|semantic)$",
         description="keyword = full-text match; semantic = distance bands below max_distance",
     ),
-    granularity: str = Query(
-        "month", pattern="^(week|month)$", description="ISO weeks or calendar months (UTC)"
+    granularity: Literal["week", "month"] = Query(
+        "month", description="ISO weeks or calendar months (UTC)"
     ),
     since: date_type | None = Query(
         None, description="Start date (inclusive); default 182 days ago, at most 730 days ago"
@@ -445,8 +451,12 @@ async def stats_trend(
     # caller asked for a wider max_distance (up to 0.60).
     edge_cutoff = max(max_distance, TREND_DISTANCE_EDGES[-1])
 
-    # Exact scan: deterministic band counts, never an HNSW-capped subset (ADR-006).
-    await session.execute(text("SET LOCAL enable_indexscan = off"))
+    # No-op for this query shape: pgvector's HNSW index only supports ORDER BY
+    # <-> LIMIT n (nearest-neighbor) scans, never a plain WHERE distance filter like
+    # this grouped query's, so there is no HNSW-capped subset to guard against here
+    # (verified via EXPLAIN, see task-4-report.md). Kept as a guard if the query
+    # shape changes to add an ORDER BY distance LIMIT.
+    await force_exact_scan(session)
 
     # Single grouped query: (bucket, source, band, within_max) -> count. `counts` (by
     # source, at max_distance) and `bands` (cumulative histogram) are both derived from
