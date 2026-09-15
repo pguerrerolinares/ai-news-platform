@@ -10,6 +10,14 @@
 > y el diseño de Traefik/rate-limit descritos abajo siguen vigentes sin cambios de
 > código, solo cambió el `PathPrefix` público.
 
+> **Enmienda (2026-09-15)**: el middleware `mcp-ratelimit` usaba
+> `sourcecriterion.ipstrategy.depth=1`. Sin CDN delante (`pguerrero.me` resuelve directo a
+> Hetzner), los clientes llegan sin `X-Forwarded-For`; con `depth=1` Traefik obtenía una IP
+> vacía y metía a todos los clientes MCP en un único bucket de 3 req/s. Se elimina la label:
+> el `sourceCriterion` por defecto es `RemoteAddr`, la IP real del cliente. Verificado en el
+> pre-check (d) de `docs/superpowers/specs/2026-09-15-mcp-descubrimiento-baseline/prechecks.md`.
+> Ver ADR-006.
+
 ## Context
 
 The MCP server (`src/mcp/server.py`) was originally designed for local stdio transport (Claude Code CLI). Publishing it as a remote endpoint at `https://pguerrero.me/mcp` allows any MCP-compatible client (Claude.ai, third-party agents) to access news data without a local install.
