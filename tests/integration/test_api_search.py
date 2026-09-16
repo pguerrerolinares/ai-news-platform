@@ -224,3 +224,33 @@ def test_fts_pin_matches_latest_trigger_migration() -> None:
     )
 
     assert latest == _FTS_PIN, f"bump FTS pin to {latest}"
+
+
+class TestSearchSourceFilter:
+    pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+    @pytest.fixture(autouse=True)
+    def _reset_search_limiter(self):
+        from src.api.routes.search import limiter
+
+        limiter.reset()
+
+    async def test_source_filter_returns_only_that_source(self, client, db_session, auth_headers):
+        """source narrows FTS results to a single source."""
+        await seed_news_item(
+            db_session,
+            title="Quantization kernels for faster inference",
+            source="arxiv",
+            url="https://example.com/quant-arxiv",
+        )
+        await seed_news_item(
+            db_session,
+            title="Quantization kernels library release",
+            source="github",
+            url="https://example.com/quant-github",
+        )
+
+        resp = await client.get("/api/search?q=quantization&source=arxiv", headers=auth_headers)
+
+        assert resp.status_code == 200
+        assert [item["source"] for item in resp.json()] == ["arxiv"]

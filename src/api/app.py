@@ -205,9 +205,12 @@ app.include_router(stats_router)
 app.include_router(admin_router)
 
 
+_UNLOGGED_PATHS = frozenset({"/health", "/metrics"})
+
+
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next: object) -> Response:
-    """Track request metrics and add correlation ID."""
+    """Track request metrics, add correlation ID and log the request with the client IP."""
     cid = set_correlation_id()
     start = time.monotonic()
 
@@ -219,6 +222,16 @@ async def metrics_middleware(request: Request, call_next: object) -> Response:
 
     api_requests_total.labels(method=method, endpoint=endpoint, status=response.status_code).inc()
     api_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(duration)
+
+    if endpoint not in _UNLOGGED_PATHS:
+        logger.info(
+            "api_request",
+            method=method,
+            path=endpoint,
+            status=response.status_code,
+            duration_ms=round(duration * 1000, 1),
+            client_ip=get_client_ip(request),
+        )
 
     response.headers["X-Correlation-ID"] = cid
     return response

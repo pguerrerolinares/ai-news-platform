@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from src.api.app import app
 from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
+from src.rag.retriever import EmbeddingUnavailableError
 
 
 # ---------------------------------------------------------------------------
@@ -242,20 +243,81 @@ class TestSemanticSearchValidation:
             resp = await api_client.get("/api/search/semantic", params={"q": "test", "limit": 10})
         assert resp.status_code == 200
 
+    async def test_q_too_long_returns_422(self, api_client: AsyncClient):
+        """q longer than 200 chars must return 422, not reach the embedding provider."""
+        resp = await api_client.get("/api/search/semantic", params={"q": "x" * 201})
+        assert resp.status_code == 422
+
+    async def test_date_from_after_date_to_returns_422(self, api_client: AsyncClient):
+        """An inverted date range is an actionable 422, not an empty list."""
+        resp = await api_client.get(
+            "/api/search/semantic",
+            params={"q": "test", "date_from": "2026-06-30", "date_to": "2026-01-01"},
+        )
+        assert resp.status_code == 422
+        body = resp.json()
+        assert "date_from" in body["error"]["message"]
+        assert "date_to" in body["error"]["message"]
+
 
 # ---------------------------------------------------------------------------
-# Embeddings unavailable (empty API key → retriever returns [])
+# Embeddings unavailable: fail loud, not an empty list (decision: Paul)
 # ---------------------------------------------------------------------------
 class TestSemanticSearchEmbeddingsUnavailable:
-    """When embeddings are unavailable, the endpoint returns an empty list."""
+    """When the embedding provider fails, the endpoint returns 503, never []."""
 
-    async def test_returns_empty_list_when_retriever_returns_empty(self, api_client: AsyncClient):
-        """Retriever returning [] (e.g. embed failure) → 200 with empty list."""
+    async def test_embedding_failure_returns_503_with_code(self, api_client: AsyncClient):
+        with patch(
+            "src.rag.retriever.Retriever.retrieve",
+            new_callable=AsyncMock,
+            side_effect=EmbeddingUnavailableError("boom"),
+        ):
+            resp = await api_client.get("/api/search/semantic", params={"q": "test"})
+        assert resp.status_code == 503
+        assert resp.json()["error"]["code"] == "EMBEDDING_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------
+# Filters and recency (MCP discovery surface, ADR-006)
+# ---------------------------------------------------------------------------
+class TestSemanticSearchFilters:
+    @pytest.fixture(autouse=True)
+    def _reset_search_limiter(self):
+        from src.api.routes.search import limiter
+
+        limiter.reset()
+
+    async def test_forwards_filters_and_disables_recency(self, api_client: AsyncClient):
         with patch(
             "src.rag.retriever.Retriever.retrieve",
             new_callable=AsyncMock,
             return_value=[],
-        ):
-            resp = await api_client.get("/api/search/semantic", params={"q": "test"})
+        ) as mock_retrieve:
+            resp = await api_client.get(
+                "/api/search/semantic",
+                params={
+                    "q": "agent memory",
+                    "topic": "papers",
+                    "source": "arxiv",
+                    "date_from": "2026-01-01",
+                    "date_to": "2026-06-30",
+                    "recent_first": "false",
+                    "limit": 10,
+                },
+            )
         assert resp.status_code == 200
-        assert resp.json() == []
+        kwargs = mock_retrieve.call_args.kwargs
+        assert kwargs["topic"] == "papers"
+        assert kwargs["source"] == "arxiv"
+        assert kwargs["date_from"] == date(2026, 1, 1)
+        assert kwargs["date_to"] == date(2026, 6, 30)
+        assert kwargs["recency_days"] is None
+
+    async def test_recent_first_is_the_default(self, api_client: AsyncClient):
+        with patch(
+            "src.rag.retriever.Retriever.retrieve",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_retrieve:
+            await api_client.get("/api/search/semantic", params={"q": "agent memory"})
+        assert "recency_days" not in mock_retrieve.call_args.kwargs

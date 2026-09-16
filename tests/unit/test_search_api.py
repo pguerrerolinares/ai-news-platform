@@ -189,6 +189,22 @@ class TestSearchValidation:
         assert resp.status_code in (200, 422)
         assert resp.status_code != 500
 
+    async def test_q_too_long_returns_422(self, api_client: AsyncClient):
+        """q longer than 200 chars must return 422."""
+        resp = await api_client.get("/api/search", params={"q": "x" * 201})
+        assert resp.status_code == 422
+
+    async def test_date_from_after_date_to_returns_422(self, api_client: AsyncClient):
+        """An inverted date range is an actionable 422, not an empty list."""
+        resp = await api_client.get(
+            "/api/search",
+            params={"q": "test", "date_from": "2026-06-30", "date_to": "2026-01-01"},
+        )
+        assert resp.status_code == 422
+        body = resp.json()
+        assert "date_from" in body["error"]["message"]
+        assert "date_to" in body["error"]["message"]
+
 
 # ---------------------------------------------------------------------------
 # Filters

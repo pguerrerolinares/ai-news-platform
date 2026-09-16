@@ -152,10 +152,11 @@ services:
       - "traefik.http.middlewares.mcp-strip.stripprefix.prefixes=/ai-news"
       # Backend service
       - "traefik.http.services.mcp.loadbalancer.server.port=8001"
-      # Rate-limit middleware: 3 req/s average, burst 10, keyed by IP
+      # Rate-limit middleware: 3 req/s average, burst 10, keyed by the client's RemoteAddr.
+      # No ipstrategy.depth: with no CDN in front, clients arrive without X-Forwarded-For
+      # and depth=1 collapsed every client into one global bucket (ADR-001 amendment).
       - "traefik.http.middlewares.mcp-ratelimit.ratelimit.average=3"
       - "traefik.http.middlewares.mcp-ratelimit.ratelimit.burst=10"
-      - "traefik.http.middlewares.mcp-ratelimit.ratelimit.sourcecriterion.ipstrategy.depth=1"
       - "traefik.docker.network=coolify"
 
   pipeline-cron:

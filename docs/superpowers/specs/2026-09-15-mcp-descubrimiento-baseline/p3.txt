@@ -1,0 +1,1 @@
+Busco alternativas a construir un grafo de código propio (code-graph) para dar contexto a agentes de programación: ¿qué herramientas o papers existen y cuáles tienen más tracción?

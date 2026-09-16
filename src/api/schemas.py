@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -32,6 +33,20 @@ class NewsItemResponse(BaseModel):
     composite_score: float | None = None
 
     model_config = {"from_attributes": True}
+
+
+EngagementKind = Literal["points", "stars", "downloads", "upvotes"]
+
+
+class EngagementResponse(BaseModel):
+    kind: EngagementKind
+    value: int
+
+
+class NewsItemDetailResponse(NewsItemResponse):
+    full_text: str | None = None
+    discussion_url: str | None = None
+    engagement: EngagementResponse | None = None
 
 
 class BriefingResponse(BaseModel):
@@ -112,3 +127,22 @@ class ScoreDistributionResponse(BaseModel):
     min_score: int
     max_score: int
     count: int
+
+
+class TrendBucket(BaseModel):
+    bucket: date
+    count: int
+    total_in_bucket: int
+    share: float
+    by_source: dict[str, int]
+    by_distance: dict[str, int] | None = None
+
+
+class TrendResponse(BaseModel):
+    query: str
+    method: Literal["keyword", "semantic"]
+    granularity: Literal["week", "month"]
+    since: date
+    max_distance: float | None = None
+    distance_edges: list[float] | None = None
+    buckets: list[TrendBucket]

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from src.rag.retriever import Retriever
+import pytest
+
+from src.rag.retriever import EmbeddingUnavailableError, Retriever
+
+_EXACT_SCAN_SQL = "SET LOCAL enable_indexscan = off"
 
 
 def _fake_embedding(dims: int = 512) -> list[float]:
@@ -34,6 +38,10 @@ def _mock_session_returning(items: list) -> AsyncMock:
     return mock_session
 
 
+def _executed_sql(mock_session: AsyncMock, index: int) -> str:
+    return str(mock_session.execute.call_args_list[index].args[0])
+
+
 class TestRetrieve:
     async def test_returns_list_of_items(self):
         mock_embed = AsyncMock()
@@ -45,8 +53,9 @@ class TestRetrieve:
         result = await retriever.retrieve(mock_session, "AI models")
         assert len(result) == 5
         mock_embed.embed_text.assert_called_once_with("AI models")
-        # Only one DB call (recent search found enough items)
-        mock_session.execute.assert_called_once()
+        # Exact-scan SET + one search (recent search found enough items)
+        assert mock_session.execute.call_count == 2
+        assert _executed_sql(mock_session, 0) == _EXACT_SCAN_SQL
 
     async def test_recency_fallback_when_not_enough_recent(self):
         """When recent search returns fewer than limit, falls back to full range."""
@@ -60,13 +69,13 @@ class TestRetrieve:
         recent_result.scalars.return_value.all.return_value = recent_items
         full_result = MagicMock()
         full_result.scalars.return_value.all.return_value = all_items
-        mock_session.execute.side_effect = [recent_result, full_result]
+        mock_session.execute.side_effect = [MagicMock(), recent_result, full_result]
 
         retriever = Retriever(embedding_service=mock_embed)
         result = await retriever.retrieve(mock_session, "AI tools")
         assert len(result) == 5
-        # Two DB calls: recent search + fallback
-        assert mock_session.execute.call_count == 2
+        # Exact-scan SET + recent search + fallback
+        assert mock_session.execute.call_count == 3
 
     async def test_passes_limit_and_topic(self):
         mock_embed = AsyncMock()
@@ -77,7 +86,7 @@ class TestRetrieve:
         retriever = Retriever(embedding_service=mock_embed)
         result = await retriever.retrieve(mock_session, "test", topic="models", limit=3)
         assert len(result) == 3
-        mock_session.execute.assert_called_once()
+        assert mock_session.execute.call_count == 2
 
     async def test_empty_query_returns_empty(self):
         mock_embed = AsyncMock()
@@ -96,14 +105,16 @@ class TestRetrieve:
         result = await retriever.retrieve(mock_session, "   ")
         assert result == []
 
-    async def test_embedding_error_returns_empty(self):
+    async def test_embedding_error_propagates(self):
+        """Embedding failures must fail loud (503 upstream), not silently return []."""
         mock_embed = AsyncMock()
         mock_embed.embed_text.side_effect = Exception("API error")
         mock_session = AsyncMock()
 
         retriever = Retriever(embedding_service=mock_embed)
-        result = await retriever.retrieve(mock_session, "test query")
-        assert result == []
+        with pytest.raises(EmbeddingUnavailableError):
+            await retriever.retrieve(mock_session, "test query")
+        mock_session.execute.assert_not_called()
 
     async def test_no_matching_embeddings_returns_empty(self):
         """Query that embeds successfully but has no similar items in DB."""
@@ -115,8 +126,8 @@ class TestRetrieve:
         result = await retriever.retrieve(mock_session, "completely unrelated query")
         assert result == []
         mock_embed.embed_text.assert_called_once_with("completely unrelated query")
-        # Two calls: recent (empty) + fallback (empty)
-        assert mock_session.execute.call_count == 2
+        # Exact-scan SET + recent (empty) + fallback (empty)
+        assert mock_session.execute.call_count == 3
 
     async def test_custom_recency_days(self):
         mock_embed = AsyncMock()
@@ -127,7 +138,40 @@ class TestRetrieve:
         retriever = Retriever(embedding_service=mock_embed)
         result = await retriever.retrieve(mock_session, "test", recency_days=7)
         assert len(result) == 5
-        mock_session.execute.assert_called_once()
+        assert mock_session.execute.call_count == 2
+
+
+class TestFiltersAndRecency:
+    async def test_recency_none_runs_a_single_unbounded_search(self):
+        mock_embed = AsyncMock()
+        mock_embed.embed_text.return_value = _fake_embedding()
+        mock_session = _mock_session_returning([])
+
+        retriever = Retriever(embedding_service=mock_embed)
+        await retriever.retrieve(mock_session, "agent memory", limit=10, recency_days=None)
+
+        # Exact-scan SET + one search, no recency fallback even with 0 results
+        assert mock_session.execute.call_count == 2
+        assert "coalesce" not in _executed_sql(mock_session, 1).lower()
+
+    async def test_source_and_date_filters_are_applied(self):
+        mock_embed = AsyncMock()
+        mock_embed.embed_text.return_value = _fake_embedding()
+        mock_session = _mock_session_returning([])
+
+        retriever = Retriever(embedding_service=mock_embed)
+        await retriever.retrieve(
+            mock_session,
+            "agent memory",
+            source="arxiv",
+            date_from=date(2026, 1, 1),
+            date_to=date(2026, 6, 30),
+            recency_days=None,
+        )
+
+        sql = _executed_sql(mock_session, 1).lower()
+        assert "news_items.source =" in sql
+        assert sql.count("coalesce(news_items.published_at, news_items.created_at)") == 2
 
 
 class TestEmbeddingModelFilter:
@@ -149,8 +193,8 @@ class TestEmbeddingModelFilter:
         retriever = Retriever(embedding_service=mock_embed)
         await retriever.retrieve(mock_session, "AI models")
 
-        # Inspect the compiled statement passed to session.execute()
-        stmt = mock_session.execute.call_args_list[0].args[0]
+        # Index 0 is the exact-scan SET; index 1 is the similarity search.
+        stmt = mock_session.execute.call_args_list[1].args[0]
         compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
 
         assert str(ItemEmbedding.model) in compiled or "item_embeddings.model" in compiled

@@ -92,39 +92,40 @@ JWT. This token is cached in-process for the lifetime of the MCP server.
 
 **Capabilities of the guest token:**
 
-| Operation          | Works? |
-|--------------------|--------|
-| Search (keyword)   | Yes    |
-| Semantic search    | Yes    |
-| Latest items       | Yes    |
-| Trending items     | Yes    |
-| Daily briefing     | Yes    |
-| Chat / RAG         | No — requires full user auth |
+| Operation                          | Works? |
+|-------------------------------------|--------|
+| `search` (keyword or semantic)      | Yes    |
+| `get_item`, `find_similar`          | Yes    |
+| `topic_trend`, `get_top`            | Yes    |
+| Chat / RAG (`POST /api/chat`)       | No — requires full user auth, not exposed as an MCP tool |
 
 The server exposes **read-only** tools. There is no chat tool because the RAG
 chat endpoint requires a full authenticated user session.
 
 ---
 
-## Available tools (5 total)
+## Available tools (5 total, ADR-006)
 
-| Tool              | Description                                                                    |
-|-------------------|--------------------------------------------------------------------------------|
-| `search_news`     | Keyword search across all indexed articles                                     |
-| `semantic_search` | Vector/embedding search — finds conceptually related articles without exact keyword matches |
-| `get_latest`      | Today's most recent items (optionally filtered by topic)                       |
-| `get_trending`    | Items with the highest engagement score right now                              |
-| `get_briefing`    | Daily pipeline summary with stats and top articles                             |
+| Tool          | Description                                                                                          |
+|---------------|-------------------------------------------------------------------------------------------------------|
+| `search`      | `query`, `mode=semantic\|keyword` (default semantic), `topic?`, `source?`, `date_from?`, `date_to?`, `limit≤50` — find AI news, papers and repos relevant to a query |
+| `get_item`    | `item_id` — full record: untruncated `full_text`, `discussion_url`, `engagement`, `author`            |
+| `find_similar`| `item_id`, `limit≤20` — semantic neighbours of an item (widen from a good hit)                        |
+| `topic_trend` | `query`, `method=keyword\|semantic`, `granularity=week\|month`, `since?` — whether a topic is rising  |
+| `get_top`     | `days=7`, `topic?`, `source?`, `limit≤50` — best-ranked items (`composite_score`) in a window          |
+
+All 5 are read-only (`readOnlyHint=True`), return structured output, and reject invalid
+arguments with an actionable error instead of an empty list (e.g. an unknown `topic`, an
+inverted `date_from`/`date_to` range, or a query over 200 chars).
 
 ### Example prompts
 
 ```
-Search my AI news for "mixture of experts"
+Search my AI news for papers or repos on consolidating agent memory
 Find articles semantically similar to "inference optimization at scale"
-What's trending in AI news today?
-Get the latest news about LLM agents
-Show me the daily briefing for 2026-06-10
-What were the top items from last Monday?
+Is interest in spec-driven development for coding agents rising in the last 6 months?
+Get the full text and engagement for item <id> from a previous search
+What were the top items from the last 7 days in the "agents" topic?
 ```
 
 ---

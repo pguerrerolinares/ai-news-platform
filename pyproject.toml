@@ -38,7 +38,7 @@ api = [
     # Rate limiting
     "slowapi~=0.1.0",
     # MCP server
-    "mcp~=1.13",
+    "mcp~=1.29",
 ]
 pipeline = [
     # RSS parsing

@@ -88,8 +88,10 @@ ai-news-platform/
 ## Servidor MCP
 
 La plataforma expone un servidor [MCP](https://modelcontextprotocol.io) publico en
-`https://pguerrero.me/ai-news/mcp` con 5 tools de solo lectura: `search_news`, `semantic_search`,
-`get_latest`, `get_trending` y `get_briefing`. No requiere autenticacion ni instalacion.
+`https://pguerrero.me/ai-news/mcp` con 5 tools de solo lectura pensadas para descubrimiento
+(ADR-006): `search` (semantica o keyword, con filtros), `get_item` (texto completo y engagement),
+`find_similar`, `topic_trend` (¿sube un tema?) y `get_top` (mejor ranking en una ventana).
+Salida estructurada; no requiere autenticacion ni instalacion.
 
 > URL migrada de `/mcp` a `/ai-news/mcp` (ver `docs/MIGRATION-ai-news-path.md`); reapunta la config de tu cliente si usabas la anterior.
 
@@ -120,7 +122,7 @@ Tambien puede ejecutarse en local via stdio contra la API publica:
 MCP_API_BASE_URL=https://pguerrero.me/ai-news python -m src.mcp.server
 ```
 
-El endpoint tiene rate limiting por IP (3 req/s, burst 10). Detalles de despliegue en
+El endpoint tiene rate limiting por IP del cliente (3 req/s, burst 10). Detalles de despliegue en
 [`docs/adr/001-remote-mcp-server.md`](docs/adr/001-remote-mcp-server.md).
 
 ## Quality gates

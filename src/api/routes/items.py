@@ -12,9 +12,10 @@ from sqlalchemy.orm import defer
 from src.api.auth import UserClaims, require_auth_or_guest
 from src.api.caching import set_cache_header
 from src.api.errors import APIError
+from src.api.item_detail import to_item_detail
 from src.api.pagination import count_query, set_total_count_header
 from src.api.ratelimit import get_client_ip
-from src.api.schemas import CountResponse, ErrorWrapper, NewsItemResponse
+from src.api.schemas import CountResponse, ErrorWrapper, NewsItemDetailResponse, NewsItemResponse
 from src.core.config import get_settings
 from src.core.database import get_session
 from src.core.models import ItemEmbedding, NewsItem
@@ -328,7 +329,7 @@ async def list_latest_items(
 
 @router.get(
     "/{item_id}",
-    response_model=NewsItemResponse,
+    response_model=NewsItemDetailResponse,
     responses={
         401: {"model": ErrorWrapper},
         404: {"model": ErrorWrapper},
@@ -341,30 +342,20 @@ async def get_item(
     item_id: uuid_mod.UUID,
     session: AsyncSession = Depends(get_session),
     _user: UserClaims = Depends(require_auth_or_guest),
-) -> NewsItemResponse:
-    """Fetch a single news item by its UUID.
-
-    Args:
-        request: FastAPI request (required by slowapi).
-        response: FastAPI response (used to set the Cache-Control header).
-        item_id: UUID of the news item to retrieve.
-        session: Async database session.
-        _user: Authenticated or guest user claims.
-
-    Returns:
-        The matching NewsItemResponse.
+) -> NewsItemDetailResponse:
+    """Fetch a single news item by its UUID, with full text and typed engagement.
 
     Raises:
         APIError: 404 if no item with the given UUID exists.
     """
     result = await session.execute(
-        select(NewsItem).options(*_DEFER_HEAVY_COLUMNS).where(NewsItem.id == item_id)
+        select(NewsItem).options(defer(NewsItem.search_vector)).where(NewsItem.id == item_id)
     )
     item = result.scalar_one_or_none()
     if item is None:
         raise APIError(404, "NOT_FOUND", f"Item {item_id} not found")
     set_cache_header(response)
-    return NewsItemResponse.model_validate(item)
+    return to_item_detail(item)
 
 
 # IMPORTANT: This route MUST be last — {item_id} is a catch-all path parameter.
@@ -398,6 +389,13 @@ async def get_similar_items(
     embedding_row = result.scalar_one_or_none()
 
     if not embedding_row:
+        # Distinguish "item doesn't exist" from "item exists but isn't embedded yet" —
+        # the MCP client maps EMBEDDING_NOT_FOUND to "item exists but has no embedding
+        # yet", which would lie about an item that was never there at all (finding 2,
+        # 2026-09-16 whole-branch review).
+        item_result = await session.execute(select(NewsItem.id).where(NewsItem.id == item_id))
+        if item_result.scalar_one_or_none() is None:
+            raise APIError(404, "NOT_FOUND", f"Item {item_id} not found")
         raise APIError(404, "EMBEDDING_NOT_FOUND", f"No embedding found for item {item_id}")
 
     # Find nearest neighbors (exclude the source item)

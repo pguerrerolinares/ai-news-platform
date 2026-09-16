@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.core.config import Settings
 from src.rag.chat import SYSTEM_PROMPT, ChatService
+from src.rag.retriever import EmbeddingUnavailableError
 
 MSG_ID_RE = re.compile(r"^msg_[0-9a-f]{12}$")
 
@@ -352,6 +353,37 @@ class TestChatStream:
         done_type, done_data = _parse_sse(events[1])
         assert done_type == "done"
         assert done_data["id"] == err_data["id"]
+
+    async def test_embedding_unavailable_yields_error_event_without_calling_llm(self) -> None:
+        """Retriever failing to embed must fail loud (decision: Paul, same as the
+        REST routes) — an error+done pair, no LLM call and no fabricated
+        "no relevant news" context passed off as a real answer.
+        """
+        mock_retriever = AsyncMock()
+        mock_retriever.retrieve.side_effect = EmbeddingUnavailableError("boom")
+
+        mock_llm_client = AsyncMock()
+        mock_session = AsyncMock()
+
+        with patch("src.rag.chat.get_settings", return_value=_mock_settings()):
+            service = ChatService(retriever=mock_retriever, llm_client=mock_llm_client)
+            events: list[str] = []
+            async for event in service.chat_stream(mock_session, "What happened?"):
+                events.append(event)
+
+        assert len(events) == 2
+        err_type, err_data = _parse_sse(events[0])
+        assert err_type == "error"
+        assert err_data is not None
+        assert err_data["error"]["code"] == "EMBEDDING_UNAVAILABLE"
+        assert MSG_ID_RE.match(err_data["id"])
+
+        done_type, done_data = _parse_sse(events[1])
+        assert done_type == "done"
+        assert done_data is not None
+        assert done_data["id"] == err_data["id"]
+
+        mock_llm_client.chat.completions.create.assert_not_called()
 
     async def test_timeout_yields_error_event(self) -> None:
         """Timeout during LLM streaming yields a proper error event."""
