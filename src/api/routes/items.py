@@ -389,6 +389,13 @@ async def get_similar_items(
     embedding_row = result.scalar_one_or_none()
 
     if not embedding_row:
+        # Distinguish "item doesn't exist" from "item exists but isn't embedded yet" —
+        # the MCP client maps EMBEDDING_NOT_FOUND to "item exists but has no embedding
+        # yet", which would lie about an item that was never there at all (finding 2,
+        # 2026-09-16 whole-branch review).
+        item_result = await session.execute(select(NewsItem.id).where(NewsItem.id == item_id))
+        if item_result.scalar_one_or_none() is None:
+            raise APIError(404, "NOT_FOUND", f"Item {item_id} not found")
         raise APIError(404, "EMBEDDING_NOT_FOUND", f"No embedding found for item {item_id}")
 
     # Find nearest neighbors (exclude the source item)

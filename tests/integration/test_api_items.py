@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 
 import pytest
 from sqlalchemy import event
 
-from tests.integration.conftest import seed_news_item
+from tests.integration.conftest import seed_embedding, seed_news_item
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
@@ -233,6 +234,49 @@ class TestDeferredHeavyColumns:
 
         assert resp.status_code == 200
         _assert_full_text_not_selected(statements, "/api/items/{item_id}/similar")
+
+
+class TestSimilarItemsNotFound:
+    """GET /{item_id}/similar must not claim EMBEDDING_NOT_FOUND for an item
+    that doesn't exist at all — that used to make the MCP client's find_similar
+    lie ("item exists but has no embedding yet") about items that don't exist
+    (finding 2, 2026-09-16 whole-branch review).
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_items_limiter(self):
+        from src.api.routes.items import limiter
+
+        limiter.reset()
+
+    async def test_nonexistent_item_returns_404_not_found(self, client, auth_headers):
+        resp = await client.get(f"/api/items/{uuid.uuid4()}/similar", headers=auth_headers)
+
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "NOT_FOUND"
+
+    async def test_existing_item_without_embedding_returns_embedding_not_found(
+        self, client, db_session, auth_headers
+    ):
+        item = await seed_news_item(db_session)
+
+        resp = await client.get(f"/api/items/{item.id}/similar", headers=auth_headers)
+
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "EMBEDDING_NOT_FOUND"
+
+    async def test_existing_item_with_embedding_still_returns_neighbours(
+        self, client, db_session, auth_headers
+    ):
+        item = await seed_news_item(db_session)
+        await seed_embedding(db_session, item)
+        other = await seed_news_item(db_session, url="https://x.com/other")
+        await seed_embedding(db_session, other, vector=[0.1] * 512)
+
+        resp = await client.get(f"/api/items/{item.id}/similar", headers=auth_headers)
+
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
 
 
 class TestGetItemDetail:
