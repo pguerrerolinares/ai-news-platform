@@ -94,3 +94,18 @@ Resultado:
 - `after-3.jsonl`: `['mcp__ainews__get_top', 'mcp__ainews__search']`
 
 Ningún tool_use fuera del namespace `mcp__ainews__*` en ninguna de las 3 corridas — aislamiento verificado, igual que en la corrida "antes".
+
+## Relevancia antes vs después (etiquetado ciego)
+
+| Corrida | P1 | P2 | P3 | TOTAL |
+|---|---|---|---|---|
+| before | 5/5 | 3/6 | 6/8 | **14/19 (74%)** |
+| after | 4/6 | 4/6 | 4/9 | **12/21 (57%)** |
+
+**Método**: se extrajeron todos los enlaces/menciones de las respuestas finales de `before.md` y `after.md` (40 filas), se barajaron con `random.Random(11)` y se etiquetaron R/N por un agente que solo vio `links-blind.tsv` + los prompts, sin saber de qué corrida venía cada fila ni ver los jsonl. La clave corrida↔fila se unió después. Ficheros de trabajo en `.superpowers/sdd/links-{blind,labeled,key}.tsv` (no versionados).
+
+**Lectura honesta**: la superficie nueva NO mejora la relevancia de los enlaces citados en esta muestra — baja de 74% a 57%. El agente cita más (21 vs 19) y acierta menos en proporción; solo P2 (tendencia) mejora (3/6 → 4/6), que es justo donde `topic_trend` aporta datos que antes no existían. El cambio de comportamiento sí es el buscado (P1 usa `get_item` 6 veces para profundizar; P2 responde con una serie mensual cuantitativa en vez de "pts"), pero eso no se traduce en mejor precisión de las citas.
+
+**Limitaciones**: muestra mínima (3 prompts, ~20 enlaces por corrida; una diferencia de 2-3 enlaces mueve el porcentaje ~10 puntos), un solo etiquetador LLM juzgando por título/URL, corpus distinto entre corridas (el feed cambió en 1 día: el set de papers de P1 no se repite), y `find_similar` sin ejercitar por el agente en ninguna corrida. No es evidencia suficiente para afirmar que la superficie empeora; sí para no afirmar que mejora.
+
+**Qué observar**: repetir la medición con más prompts (8-10) y con el corpus estabilizado antes de sacar conclusiones; y vigilar si el agente cita de más al tener `get_item` barato.
