@@ -120,7 +120,7 @@ ai-news-platform/
 │   │   ├── auth.py                   # Guest tokens: create_guest_token, require_auth, require_auth_or_guest
 │   │   ├── schemas.py                # Pydantic response models
 │   │   ├── item_detail.py            # Item detail rules: engagement kind by source/HF type, discussion_url
-│   │   ├── trend.py                  # /api/stats/trend bucket calendar (ISO weeks/months) + share assembly
+│   │   ├── trend.py                  # /api/stats/trend bucket calendar (ISO weeks/months) + share assembly + fixed distance bands (by_distance)
 │   │   └── routes/                   # auth (guest), items, briefings, search, chat, topics, sources, stats, admin
 │   ├── feed/                           # Feed algorithm (query-time ranking)
 │   │   ├── variant_collapse.py       # Dedup HF model variants (GGUF/GPTQ/AWQ/FP8/FP16/NVFP4/abliterated/censored + param size normalization)
@@ -185,13 +185,13 @@ ai-news-platform/
 | GET | /api/items/trending | Guest/JWT | Trending items |
 | GET | /api/items/top | Guest/JWT | Top items by composite_score (normalized across sources) |
 | GET | /api/items/{id} | Guest/JWT | Item detail: + `full_text` (untruncated), `discussion_url` (HN thread), `engagement {kind: points\|stars\|downloads\|upvotes, value}` or null (ADR-006) |
-| GET | /api/items/{id}/similar | Guest/JWT | Similar via pgvector cosine |
+| GET | /api/items/{id}/similar | Guest/JWT | Similar via pgvector cosine (404 `NOT_FOUND` if the item doesn't exist, 404 `EMBEDDING_NOT_FOUND` only if it exists but has no embedding yet) |
 | GET | /api/briefings/{date} | Guest/JWT | Daily briefing (resilient — synthesizes if no row) |
 | GET | /api/briefings | Guest/JWT | Recent briefings |
-| GET | /api/search | Guest/JWT | Full-text search (FTS, sort_by; filters: topic, source, date_from, date_to) |
-| GET | /api/search/semantic | Guest/JWT | Semantic search, exact cosine scan (filters: topic, source, date_from, date_to; `recent_first=true` searches 30d first — web default, MCP passes false) |
+| GET | /api/search | Guest/JWT | Full-text search (FTS, sort_by; filters: topic, source, date_from, date_to; `q` ≤ 200 chars; `date_from > date_to` → 422) |
+| GET | /api/search/semantic | Guest/JWT | Semantic search, exact cosine scan (filters: topic, source, date_from, date_to; `q` ≤ 200 chars; `date_from > date_to` → 422; `recent_first=true` searches 30d first — web default, MCP passes false; 503 `EMBEDDING_UNAVAILABLE` if the embedding provider fails — never a silent empty list) |
 | GET | /api/sources | Guest/JWT | Sources with item counts |
-| GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution, trend (`q`, `method=keyword\|semantic`, `granularity=week\|month`, `since` ≤ 730d; buckets with count/total_in_bucket/share/by_source; 20/min) |
+| GET | /api/stats/* | Guest/JWT | summary, by-source, by-topic, by-date, by-topic-date, by-source-date, trending-timeline, score-distribution, trend (`q` ≤ 200 chars, `method=keyword\|semantic`, `granularity=week\|month`, `since` ≤ 730d; buckets with count/total_in_bucket/share/by_source; `method=semantic` adds `max_distance` (0.20-0.60, default 0.40) and per-bucket `by_distance` (cumulative at 5 fixed bands) and returns 503 `EMBEDDING_UNAVAILABLE` if the embedding provider fails; 20/min) |
 | POST | /api/chat | JWT (`require_auth`) | RAG Q&A (SSE streaming, 10/min) — inaccessible from the web: there is no current issuer of full (non-guest) user tokens. Kept for a possible future token issuer (e.g. MCP) so the LLM spend stays gated, not open to any guest. |
 | GET | /api/admin/audit | Guest/JWT | Item audit (dedup/scoring details) |
 | GET | /api/admin/pipeline-runs | Guest/JWT | `pipeline_runs` history with per-stage counts (error messages sanitized) |
@@ -205,7 +205,7 @@ Guest tokens: `POST /api/auth/guest` → JWT with `role: "guest"`. Public endpoi
 Rate limiting: per client IP (`get_client_ip` — rightmost non-private X-Forwarded-For, trusts only private/docker-network proxies). Per-route limits (10-30 req/min, see `@limiter.limit(...)` in each router). MemoryStorage (slowapi default): per-worker counters, not shared across processes. The MCP server forwards the caller's `X-Forwarded-For`, so MCP clients get their own buckets too, and Traefik limits `/ai-news/mcp` by `RemoteAddr` (ADR-006, ADR-001 amendment). The API logs `api_request` with `client_ip` for every request except `/health` and `/metrics`.
 Chat SSE: OpenAI-style events (`event: message/error/done`, `data: {id, type, content}`).
 Caching: `items`, `briefings`, `stats`, `sources` and `topics` set `Cache-Control: public, max-age=60` on 2xx responses via `src/api/caching.set_cache_header()`. Never on `search`, `admin`, `auth`, `chat`, or any error response. `items`/`briefings` listing queries also defer `full_text`/`search_vector` (never `metadata_`, read by `composite_scorer.score_newsitem`) since `NewsItemResponse` never serializes them.
-Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`) filters by `settings.embedding_model` so results never mix distances from different embedding models. Semantic search and the semantic trend force an exact scan (`SET LOCAL enable_indexscan = off`): HNSW returns at most `hnsw.ef_search` (40) rows and filters after the ANN step (ADR-006).
+Embeddings: similarity search (`/api/items/{id}/similar` and `Retriever._search`) filters by `settings.embedding_model` so results never mix distances from different embedding models. Semantic search forces an exact scan (`SET LOCAL enable_indexscan = off`): HNSW returns at most `hnsw.ef_search` (40) rows and filters after the ANN step. The semantic trend calls the same guard before its grouped query, but there it's a **structural no-op**, not a plan change: HNSW only implements `ORDER BY <-> LIMIT n` scans (`pg_amop`: `hnsw`/`vector_cosine_ops` registers only an ordering operator, `amoppurpose = 'o'`), never a `WHERE distance < x` filter, so the planner never picks it for that `GROUP BY`-without-`ORDER BY LIMIT` query shape, guard or no guard (verified with `EXPLAIN ANALYZE`). Kept defensively in case the query shape changes to add `ORDER BY distance LIMIT` (ADR-006).
 
 **Observability note**: the `pipeline-cron` process (scheduler) does not expose `/metrics` — only `app.py`
 (the API) does. The real operational source of truth for the pipeline is the `pipeline_runs` table

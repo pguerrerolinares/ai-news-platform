@@ -79,5 +79,24 @@ rate-limit para todos los clientes MCP (en la API y en Traefik); HNSW devolvía 
 
 - Los nombres de tools cambian: clientes existentes ven la lista nueva al abrir sesión.
 - El scan exacto crece lineal con el corpus (~30k items/año); revisar si pasa de ~200k.
-- `find_similar` falla con error claro para items aún sin embedding.
+- `find_similar` falla con error claro para items aún sin embedding — y solo para esos: si el item
+  no existe, es `NOT_FOUND` (404), no `EMBEDDING_NOT_FOUND` (enmienda 2026-09-16, ver abajo).
 - Rollback: `git revert` del merge (la API es aditiva).
+
+## Amendment 2026-09-16 (review whole-branch)
+
+Tres huecos del contrato "argumento inválido → error accionable; lista vacía solo si no hay
+resultados reales" que la implementación no cerraba todavía, corregidos sin cambiar la decisión de
+diseño (detalle en spec §4.6):
+
+- `Retriever.retrieve` tragaba el fallo del proveedor de embeddings y devolvía `[]`; ahora propaga
+  (`EmbeddingUnavailableError`) y `/api/search/semantic` responde 503 `EMBEDDING_UNAVAILABLE`, igual
+  que `/api/stats/trend`. `src/rag/chat.py` lo traduce a un evento SSE `error` en vez de propagar
+  (canal propio de streaming) — decisión: fallar ruidoso ahí también, no seguir con una respuesta
+  del LLM sin contexto real.
+- `GET /api/items/{id}/similar` devolvía `EMBEDDING_NOT_FOUND` para un id inexistente sin comprobar
+  si el item existía; el cliente MCP lo traducía a un mensaje falso ("item exists but..."). Ahora
+  distingue `NOT_FOUND` (404, no existe) de `EMBEDDING_NOT_FOUND` (404, existe sin embedding).
+- `search` (MCP y API) aceptaba `date_from > date_to` y devolvía una lista vacía; ahora rechaza con
+  un error accionable antes de tocar la API. `q` gana `max_length=200` en las tres superficies
+  (`/api/search`, `/api/search/semantic`, tool `search`).

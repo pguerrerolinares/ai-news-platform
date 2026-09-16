@@ -68,7 +68,7 @@ Item compacto en listados: `id · title · source · topic · published_at (YYYY
 
 1. **Scan exacto SIEMPRE en la búsqueda semántica y en `trend` semántico** (no solo con filtros: `limit` llega a 50 > `ef_search`=40). `SET LOCAL enable_indexscan = off` en la transacción de la consulta. HNSW no sirve: devuelve ≤ `hnsw.ef_search` filas. Coste: 17k×512 dims ≈ decenas de ms; crece lineal con el corpus (~30k items/año), aceptable durante años. `find_similar` sin filtros y `limit≤20` sigue con HNSW.
 2. **`/api/search` + filtro `source`** (hoy solo `topic`, `date_from`, `date_to`: `search.py:61-87,96-105`).
-3. **`/api/search/semantic` + filtros** `topic, source, date_from, date_to`; parámetro `recent_first` (default `true`, porque la web lo usa: `Discover.tsx:138`); el MCP envía `recent_first=false` (el filtro temporal es explícito vía `date_from`).
+3. **`/api/search/semantic` + filtros** `topic, source, date_from, date_to`; parámetro `recent_first` (default `true`, porque la web lo usa: `Discover.tsx:138`); el MCP envía `recent_first=false` (el filtro temporal es explícito vía `date_from`). Fallo del embedding → 503 `EMBEDDING_UNAVAILABLE` (nunca `[]`); `q` ≤ 200 chars; `date_from > date_to` → 422 (ver §4.6).
 4. **`NewsItemDetail`** en `/api/items/{id}`: añade `full_text`, `discussion_url`, `engagement` (reglas §4.2).
 5. **`/api/stats/trend?q&method&granularity&since&max_distance`** (rate-limit 20/min, `since ≤ 24 meses`):
    - Bucket: `date_trunc(unit, coalesce(published_at, created_at), 'UTC')`; semanas ISO (lunes). Buckets vacíos rellenados (count 0; en Python sobre la serie de buckets esperada).
@@ -81,8 +81,33 @@ Item compacto en listados: `id · title · source · topic · published_at (YYYY
 ### 4.4 Errores (cliente MCP)
 Mapeo por `error.code` del cuerpo (`{"error": {"code", "message"}}`), no solo por status:
 - `NOT_FOUND` → "item not found"; `EMBEDDING_NOT_FOUND` → "item exists but has no embedding yet; similar unavailable";
+- `EMBEDDING_UNAVAILABLE` (503) → "semantic search unavailable (embedding provider down); try mode=keyword" (más accionable que el genérico 5xx; enmienda 4.6);
 - 422 → detalle de validación; 429 → "rate limited, retry in Xs"; timeout/5xx → "backend unavailable".
 - Se mantiene refresh del guest token en 401. Nota: el SDK antepone `"Error executing tool <name>: "` al mensaje.
+
+### 4.6 Enmienda 2026-09-16 (review whole-branch de la rama `feat/mcp-descubrimiento`)
+
+Completa la promesa de §4.2 ("argumento inválido / id inexistente → error accionable; lista vacía
+solo si no hay resultados reales"), que el código no cumplía todavía en tres puntos:
+
+1. **Fallo del embedding en `/api/search/semantic`**: `Retriever.retrieve` capturaba la excepción
+   del proveedor y devolvía `[]` (200 silencioso) — decisión de Paul: propagar
+   (`EmbeddingUnavailableError`) y que la ruta responda **503 `EMBEDDING_UNAVAILABLE`**, igual que
+   ya hacía `/api/stats/trend`. Aplica a todo caller, incluida la web (`Discover.tsx`), sin
+   condicionar a `recent_first`. `src/rag/chat.py` (el otro consumidor de `Retriever`) también fue
+   silencioso (RAG respondía sin contexto real, sin avisar); ahora emite un evento SSE
+   `error {code: EMBEDDING_UNAVAILABLE}` + `done` y no llama al LLM — mismo principio de fallo
+   ruidoso, canal propio porque es streaming.
+2. **`GET /api/items/{id}/similar` con id inexistente** devolvía `EMBEDDING_NOT_FOUND` sin comprobar
+   si el item existía → el cliente MCP mentía ("item exists but has no embedding yet"). Ahora
+   comprueba existencia del item cuando no hay embedding: **404 `NOT_FOUND`** si no existe, 404
+   `EMBEDDING_NOT_FOUND` solo si existe de verdad.
+3. **`date_from > date_to`** en `search` (MCP y API) devolvía lista vacía; ahora 422/`ValueError`
+   accionable (menciona ambos parámetros) antes de llamar a la API. `get_top`/`topic_trend` no
+   aceptan rango de fechas, no aplica.
+4. **`q` sin tope** en `/api/search`, `/api/search/semantic` y la tool `search`: se añade
+   `max_length=200` (mismo límite que `/api/stats/trend`), para que un texto larguísimo dé un 422
+   de validación en vez de alcanzar al proveedor de embeddings.
 
 ### 4.5 Seguridad
 - IPI: instrucciones del server y descripciones declaran `title/summary/full_text` como contenido de terceros no confiable (dato, no instrucción); structuredContent los mantiene en campos separados. Sin sanitización.
