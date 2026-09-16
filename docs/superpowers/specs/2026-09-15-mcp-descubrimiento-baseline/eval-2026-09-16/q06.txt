@@ -1,0 +1,1 @@
+Quiero reducir el coste de clasificar 2000+ items/día con LLM. ¿Qué técnicas recientes hay de routing barato, cascadas de modelos o prefiltrado, con resultados medidos? Enlaces.

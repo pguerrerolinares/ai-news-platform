@@ -1,0 +1,1 @@
+Compara cómo ha evolucionado la atención a "memoria de agentes" frente a "prompt injection / seguridad de agentes" en los últimos 6 meses. Datos, no impresiones.

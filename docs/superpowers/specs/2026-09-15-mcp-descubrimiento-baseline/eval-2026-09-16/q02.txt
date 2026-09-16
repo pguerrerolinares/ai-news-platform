@@ -1,0 +1,1 @@
+Quiero dar contexto de código a agentes de programación mediante un grafo del repo. ¿Qué herramientas o papers existen para eso y cuáles tienen tracción real? Enlaces.

@@ -1,0 +1,1 @@
+Busco modelos open-weights pequeños (menos de ~30B) que sirvan para extraer datos estructurados de texto en local. ¿Cuáles son los candidatos actuales y qué se dice de ellos? Enlaces.

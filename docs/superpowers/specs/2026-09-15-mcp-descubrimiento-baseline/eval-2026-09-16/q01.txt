@@ -1,0 +1,1 @@
+Estoy diseñando la memoria persistente de un sistema de agentes LLM (notas markdown + búsqueda híbrida). ¿Qué papers o repos recientes proponen cómo consolidar o invalidar la memoria de un agente? Dame los más relevantes con enlace y por qué.

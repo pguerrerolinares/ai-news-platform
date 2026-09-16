@@ -1,0 +1,1 @@
+Necesito que varios subagentes trabajen sobre el mismo repo sin pisarse. ¿Qué frameworks o papers tratan la orquestación multiagente para tareas de código, y qué problemas reportan? Enlaces.

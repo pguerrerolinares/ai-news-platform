@@ -1,0 +1,21 @@
+arm	prompt	tool_calls	tool_names	tool_result_chars	output_tokens	n_links
+new	q01	10	mcp__ainews__get_itemx6,mcp__ainews__searchx4	25652	5024	5
+new	q02	9	mcp__ainews__get_itemx3,mcp__ainews__get_topx1,mcp__ainews__searchx5	24344	6228	9
+new	q03	11	mcp__ainews__get_itemx5,mcp__ainews__searchx6	30019	8726	13
+new	q04	3	mcp__ainews__searchx3	8094	3487	18
+new	q05	9	mcp__ainews__get_itemx2,mcp__ainews__searchx7	23545	5078	15
+new	q06	13	mcp__ainews__get_itemx6,mcp__ainews__searchx7	30007	6386	11
+new	q07	17	mcp__ainews__get_itemx6,mcp__ainews__get_topx1,mcp__ainews__searchx10	34921	6174	7
+new	q08	13	mcp__ainews__get_itemx8,mcp__ainews__get_topx1,mcp__ainews__searchx4	32895	4905	11
+new	q09	9	mcp__ainews__get_itemx3,mcp__ainews__get_topx1,mcp__ainews__searchx3,mcp__ainews__topic_trendx2	26025	4214	5
+new	q10	8	mcp__ainews__get_topx1,mcp__ainews__searchx2,mcp__ainews__topic_trendx5	16934	4599	6
+old	q01	2	mcp__ainews__search_newsx1,mcp__ainews__semantic_searchx1	4889	8519	10
+old	q02	2	mcp__ainews__search_newsx1,mcp__ainews__semantic_searchx1	5174	4673	9
+old	q03	2	mcp__ainews__search_newsx1,mcp__ainews__semantic_searchx1	4617	9502	19
+old	q04	2	mcp__ainews__search_newsx1,mcp__ainews__semantic_searchx1	4213	3829	15
+old	q05	0		0	4423	5
+old	q06	8	mcp__ainews__search_newsx5,mcp__ainews__semantic_searchx3	11513	4554	8
+old	q07	3	mcp__ainews__search_newsx2,mcp__ainews__semantic_searchx1	5870	5110	8
+old	q08	6	mcp__ainews__get_trendingx1,mcp__ainews__search_newsx4,mcp__ainews__semantic_searchx1	15021	3859	14
+old	q09	11	mcp__ainews__get_trendingx1,mcp__ainews__search_newsx9,mcp__ainews__semantic_searchx1	30262	6448	11
+old	q10	21	mcp__ainews__search_newsx21	219413	8674	4

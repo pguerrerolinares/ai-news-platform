@@ -1,0 +1,1 @@
+¿Qué hay de nuevo en evaluación de agentes de código (benchmarks más allá de SWE-bench, problemas de contaminación, entornos)? Dame lo más citado o comentado con enlaces.

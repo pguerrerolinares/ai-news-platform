@@ -1,0 +1,1 @@
+Mis agentes leen contenido de terceros (webscraping, RSS) y me preocupa la prompt injection indirecta. ¿Qué defensas concretas propone la comunidad y qué evidencia hay de que funcionen? Enlaces.

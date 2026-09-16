@@ -1,0 +1,1 @@
+Estoy montando un pipeline RAG sobre pgvector y quiero medir si el retrieval es bueno. ¿Qué benchmarks, métricas o herramientas de evaluación de retrieval hay ahora mismo? Enlaces.
