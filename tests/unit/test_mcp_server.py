@@ -133,6 +133,19 @@ class TestSearch:
         with pytest.raises(ToolError, match="less than or equal to 50"):
             await mcp.call_tool("search", {"query": "agents", "limit": 99})
 
+    async def test_query_above_200_chars_is_rejected(self, fake_client):
+        with pytest.raises(ToolError, match="at most 200 characters"):
+            await mcp.call_tool("search", {"query": "x" * 201})
+        fake_client.search.assert_not_awaited()
+
+    async def test_date_from_after_date_to_is_rejected_before_calling_the_api(self, fake_client):
+        with pytest.raises(ToolError, match="date_from.*date_to"):
+            await mcp.call_tool(
+                "search",
+                {"query": "agents", "date_from": "2026-06-30", "date_to": "2026-01-01"},
+            )
+        fake_client.search.assert_not_awaited()
+
     async def test_published_at_falls_back_to_created_at(self, fake_client):
         fake_client.search.return_value = [{**API_ITEM, "published_at": None}]
 

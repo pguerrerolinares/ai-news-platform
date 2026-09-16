@@ -6,7 +6,9 @@ import uuid
 from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from src.rag.retriever import Retriever
+import pytest
+
+from src.rag.retriever import EmbeddingUnavailableError, Retriever
 
 _EXACT_SCAN_SQL = "SET LOCAL enable_indexscan = off"
 
@@ -103,14 +105,15 @@ class TestRetrieve:
         result = await retriever.retrieve(mock_session, "   ")
         assert result == []
 
-    async def test_embedding_error_returns_empty(self):
+    async def test_embedding_error_propagates(self):
+        """Embedding failures must fail loud (503 upstream), not silently return []."""
         mock_embed = AsyncMock()
         mock_embed.embed_text.side_effect = Exception("API error")
         mock_session = AsyncMock()
 
         retriever = Retriever(embedding_service=mock_embed)
-        result = await retriever.retrieve(mock_session, "test query")
-        assert result == []
+        with pytest.raises(EmbeddingUnavailableError):
+            await retriever.retrieve(mock_session, "test query")
         mock_session.execute.assert_not_called()
 
     async def test_no_matching_embeddings_returns_empty(self):

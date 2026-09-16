@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from src.api.app import app
 from src.api.auth import require_auth_or_guest
 from src.core.database import get_session
+from src.rag.retriever import EmbeddingUnavailableError
 
 
 # ---------------------------------------------------------------------------
@@ -242,23 +243,38 @@ class TestSemanticSearchValidation:
             resp = await api_client.get("/api/search/semantic", params={"q": "test", "limit": 10})
         assert resp.status_code == 200
 
+    async def test_q_too_long_returns_422(self, api_client: AsyncClient):
+        """q longer than 200 chars must return 422, not reach the embedding provider."""
+        resp = await api_client.get("/api/search/semantic", params={"q": "x" * 201})
+        assert resp.status_code == 422
+
+    async def test_date_from_after_date_to_returns_422(self, api_client: AsyncClient):
+        """An inverted date range is an actionable 422, not an empty list."""
+        resp = await api_client.get(
+            "/api/search/semantic",
+            params={"q": "test", "date_from": "2026-06-30", "date_to": "2026-01-01"},
+        )
+        assert resp.status_code == 422
+        body = resp.json()
+        assert "date_from" in body["error"]["message"]
+        assert "date_to" in body["error"]["message"]
+
 
 # ---------------------------------------------------------------------------
-# Embeddings unavailable (empty API key → retriever returns [])
+# Embeddings unavailable: fail loud, not an empty list (decision: Paul)
 # ---------------------------------------------------------------------------
 class TestSemanticSearchEmbeddingsUnavailable:
-    """When embeddings are unavailable, the endpoint returns an empty list."""
+    """When the embedding provider fails, the endpoint returns 503, never []."""
 
-    async def test_returns_empty_list_when_retriever_returns_empty(self, api_client: AsyncClient):
-        """Retriever returning [] (e.g. embed failure) → 200 with empty list."""
+    async def test_embedding_failure_returns_503_with_code(self, api_client: AsyncClient):
         with patch(
             "src.rag.retriever.Retriever.retrieve",
             new_callable=AsyncMock,
-            return_value=[],
+            side_effect=EmbeddingUnavailableError("boom"),
         ):
             resp = await api_client.get("/api/search/semantic", params={"q": "test"})
-        assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.status_code == 503
+        assert resp.json()["error"]["code"] == "EMBEDDING_UNAVAILABLE"
 
 
 # ---------------------------------------------------------------------------

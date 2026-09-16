@@ -18,6 +18,15 @@ logger = get_logger(__name__)
 _DEFAULT_RECENCY_DAYS = 30
 
 
+class EmbeddingUnavailableError(RuntimeError):
+    """The embedding provider call failed; the caller decides how to respond.
+
+    Decision (Paul): fail loud everywhere, not just where a caller happens to
+    check for it — /api/search/semantic maps this to 503 EMBEDDING_UNAVAILABLE
+    instead of silently returning []. See finding 1 of the 2026-09-16 review.
+    """
+
+
 class Retriever:
     """Retrieve relevant news items by exact pgvector cosine distance.
 
@@ -51,9 +60,11 @@ class Retriever:
 
         try:
             query_vec = await self._embed.embed_text(query)
-        except Exception:
+        except Exception as exc:
             logger.error("retriever_embed_failed", exc_info=True)
-            return []
+            raise EmbeddingUnavailableError(
+                "Semantic search unavailable: the query could not be embedded"
+            ) from exc
 
         await force_exact_scan(session)
 

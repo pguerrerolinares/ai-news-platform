@@ -45,6 +45,10 @@ def _raise_for_api_error(resp: httpx.Response) -> None:
         raise APIRequestError("item not found")
     if code == "EMBEDDING_NOT_FOUND":
         raise APIRequestError("item exists but has no embedding yet; similar unavailable")
+    if code == "EMBEDDING_UNAVAILABLE":
+        raise APIRequestError(
+            "semantic search unavailable (embedding provider down); try mode=keyword"
+        )
     if status == 422:
         raise APIRequestError(f"invalid arguments: {_validation_detail(body, message)}")
     if status == 429:

@@ -235,6 +235,27 @@ class TestErrorMapping:
         with pytest.raises(APIRequestError, match="no embedding yet; similar unavailable"):
             await APIClient(base_url=BASE).find_similar(ITEM_ID)
 
+    async def test_embedding_unavailable_code_is_more_actionable_than_backend_unavailable(
+        self, api
+    ):
+        """EMBEDDING_UNAVAILABLE (503) gets its own message, not the generic
+        "backend unavailable" 5xx fallback — it names the actual failure and a
+        workaround (mode=keyword doesn't need embeddings).
+        """
+        api.get("/api/search/semantic").mock(
+            return_value=httpx.Response(
+                503,
+                json={
+                    "error": {
+                        "code": "EMBEDDING_UNAVAILABLE",
+                        "message": "Semantic search unavailable: the query could not be embedded",
+                    }
+                },
+            )
+        )
+        with pytest.raises(APIRequestError, match="embedding provider .* try mode=keyword"):
+            await APIClient(base_url=BASE).search("agents", mode="semantic")
+
     async def test_fastapi_validation_detail(self, api):
         api.get("/api/stats/trend").mock(
             return_value=httpx.Response(

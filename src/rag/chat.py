@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import get_settings
 from src.core.logging import get_logger
 from src.core.models import NewsItem
-from src.rag.retriever import Retriever
+from src.rag.retriever import EmbeddingUnavailableError, Retriever
 
 logger = get_logger(__name__)
 
@@ -116,12 +116,36 @@ class ChatService:
             return
 
         # 1. Retrieve relevant context
-        items = await self._retriever.retrieve(
-            session,
-            question,
-            limit=limit,
-            topic=topic,
-        )
+        #
+        # Decision (Paul): fail loud here too, not just in the REST routes. Silently
+        # falling back to "No relevant news found" would let the LLM answer from its
+        # own knowledge while claiming to have checked the corpus — the same silent
+        # degradation finding 1 fixes for /api/search/semantic. Chat has its own
+        # SSE error-event channel, so we surface it there instead of raising.
+        try:
+            items = await self._retriever.retrieve(
+                session,
+                question,
+                limit=limit,
+                topic=topic,
+            )
+        except EmbeddingUnavailableError:
+            logger.error("chat_embed_failed", exc_info=True)
+            yield self._sse_event(
+                "error",
+                {
+                    "id": msg_id,
+                    "error": {
+                        "code": "EMBEDDING_UNAVAILABLE",
+                        "message": (
+                            "Semantic search unavailable: the question could not be embedded"
+                        ),
+                    },
+                },
+            )
+            yield self._sse_event("done", {"id": msg_id})
+            return
+
         context = self._build_context(items)
 
         # 2. Build user message with context

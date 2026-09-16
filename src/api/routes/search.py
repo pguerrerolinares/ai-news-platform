@@ -13,7 +13,7 @@ resolves the ForwardRef against).
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from sqlalchemy import Select, Text, cast, func, select
 from sqlalchemy.dialects.postgresql import TSQUERY
@@ -21,13 +21,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from src.api.auth import UserClaims, require_auth_or_guest
+from src.api.errors import APIError
 from src.api.pagination import count_query, set_total_count_header
 from src.api.ratelimit import get_client_ip
 from src.api.schemas import ErrorWrapper, NewsItemResponse
 from src.core.database import get_session
 from src.core.models import NewsItem
 from src.core.queries import day_end_exclusive, day_start, effective_date
-from src.rag.retriever import Retriever
+from src.rag.retriever import EmbeddingUnavailableError, Retriever
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 limiter = Limiter(key_func=get_client_ip)
@@ -41,6 +42,15 @@ def _get_retriever() -> Retriever:
     if _retriever is None:
         _retriever = Retriever()
     return _retriever
+
+
+def _check_date_range(date_from: date | None, date_to: date | None) -> None:
+    """Reject an inverted date range with an actionable 422 (never an empty list)."""
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail=f"date_from ({date_from}) must not be after date_to ({date_to})",
+        )
 
 
 # Lexemes of 3+ chars become prefix matches ('agent' -> 'agent':*, so "AI Agents"
@@ -99,7 +109,7 @@ def _build_search_query(
 async def search_items(
     request: Request,
     response: Response,
-    q: str = Query(..., min_length=1, description="Search text"),
+    q: str = Query(..., min_length=1, max_length=200, description="Search text"),
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),
@@ -118,6 +128,7 @@ async def search_items(
     (ADR-005). Results are ranked by relevance and can be filtered by topic
     and date range.
     """
+    _check_date_range(date_from, date_to)
     query = _build_search_query(q, topic, date_from, date_to, source)
 
     # Count total matching results (before limit/offset)
@@ -143,12 +154,18 @@ async def search_items(
 @router.get(
     "/semantic",
     response_model=list[NewsItemResponse],
-    responses={401: {"model": ErrorWrapper}},
+    responses={
+        401: {"model": ErrorWrapper},
+        422: {"model": ErrorWrapper},
+        503: {"model": ErrorWrapper},
+    },
 )
 @limiter.limit("20/minute")
 async def semantic_search_items(
     request: Request,
-    q: str = Query(..., min_length=1, description="Free-text search query to embed"),
+    q: str = Query(
+        ..., min_length=1, max_length=200, description="Free-text search query to embed"
+    ),
     topic: str | None = Query(None, description="Filter by topic"),
     source: str | None = Query(None, description="Filter by source"),
     date_from: date | None = Query(None, description="Start date (inclusive)"),
@@ -167,20 +184,30 @@ async def semantic_search_items(
     """Search news items by semantic (vector) similarity.
 
     Embeds the query string and returns the top-N most similar news items ranked by
-    exact cosine distance, optionally filtered by topic, source and date range. Returns
-    an empty list when the embedding service is unavailable (e.g. ``embedding_api_key``
-    not configured).
+    exact cosine distance, optionally filtered by topic, source and date range.
+    Raises 503 EMBEDDING_UNAVAILABLE when the embedding provider fails (e.g.
+    ``embedding_api_key`` not configured) — fails loud for every caller (web and
+    MCP alike), never a silent empty list (decision: Paul).
     """
+    _check_date_range(date_from, date_to)
     retriever = _get_retriever()
     recency_kwargs = {} if recent_first else {"recency_days": None}
-    items = await retriever.retrieve(
-        session,
-        q,
-        limit=limit,
-        topic=topic,
-        source=source,
-        date_from=date_from,
-        date_to=date_to,
-        **recency_kwargs,
-    )
+    try:
+        items = await retriever.retrieve(
+            session,
+            q,
+            limit=limit,
+            topic=topic,
+            source=source,
+            date_from=date_from,
+            date_to=date_to,
+            **recency_kwargs,
+        )
+    except EmbeddingUnavailableError as exc:
+        # Retriever already logged retriever_embed_failed with exc_info; just map to 503.
+        raise APIError(
+            503,
+            "EMBEDDING_UNAVAILABLE",
+            "Semantic search unavailable: the query could not be embedded",
+        ) from exc
     return [NewsItemResponse.model_validate(item) for item in items]

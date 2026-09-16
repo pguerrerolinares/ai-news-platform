@@ -69,6 +69,29 @@ def _use_fake_embedding(monkeypatch, vector: list[float]) -> None:
     monkeypatch.setattr("src.api.routes.search._retriever", Retriever(embedding_service=fake))
 
 
+class TestSemanticEmbeddingFailure:
+    """Regression: an embedding-provider failure used to be swallowed into a
+    silent 200 []. Now it must fail loud as 503 EMBEDDING_UNAVAILABLE (decision:
+    Paul), same contract as /api/stats/trend (see test_api_trend.py).
+    """
+
+    async def test_embedding_failure_is_503_not_an_empty_list(
+        self, client, auth_headers, monkeypatch
+    ):
+        fake = AsyncMock(spec=EmbeddingService)
+        fake.embed_text.side_effect = RuntimeError("no api key")
+        monkeypatch.setattr("src.api.routes.search._retriever", Retriever(embedding_service=fake))
+
+        resp = await client.get(
+            "/api/search/semantic",
+            params={"q": "agents"},
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 503
+        assert resp.json()["error"]["code"] == "EMBEDDING_UNAVAILABLE"
+
+
 class TestSemanticFullResults:
     async def test_filtered_search_returns_full_limit(
         self, client, db_session, auth_headers, monkeypatch
