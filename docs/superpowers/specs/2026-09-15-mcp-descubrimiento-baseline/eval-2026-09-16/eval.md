@@ -8,7 +8,8 @@ Repite la medición del criterio §8.1 corrigiendo el defecto de la primera: all
 - **Brazo NEW**: MCP de prod (`https://pguerrero.me/ai-news/mcp`), streamable-http. `tools/list`: `search, get_item, find_similar, topic_trend, get_top`.
 - **10 prompts** (`.superpowers/sdd/eval-prompts.md`): 8 de descubrimiento por problema, 2 de tendencia. 20 corridas, orden alternado entre brazos, 0 fallos.
 - Misma receta en ambos: `claude -p --model sonnet --output-format stream-json --verbose --strict-mcp-config --mcp-config <arm> --allowedTools mcp__ainews --disallowedTools <todas las built-in>`, cwd aislado y vacío. Verificado que en cada jsonl solo hay `tool_use` de `mcp__ainews__*` y que los nombres corresponden al brazo.
-- Ficheros: `{old,new}-qNN.jsonl`, `metrics.tsv`, `links.tsv`, `links-labeled.tsv`, `links-key.tsv`, `run-order.log`.
+- Ficheros: `{old,new}-qNN.jsonl` (20 corridas crudas), `metrics.tsv` (métricas de proceso por corrida), `links-all-mentions.tsv` (todas las menciones detectadas, extracción laxa: 203 filas con duplicados entre secciones de una misma respuesta), `links-blind.tsv`/`links-labeled.tsv`/`links-key.tsv` (la **muestra realmente etiquetada**: 93 enlaces únicos por respuesta, extracción con dedupe, barajados; la clave del brazo se unió después de etiquetar) y `run-order.log`.
+- Nota: los recuentos de esta página salen de la extracción con dedupe (49 OLD / 45 NEW). `links-all-mentions.tsv` cuenta cada aparición y por eso da más filas; se conserva por transparencia, no es la base del etiquetado.
 
 ## Métricas de proceso (10 corridas por brazo)
 
