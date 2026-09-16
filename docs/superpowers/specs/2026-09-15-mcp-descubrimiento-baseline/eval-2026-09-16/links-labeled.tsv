@@ -1,0 +1,95 @@
+row_id	prompt_id	titulo_o_texto	url	label
+L001	q08	Tencent WorkBuddy Bench** — multi-dominio, con "contamination-resistant task construction" explícito en el diseño.	arxiv.org/abs/2607.20911	R
+L002	q07	Qwen2.5 (7B/14B/32B) y su sucesor Qwen3** — el más citado como referencia en function-calling/JSON estructurado open-wei	huggingface.co/qwen	R
+L003	q08	DeepSWE** (Datacurve) — se vende como "contamination-free benchmark for long-horizon coding agents".	deepswe.datacurve.ai/blog	R
+L004	q07	GLiNER2** (fastino-ai) — no es un LLM generativo, es un transformer compacto para NER + clasificación + extracción con s	github.com/fastino-ai/gliner2	R
+L005	q01	1. Selective Memory: Write-Time Gating with Hierarchical Archiving** —  (mar 2026	arxiv.org/abs/2603.15994	R
+L006	q06	2. **TRACER — Trace-Based Adaptive Cost-Efficient Routing for LLM Classification** —  Este es el más on-target: routing 	arxiv.org/abs/2604.14531	R
+L007	q05	MultiAgentBench (MARBLE)**, ACL 2025 — benchmark que mide colaboración *y* competencia entre agentes LLM en tareas coord	github.com/ulab-uiuc/marble	N
+L008	q06	RouteLLM (LMSYS, arXiv:2406.18665,  — en vez de cascada secuencial, entrena un router (matrix factorization sobre prefer	github.com/lm-sys/routellm	R
+L009	q01	CoALA — Cognitive Architectures for Language Agents** (Sumers et al., 2023) —  No resuelve consolidación/invalidación, p	arxiv.org/abs/2309.02427	N
+L010	q08	SWE-Bench Pro Verified** — versión con soluciones verificadas para reducir falsos positivos del original.	arxiv.org/abs/2609.08149	R
+L011	q08	(sin contexto)	arxiv.org/abs/2609.08149	R
+L012	q04	/ [leaderboard en HF](https://huggingface.co/spaces/mteb/leaderboard) — incluye subset de retrieval; te sirve para elegi	huggingface.co/spaces/mteb/leaderboard	R
+L013	q05	`worktrunk` — CLI de gestión de worktrees pensado específicamente para flujos de agentes en paralelo.	github.com/max-sixty/worktrunk	R
+L014	q01	5. **Zep — A Temporal Knowledge Graph Architecture for Agent Memory**  aprox. — verificar ID) — el más relevante para tu	arxiv.org/abs/2501.13956	R
+L015	q06	4. **Semantic caching como prefiltro** —  Claim de hasta 80% de corte de coste vía cache semántico delante del LLM. Para	github.com/messkan/prompt-cache	R
+L016	q04	Stanford, paper Saad-Falcon et al. 2023) — en vez de LLM-as-judge naive, entrena clasificadores ligeros calibrados con u	github.com/stanford-futuredata/ares	R
+L017	q07	IBM Granite 4.1/4.2 (8B / 30B)** | 8B / 30B | Apache 2.0, arquitectura híbrida Mamba/Transformer (la llaman "Western Qwe	huggingface.co/ibm-granite/granite-4.2-30b	R
+L018	q01	1. **Generative Agents** (Park et al., 2023) —	arxiv.org/abs/2304.03442	R
+L019	q05	MultiAgentBench (MARBLE)**, ACL 2025 — benchmark que mide colaboración *y* competencia entre agentes LLM en tareas coord	arxiv.org/abs/2503.01935	N
+L020	q05	`git-worktree-runner` — más genérico, automatiza creación de worktree + setup de dependencias por rama.	github.com/coderabbitai/git-worktree-runner	R
+L021	q05	Handoff Debt: The Rediscovery Cost When Coding Agents Take Over Interrupted Tasks** (2026-06) — este es el más pegado 	arxiv.org/abs/2606.02875	R
+L022	q04	Deepchecks para RAG**  — framework de evaluación con foco en detectar fallos específicos del pipeline.	arxiv.org/abs/2605.14488	R
+L023	q04	o  — les das qrels (query→doc relevante) y te calculan todo esto sin reinventar la rueda.	github.com/terrierteam/ir_measures	R
+L024	q07	Phi-4 / Phi-3.5-mini (3.8B–14B)** — sorprendentemente competente para su tamaño en tareas estructuradas (mucho synthetic	huggingface.co/microsoft	R
+L025	q02	GitHub stack-graphs** — grafo de resolución de referencias cross-file, usado en producción para code navigation en	github.com/github/stack-graphs	R
+L026	q07	IBM Granite 4.1/4.2 (8B / 30B)** | 8B / 30B | Apache 2.0, arquitectura híbrida Mamba/Transformer (la llaman "Western Qwe	huggingface.co/ibm-granite/granite-4.1-8b	R
+L027	q08	(sin contexto)	github.com/r2e-gym/r2e-gym	R
+L028	q07	Qwen3-8B** | 8B | El más descargado en HF ahora mismo (~12.8M descargas) — ecosistema maduro en llama.cpp/vLLM/Ollama, m	huggingface.co/qwen/qwen3-8b	R
+L029	q04	AutoRAG**  — framework AutoML-style: prueba combinaciones de chunking/embedding/reranking contra tu propio dataset y te 	github.com/marker-inc-korea/autorag	R
+L030	q06	5. **From Collaboration to Capability** (arXiv 2609.12578) —  Enfoque distinto: en vez de router en runtime, destilas el	arxiv.org/abs/2609.12578	R
+L031	q07	Evidencia académica reciente** (agosto 2026, del pipeline de noticias): *"Evaluating Structured Information Extraction w	arxiv.org/abs/2608.18289	R
+L032	q06	RouteProfile  y LLMRouter  58 puntos en HN) — librería open source configurable de routing, sin cascada específica de cl	arxiv.org/abs/2605.00180	R
+L033	q04	MTEB** (Massive Text Embedding Benchmark) — huggingface.co/spaces/mteb/leaderboard — el leaderboard de facto para compar	huggingface.co/spaces/mteb/leaderboard	R
+L034	q01	8. **EvoGraph-Mem: Failure-Aware Editable Graph Memory** (2026) —  encontrado vía ainews. Invalida memoria cuando el age	arxiv.org/abs/2608.11248	R
+L035	q08	SWE-Touch** / **SWE-Together** — evalúan agentes en sesiones interactivas donde el usuario también toca el código (caso 	arxiv.org/abs/2606.29957	R
+L036	q04	BM25 Wins at Scale**  — scaling study que compara lexical vs dense vs graph-RAG. Si no lo has visto, vale la pena ante	arxiv.org/abs/2607.26497	R
+L037	q07	MiniCPM5-2B** | 2B | Si el hardware es muy limitado — bilingüe, dicen competitivo con 7B en benchmarks propios. Tómalo c	huggingface.co/openbmb/minicpm5-2b	R
+L038	q01	Awesome-AI-Memory**  — lista curada y activa, útil si quieres seguir tirando del hilo tú mismo en vez de que yo filtre.	github.com/iaar-shanghai/awesome-ai-memory	R
+L039	q08	Real-SWE** (Specific) — benchmark sobre codebases *privados* de empresas reales, precisamente para esquivar contaminació	withspecific.com/benchmarks/real-swe	R
+L040	q08	(sin contexto)	deepswe.datacurve.ai/blog	R
+L041	q04	/ [leaderboard en HF](https://huggingface.co/spaces/mteb/leaderboard) — incluye subset de retrieval; te sirve para elegi	github.com/embeddings-benchmark/mteb	R
+L042	q07	Mistral Small 3 (22B) / Mistral Nemo (12B)** — function calling nativo, buen ratio velocidad/calidad para correr local e	huggingface.co/mistralai	R
+L043	q08	(sin contexto)	arxiv.org/abs/2602.23866	R
+L044	q07	GLiNER y variantes** — no es un LLM generativo, es NER de tipo abierto (defines las entidades en runtime). Si el "struct	github.com/urchade/gliner	R
+L045	q08	Kodezi Chronos** (5184 pts en GitHub, el más "comentado" de la búsqueda) afirma SOTA en SWE-bench Lite (80.33%) y "6x me	github.com/kodezi/chronos	R
+L046	q03	Prompt Injection as Role Confusion* —  Reencuadra el mecanismo causal.	arxiv.org/abs/2603.12277	N
+L047	q04	— similar a RAGAS, se integra bien con pytest si ya tienes suite de tests.	github.com/confident-ai/deepeval	R
+L048	q04	RAGAS**  — el más citado. Métricas tipo `context_precision`, `context_recall`, `faithfulness`, `answer_relevancy`, calcu	github.com/explodinggradients/ragas	R
+L049	q07	IBM Granite 4.1/4.2 (8B / 30B)** | 8B / 30B | Apache 2.0, arquitectura híbrida Mamba/Transformer (la llaman "Western Qwe	venturebeat.com/ai/western-qwen-ibm-wows-with-granite-4-llm-launch-and-hybrid-mamba-transformer	R
+L050	q02	vitali87) — ~2k stars, el más "probado" de los que aparecen en el corpus: grafo de conocimiento multi-lenguaje sobre mon	github.com/vitali87/code-graph-rag	R
+L051	q08	Harness or Model? Isolating the Harness Effect in Agentic Coding with a Contamination-Controlled Private Suite** — exa	arxiv.org/abs/2609.11987	R
+L052	q05	`dev-3.0` — kanban + worktrees + tmux para correr una flota de agentes (Claude Code, Codex, etc.) en paralelo.	github.com/h0x91b/dev-3.0	R
+L053	q08	(sin contexto)	withspecific.com/benchmarks/real-swe	R
+L054	q05	`bernstein` — orquestador determinista para 30+ CLI coding agents, aislamiento por worktree + audit trail HMAC.	github.com/sipyourdrink-ltd/bernstein	R
+L055	q07	NuExtract 2.0 (Numind, basado en Qwen2.5, ~2B–8B)** — entrenado específicamente para "texto + template → JSON", no para 	huggingface.co/numind	R
+L056	q04	— 18 datasets heterogéneos zero-shot (paper: Thakur et al. 2021, NeurIPS). Sigue siendo el estándar para "¿este embeddin	github.com/beir-cellar/beir	R
+L057	q06	1. **RouteLLM** (LMSYS) —  Router binario barato↔caro entrenado sobre preference data; la cifra que citan en el paper (d	github.com/lm-sys/routellm	R
+L058	q08	PinchBench** (Kilo AI) — benchmarking de modelos como agentes de código estilo OpenClaw, con bastante tracción (1084 pts	github.com/pinchbench/skill	R
+L059	q08	(sin contexto)	arxiv.org/abs/2605.12673	R
+L060	q05	Herramientas de coordinación *en vivo* (mensajería entre agentes, no solo aislamiento): `agent-talk`  y `agentchattr`  —	github.com/xhluca/agent-talk	R
+L061	q04	Punto que se salta la gente**: con pgvector el HNSW/IVFFlat es *aproximado*. Necesitas separar "¿el índice ANN encuentra	github.com/erikbern/ann-benchmarks	R
+L062	q08	A Jagged Frontier: Evaluating Robustness of Code Agents to Semantics-Preserving Transformations** — perturban el códig	arxiv.org/abs/2608.18389	R
+L063	q08	Same Model, Different Harness: Different Coding-Agent Results** — mismo modelo, harnesses distintos, resultados distin	arxiv.org/abs/2608.26218	R
+L064	q05	MetaGPT** — framework más "orgánico" de roles (PM/arquitecto/ingeniero) que coordinan por mensajes en vez de por filesys	github.com/foundationagents/metagpt	R
+L065	q01	6. **"When Stored Evidence Stops Being Usable: Scale-Conditioned Evaluation of Agent Memory"** (2026) —	arxiv.org/abs/2605.07313	R
+L066	q01	5. agent-memory (repo)** —  (sep 2026, 1.2k stars	github.com/tigerless-labs/agent-memory	R
+L067	q06	TRACER — *Trace-Based Adaptive Cost-Efficient Routing for LLM Classification*  abril 2026). Directamente tu caso de uso,	arxiv.org/abs/2604.14531	R
+L068	q04	BEIR** —  — suite de benchmarks de retrieval zero-shot sobre dominios heterogéneos. Mismo uso: comparar modelos/arquitec	github.com/beir-cellar/beir	R
+L069	q08	SWE-Touch** / **SWE-Together** — evalúan agentes en sesiones interactivas donde el usuario también toca el código (caso 	arxiv.org/abs/2608.02499	R
+L070	q03	Repo  Evidencia floja fuera de distribución: funcionan razonable in-distribution y se rompen con ofuscación u obfuscació	github.com/deadbits/vigil-llm	R
+L071	q04	— el más popular. Métricas: context precision, context recall, faithfulness, answer relevance. **Ojo**: usa LLM-as-judge	github.com/explodinggradients/ragas	R
+L072	q08	Dockerless: Environment-Free Program Verifier for Coding Agents** — verificador sin depender de contenedores Docker por 	arxiv.org/abs/2606.28436	R
+L073	q02	Sourcegraph SCIP** (sucesor de LSIF) — protocolo para grafos de código precisos, base de su "Code Graph". Producto estab	github.com/sourcegraph/scip	R
+L074	q04	o  — les das qrels (query→doc relevante) y te calculan todo esto sin reinventar la rueda.	github.com/cvangysel/pytrec_eval	R
+L075	q08	StateM** — 95.3% en Terminal-Bench 2.1 vía "harness scaling" (más evidencia de que el harness domina el resultado).	arxiv.org/abs/2608.15089	R
+L076	q04	Overcoming the Impracticality of RAG**  — benchmark + framework diagnóstico multi-dimensional para RAG real-world, más	arxiv.org/abs/2604.02640	R
+L077	q01	4. From Storage to Experience: A Survey on the Evolution of LLM Agent Memory Mechanisms** —  (mayo 2026	arxiv.org/abs/2605.06716	R
+L078	q03	Semantic Overlays: Mitigating Prompt Injection with Annotations Beyond Tokens and Steering Vectors* —	arxiv.org/abs/2608.23873	R
+L079	q06	RouteProfile  y LLMRouter  58 puntos en HN) — librería open source configurable de routing, sin cascada específica de cl	github.com/ulab-uiuc/llmrouter	R
+L080	q01	2. TRUSTMEM: Learning Trustworthy Memory Consolidation for LLM Agents** —  (jun 2026	arxiv.org/abs/2606.25161	R
+L081	q03	SecOPD: Mitigating Adaptive Prompt Injections by On-Policy Distillation* —  Relevante porque ataca justo el punto débil 	arxiv.org/abs/2608.21500	R
+L082	q07	NuExtract 2.0/3** (numind) — construido específicamente para extracción estructurada a partir de un template/schema JSON	huggingface.co/numind/nuextract3	R
+L083	q05	Herramientas de coordinación *en vivo* (mensajería entre agentes, no solo aislamiento): `agent-talk`  y `agentchattr`  —	github.com/bcurts/agentchattr	R
+L084	q05	Beyond Individual Intelligence: Surveying Collaboration, Failure Attribution, and Self-Evolution in LLM-based Multi-Age	arxiv.org/abs/2605.14892	N
+new	q05	Agreement Before Diversity: Verification-First Complementarity for Heterogeneous LM Coordination"** (2026-08) — propone	arxiv.org/abs/2608.04618	N
+L085	q01	3. **A-MEM: Agentic Memory for LLM Agents** (Xu et al., 2025) —	arxiv.org/abs/2502.12110	R
+L086	q04	— el "RAG triad" (context relevance, groundedness, answer relevance) + tracing/observability si quieres debug en vivo, n	github.com/truera/trulens	R
+L087	q01	7. **MemoryBank** (Zhong et al., 2023) —	arxiv.org/abs/2305.10250	R
+L088	q02	LLM Agents Can See Code Repositories* — apareció en mi búsqueda de ainews hoy	arxiv.org/abs/2606.14061	R
+L089	q08	(sin contexto)	arxiv.org/abs/2607.20911	R
+L090	q07	Gemma 2/3 (9B/27B)** — sólido en constrained decoding, buen multilingüe; algo más conservador en esquemas anidados compl	huggingface.co/google	R
+L091	q01	3. The Price of Meaning: Why Every Semantic Memory System Forgets** —  (mar 2026	arxiv.org/abs/2603.27116	R
+L092	q04	RAG-Retrieval**  — fine-tuning unificado de embedding/ColBERT/reranker, con eval incluida.	github.com/novasearch-team/rag-retrieval	R
+L093	q08	(sin contexto)	arxiv.org/abs/2602.16763	N
